@@ -8,27 +8,57 @@ Whoever picks up a session on this repo: read this file first, and update it
 — move finished items to "Done", adjust anything that changed shape — before
 committing at the end of your session. See the instruction in `CLAUDE.md`.
 
-## Next up: push notifications
+## Next up: push notifications — IN PROGRESS, mid-setup
 
 The app's core retention hook — a handyman getting pinged about a job in
 their pueblo. Needs a **development build** (push doesn't work in Expo Go).
-Walking the client through EAS setup, Android first, is the plan for the next
-session.
+Walking the client through EAS setup, Android first.
 
-- [ ] Notify handymen when a job posts matching their pueblos AND trades
-- [ ] Respect the 15-minute subscriber head start (subscribers immediately,
-      free tier after the window — mirrors `jobs.visible_to_free_at`)
-- [ ] Notify client: new bid on your job
-- [ ] Notify handyman: bid accepted / rejected
-- [ ] Notify both: new message
-- [ ] **Schema gap this will need**: nothing in the schema stores an Expo
-      push token yet. Needs a new table, e.g. `push_tokens (user_id, token,
-      platform, updated_at)`, RLS'd to the owning user, written on app
-      launch/login.
-- [ ] Sending mechanism: likely a Supabase Edge Function (or DB webhook)
-      triggered on `jobs` insert / `bids` insert / `bids` update (status
-      change) / `job_messages` insert, calling Expo's push API. Needs
-      deciding once the dev build is up and a token can round-trip.
+**Status as of 2026-09-15, paused for a usage-limit break — resume here:**
+
+- [x] `push_tokens` table migration written AND run by the client
+      (`20260920000000_push_tokens.sql`) — `user_id` + `device_id` (a device
+      can have more than one), RLS'd to the owning user.
+- [x] `registerForPushNotifications()` in `src/lib/push-notifications.ts` —
+      requests permission, gets the Expo push token, upserts it. No-ops on
+      Expo Go / simulator / before an EAS project is linked / if permission
+      is declined.
+- [x] Wired into `session-provider.tsx`, fires after session resolves.
+- [x] Root layout (`_layout.tsx`) sets the foreground notification handler.
+- [x] **Fixed a real crash** (not just theoretical Expo Go incompatibility):
+      `expo-notifications`' native module was removed from Expo Go on
+      Android in SDK 53, and it throws from being *imported* at all, not
+      just from being called — a plain `isExpoGo` guard around the function
+      call wasn't enough because the top-level `import` ran first. Fixed by
+      switching both `_layout.tsx` and `push-notifications.ts` to a deferred
+      `require('expo-notifications')` inside the `if (!isExpoGo)` branch, so
+      the module is never loaded at all in Expo Go. Pushed as `4e59526`.
+      **Client needs to reload the app in Expo Go and confirm this actually
+      fixed it** — I verified the bundle compiles clean but couldn't run it
+      on a device from here.
+- [x] `app.json`: `expo-notifications` plugin added, `android.package` /
+      `ios.bundleIdentifier` set to `com.abdieljuan.handymanpr` (EAS build
+      requires both, neither existed before).
+- [x] Installed `expo-notifications`, `expo-device`, `eas-cli` (dev dep).
+- [ ] **`eas login` — asked the client to run this via `! npx eas login`
+      (their account: `abdieljuan`, expo.dev/accounts/abdieljuan). Not
+      confirmed done as of the pause.** This is the very next step.
+- [ ] Once logged in: `eas init` to link the project (writes
+      `extra.eas.projectId` into app.json — `registerForPushNotifications`
+      already reads this and no-ops until it's there), configure `eas.json`
+      Android build profile, trigger the first cloud build.
+- [ ] Client downloads/installs the resulting `.apk`, confirms a row lands
+      in `push_tokens` after logging in on the dev build.
+- [ ] **Only after that's confirmed working**: build the actual
+      notify-handymen-on-job-post trigger — deliberately not started yet,
+      no point wiring sends before a token can be confirmed to round-trip.
+      Then: new bid on your job (client), bid accepted/rejected (handyman),
+      new message (both). Respect the 15-minute subscriber head start
+      (mirrors `jobs.visible_to_free_at`) for the job-post notification.
+- [ ] Sending mechanism still undecided: likely a Supabase Edge Function or
+      a DB trigger using `pg_net` to call Expo's push API directly, triggered
+      on `jobs`/`bids`/`job_messages` insert or `bids` status update. Decide
+      once there's a real device+token to test against.
 - [ ] Consider a read/unread or "last notified" marker for messages so a
       long conversation doesn't re-notify on every message if the app's in
       foreground already — not in the schema today.
@@ -112,7 +142,10 @@ filters, sectioned Your Jobs and My Bids lists, chat (one thread per
 job+handyman, opens before bidding, Realtime), handyman public profile
 (name/avatar/bio/years/verified/trades/pueblos — but see the profile-editing
 gap below), Storage buckets for job-photos/avatars/portfolio-photos/
-certifications.
+certifications (job-photos bucket confirmed public + policies fixed
+2026-09-15 — it was never actually created before that, hence "Bucket not
+found" errors), and a `JobPhoto` component that shows a visible "failed to
+load" message instead of a silent black box on any remote job photo.
 
 ---
 
