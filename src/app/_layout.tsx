@@ -1,27 +1,38 @@
 import '@/i18n';
 
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { LanguageProvider, useLanguage } from '@/providers/language-provider';
 import { SessionProvider, useSession } from '@/providers/session-provider';
+import { isExpoGo } from '@/lib/push-notifications';
 
 SplashScreen.preventAutoHideAsync();
 
-// Without this, a notification that arrives while the app is open shows no
-// banner at all by default — this makes foreground notifications behave the
-// same as background ones.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// expo-notifications' native module was removed from Expo Go on Android as
+// of SDK 53 — merely IMPORTING the package (even without calling anything)
+// runs requireNativeModule('ExpoNotificationsHandlerModule') at that
+// module's own top level and throws. So this can't be a static top-level
+// `import` like every other module here; it has to be a require() that
+// only ever runs once isExpoGo has already been checked. Same reasoning as
+// registerForPushNotifications in push-notifications.ts.
+if (!isExpoGo) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- must stay deferred, see comment above
+  const Notifications = require('expo-notifications') as typeof import('expo-notifications');
+  // Without this, a notification that arrives while the app is open shows
+  // no banner at all by default — this makes foreground notifications
+  // behave the same as background ones.
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 export default function RootLayout() {
   return (
