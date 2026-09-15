@@ -1,4 +1,5 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useColorScheme } from 'react-native';
 
@@ -10,29 +11,44 @@ export default function HandymanTabsLayout() {
   const colors = Colors[scheme === 'unspecified' ? 'light' : (scheme ?? 'light')];
 
   return (
-    <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>{t('tabs.handymanJobs')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="house.fill" md="home" />
-      </NativeTabs.Trigger>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.text,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarStyle: { backgroundColor: colors.background },
+      }}>
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: t('tabs.handymanJobs'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
+        }}
+      />
 
-      <NativeTabs.Trigger name="my-bids">
-        <NativeTabs.Trigger.Label>{t('tabs.myBids')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="tag.fill" md="sell" />
-      </NativeTabs.Trigger>
+      <Tabs.Screen
+        name="my-bids"
+        options={{
+          title: t('tabs.myBids'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="pricetag" color={color} size={size} />,
+        }}
+      />
 
-      <NativeTabs.Trigger name="messages">
-        <NativeTabs.Trigger.Label>{t('tabs.messages')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="message.fill" md="chat" />
-      </NativeTabs.Trigger>
+      <Tabs.Screen
+        name="messages"
+        options={{
+          title: t('tabs.messages'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble" color={color} size={size} />,
+        }}
+      />
 
-      <NativeTabs.Trigger name="profile">
-        <NativeTabs.Trigger.Label>{t('tabs.profile')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="person.fill" md="person" />
-      </NativeTabs.Trigger>
-    </NativeTabs>
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: t('tabs.profile'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
+        }}
+      />
+    </Tabs>
   );
 }

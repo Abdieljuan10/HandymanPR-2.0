@@ -1,4 +1,5 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useColorScheme } from 'react-native';
 
@@ -10,34 +11,54 @@ export default function ClientTabsLayout() {
   const colors = Colors[scheme === 'unspecified' ? 'light' : (scheme ?? 'light')];
 
   return (
-    <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>{t('tabs.clientHome')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="house.fill" md="home" />
-      </NativeTabs.Trigger>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.text,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarStyle: { backgroundColor: colors.background },
+      }}>
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: t('tabs.clientHome'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
+        }}
+      />
 
-      <NativeTabs.Trigger name="post-job">
-        <NativeTabs.Trigger.Label>{t('tabs.postJob')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="plus.circle.fill" md="add_circle" />
-      </NativeTabs.Trigger>
+      <Tabs.Screen
+        name="post-job"
+        options={{
+          title: t('tabs.postJob'),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="add-circle" color={color} size={size} />
+          ),
+        }}
+      />
 
-      <NativeTabs.Trigger name="browse">
-        <NativeTabs.Trigger.Label>{t('tabs.browse')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="magnifyingglass" md="search" />
-      </NativeTabs.Trigger>
+      <Tabs.Screen
+        name="browse"
+        options={{
+          title: t('tabs.browse'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color} size={size} />,
+        }}
+      />
 
-      <NativeTabs.Trigger name="messages">
-        <NativeTabs.Trigger.Label>{t('tabs.messages')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="message.fill" md="chat" />
-      </NativeTabs.Trigger>
+      <Tabs.Screen
+        name="messages"
+        options={{
+          title: t('tabs.messages'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble" color={color} size={size} />,
+        }}
+      />
 
-      <NativeTabs.Trigger name="profile">
-        <NativeTabs.Trigger.Label>{t('tabs.profile')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="person.fill" md="person" />
-      </NativeTabs.Trigger>
-    </NativeTabs>
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: t('tabs.profile'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
+        }}
+      />
+    </Tabs>
   );
 }
