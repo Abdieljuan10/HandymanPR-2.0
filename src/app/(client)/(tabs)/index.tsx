@@ -1,7 +1,7 @@
-import { Link } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Link, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Pressable, StyleSheet } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -23,24 +23,39 @@ export default function ClientHomeScreen() {
   const { t } = useTranslation();
   const { session } = useSession();
   const [jobs, setJobs] = useState<ClientJobRow[] | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  useFocusEffect(
+    useCallback(() => {
+      if (!session) return;
+
+      let isMounted = true;
+      supabase
+        .from('jobs')
+        .select('id, title, status, created_at, pueblos(name)')
+        .eq('client_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .then(({ data }) => {
+          if (isMounted) setJobs((data as ClientJobRow[] | null) ?? []);
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    }, [session])
+  );
+
+  async function handleRefresh() {
     if (!session) return;
-
-    let isMounted = true;
-    supabase
+    setRefreshing(true);
+    const { data } = await supabase
       .from('jobs')
       .select('id, title, status, created_at, pueblos(name)')
       .eq('client_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (isMounted) setJobs((data as ClientJobRow[] | null) ?? []);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [session]);
+      .order('created_at', { ascending: false });
+    setJobs((data as ClientJobRow[] | null) ?? []);
+    setRefreshing(false);
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -51,15 +66,17 @@ export default function ClientHomeScreen() {
 
         {jobs === null ? (
           <ThemedText type="default">{t('common.loading')}</ThemedText>
-        ) : jobs.length === 0 ? (
-          <ThemedText type="default" themeColor="textSecondary">
-            {t('clientHome.empty')}
-          </ThemedText>
         ) : (
           <FlatList
             data={jobs}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+            ListEmptyComponent={
+              <ThemedText type="default" themeColor="textSecondary">
+                {t('clientHome.empty')}
+              </ThemedText>
+            }
             renderItem={({ item }) => (
               <Link href={`/job/${item.id}`} asChild>
                 <Pressable>
