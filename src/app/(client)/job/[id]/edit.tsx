@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -7,6 +6,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
+import { JobPhoto } from '@/components/job-photo';
 import { PrimaryButton } from '@/components/primary-button';
 import { PuebloPicker } from '@/components/pueblo-picker';
 import { ThemedText } from '@/components/themed-text';
@@ -331,7 +331,7 @@ export default function EditJobScreen() {
           <View style={styles.photoRow}>
             {photos.map((photo) => (
               <View key={photo.id} style={styles.photoThumbWrapper}>
-                <Image source={{ uri: photo.photo_url }} style={styles.photoThumb} />
+                <JobPhoto uri={photo.photo_url} style={styles.photoThumb} />
                 <Pressable style={styles.removeBadge} onPress={() => handleRemovePhoto(photo)}>
                   <ThemedText type="smallBold" style={styles.removeBadgeText}>
                     ×

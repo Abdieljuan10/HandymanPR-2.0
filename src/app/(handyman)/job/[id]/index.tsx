@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +5,7 @@ import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
+import { JobPhoto } from '@/components/job-photo';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -230,7 +230,7 @@ export default function HandymanJobDetailScreen() {
           {photos.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
               {photos.map((photo) => (
-                <Image key={photo.photo_url} source={{ uri: photo.photo_url }} style={styles.photo} />
+                <JobPhoto key={photo.photo_url} uri={photo.photo_url} style={styles.photo} />
               ))}
             </ScrollView>
           )}

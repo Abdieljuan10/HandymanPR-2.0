@@ -9,7 +9,8 @@
     "language": "Language",
     "spanish": "Español",
     "english": "English",
-    "loadError": "Couldn't load this. {{error}}"
+    "loadError": "Couldn't load this. {{error}}",
+    "imageLoadError": "Image failed to load"
   },
   "welcome": {
     "tagline": "Find trusted local help, or find work near you.",

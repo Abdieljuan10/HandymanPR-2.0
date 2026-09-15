@@ -9,7 +9,8 @@
     "language": "Idioma",
     "spanish": "Español",
     "english": "English",
-    "loadError": "No se pudo cargar. {{error}}"
+    "loadError": "No se pudo cargar. {{error}}",
+    "imageLoadError": "La imagen no se pudo cargar"
   },
   "welcome": {
     "tagline": "Encuentra ayuda local de confianza, o encuentra trabajo cerca de ti.",

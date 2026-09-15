@@ -12,6 +12,18 @@
 -- currently configured: the upsert below creates the bucket if missing or
 -- flips an existing one to public, and the policies are dropped and
 -- recreated so no stale versions linger.
+--
+-- Decision: PUBLIC is correct and deliberate, not an accident of this
+-- script. Job photos are meant to be visible to anyone browsing/bidding on
+-- a job, same trust level as a marketplace listing photo — that's the
+-- original design (see 20260916's comment) and it's what every upload path
+-- in the app already assumes: post-job.tsx and job/[id]/edit.tsx both call
+-- supabase.storage.from('job-photos').getPublicUrl(path) and store that
+-- URL directly on job_photos.photo_url, never a signed URL. If this bucket
+-- were private, every existing photo_url in the table would 403 and every
+-- future upload's URL would be wrong from the moment it's created — so
+-- public here isn't a security compromise, it's what the stored URLs
+-- require to resolve at all.
 
 insert into storage.buckets (id, name, public)
 values ('job-photos', 'job-photos', true)
