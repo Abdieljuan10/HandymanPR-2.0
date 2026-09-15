@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
+import { registerForPushNotifications } from '@/lib/push-notifications';
 
 export type AccountRole = 'client' | 'handyman';
 
@@ -73,6 +74,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (!isMounted) return;
       setRole(nextRole);
       setIsLoading(false);
+      if (data.session) {
+        registerForPushNotifications(data.session.user.id).catch(() => {});
+      }
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
@@ -83,6 +87,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (!isMounted) return;
       setRole(nextRole);
       setIsLoading(false);
+      if (nextSession) {
+        registerForPushNotifications(nextSession.user.id).catch(() => {});
+      }
     });
 
     return () => {

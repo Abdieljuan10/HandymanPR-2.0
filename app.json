@@ -8,9 +8,11 @@
     "scheme": "handymanpr",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.abdieljuan.handymanpr"
     },
     "android": {
+      "package": "com.abdieljuan.handymanpr",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -37,6 +39,12 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to add them to a job or your profile."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#208AEF"
         }
       ]
     ],

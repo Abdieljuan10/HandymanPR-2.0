@@ -1,6 +1,7 @@
 import '@/i18n';
 
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
@@ -9,6 +10,18 @@ import { LanguageProvider, useLanguage } from '@/providers/language-provider';
 import { SessionProvider, useSession } from '@/providers/session-provider';
 
 SplashScreen.preventAutoHideAsync();
+
+// Without this, a notification that arrives while the app is open shows no
+// banner at all by default — this makes foreground notifications behave the
+// same as background ones.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 export default function RootLayout() {
   return (
