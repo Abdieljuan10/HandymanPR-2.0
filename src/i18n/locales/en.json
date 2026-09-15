@@ -1,0 +1,167 @@
+{
+  "common": {
+    "settings": "Settings",
+    "logOut": "Log Out",
+    "loading": "Loading...",
+    "map": "Map",
+    "searchList": "Search List",
+    "searchPueblosPlaceholder": "Search pueblos...",
+    "language": "Language",
+    "spanish": "Español",
+    "english": "English",
+    "loadError": "Couldn't load this. {{error}}"
+  },
+  "welcome": {
+    "tagline": "Find trusted local help, or find work near you.",
+    "continueAsClient": "Continue as Client",
+    "continueAsHandyman": "Continue as Handyman",
+    "logIn": "Log In"
+  },
+  "signIn": {
+    "title": "Log In",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Log In",
+    "forgotPassword": "Forgot password?",
+    "back": "Back"
+  },
+  "forgotPassword": {
+    "title": "Reset Password",
+    "email": "Email",
+    "submit": "Send Reset Link",
+    "sent": "If an account exists for that email, we sent a password reset link.",
+    "backToSignIn": "Back to Log In"
+  },
+  "clientSignUp": {
+    "title": "Sign Up as a Client",
+    "fullName": "Full Name",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Create Client Account",
+    "confirmationSent": "We sent a confirmation link to {{email}}. Confirm it, then come back and log in.",
+    "back": "Back"
+  },
+  "handymanSignUp": {
+    "title": "Sign Up as a Handyman",
+    "fullName": "Full Name",
+    "email": "Email",
+    "password": "Password",
+    "hint": "You'll pick your trades and the pueblos you work in from your profile after signing up.",
+    "submit": "Create Handyman Account",
+    "confirmationSent": "We sent a confirmation link to {{email}}. Confirm it, then come back and log in.",
+    "back": "Back"
+  },
+  "clientHome": {
+    "title": "Your Jobs",
+    "empty": "You haven't posted a job yet. Use the Post Job tab to get started."
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo_one": "{{count}} minute ago",
+    "minutesAgo_other": "{{count}} minutes ago",
+    "hoursAgo_one": "{{count}} hour ago",
+    "hoursAgo_other": "{{count}} hours ago",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago"
+  },
+  "jobStatus": {
+    "open": "Open",
+    "hired": "Hired",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "handymanJobFeed": {
+    "title": "Job Feed",
+    "description": "Open jobs matching your pueblos and trades will show up here. Coming soon."
+  },
+  "myBids": {
+    "description": "Bids you've submitted, and their status, will show up here. Coming soon."
+  },
+  "postJob": {
+    "title": "Post a Job",
+    "titleLabel": "Title",
+    "descriptionLabel": "Description",
+    "tradeLabel": "Trade",
+    "puebloLabel": "Pueblo",
+    "addressLabel": "Exact Address",
+    "addressHint": "Only shared with the handyman you hire — everyone else only sees the pueblo.",
+    "maxBidsLabel": "Max Bids Allowed",
+    "photosLabel": "Photos",
+    "addPhotos": "Add Photos",
+    "submit": "Post Job",
+    "posting": "Posting...",
+    "errors": {
+      "title": "Title is required.",
+      "trade": "Pick a trade.",
+      "pueblo": "Pick a pueblo.",
+      "address": "Address is required."
+    },
+    "nudgeTitle": "Almost done",
+    "nudgePhotos": "Jobs with photos usually get better bids. Post without photos?",
+    "nudgeDescription": "A description helps handymen understand the job. Post without one?",
+    "nudgeBoth": "Jobs with a description and photos usually get better bids. Post without them?",
+    "cancel": "Cancel",
+    "postAnyway": "Post Anyway"
+  },
+  "browseHandymen": {
+    "title": "Browse Handymen",
+    "description": "Search and filter handymen by pueblo and trade, then view a profile or invite them to quote a job. Coming soon."
+  },
+  "messages": {
+    "title": "Messages",
+    "clientDescription": "Conversations with handymen about your jobs will show up here. Coming soon.",
+    "handymanDescription": "Conversations with clients about jobs will show up here. Coming soon."
+  },
+  "clientProfile": {
+    "title": "Your Profile",
+    "description": "Logged in as {{email}}. Editing your name/phone/photo comes later."
+  },
+  "handymanProfile": {
+    "title": "Your Profile",
+    "description": "Logged in as {{email}}. Bio, certifications, and portfolio editing come later.",
+    "editTrades": "Edit Trades",
+    "editPueblos": "Edit Pueblos"
+  },
+  "jobDetail": {
+    "notFound": "Job not found.",
+    "bidsComingSoon": "Bids: coming soon.",
+    "maxBids": "Up to {{count}} bids",
+    "edit": "Edit Job"
+  },
+  "jobEdit": {
+    "save": "Save Changes",
+    "notAllowed": "Couldn't save — you may not have permission to edit this job, or it no longer exists."
+  },
+  "handymanPublicProfile": {
+    "description": "Handyman {{id}}: bio, trades, pueblos, certifications, portfolio, reviews, and \"invite to quote\" will go here. Coming soon."
+  },
+  "handymanPueblos": {
+    "intro": "Tap every pueblo you work in. You'll be notified about jobs posted there.",
+    "saveButton_one": "Save ({{count}} selected)",
+    "saveButton_other": "Save ({{count}} selected)",
+    "saved": "Saved."
+  },
+  "handymanTrades": {
+    "intro": "Pick every trade you do. You'll only see jobs that match one of these.",
+    "saveButton_one": "Save ({{count}} selected)",
+    "saveButton_other": "Save ({{count}} selected)",
+    "saved": "Saved."
+  },
+  "tabs": {
+    "clientHome": "Home",
+    "postJob": "Post Job",
+    "browse": "Browse",
+    "messages": "Messages",
+    "profile": "Profile",
+    "handymanJobs": "Jobs",
+    "myBids": "My Bids"
+  },
+  "headers": {
+    "jobDetails": "Job Details",
+    "handymanProfile": "Handyman Profile",
+    "settings": "Settings",
+    "yourTrades": "Your Trades",
+    "yourPueblos": "Your Pueblos",
+    "editJob": "Edit Job"
+  }
+}

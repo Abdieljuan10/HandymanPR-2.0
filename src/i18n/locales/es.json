@@ -1,0 +1,167 @@
+{
+  "common": {
+    "settings": "Configuración",
+    "logOut": "Cerrar Sesión",
+    "loading": "Cargando...",
+    "map": "Mapa",
+    "searchList": "Lista de Búsqueda",
+    "searchPueblosPlaceholder": "Buscar pueblos...",
+    "language": "Idioma",
+    "spanish": "Español",
+    "english": "English",
+    "loadError": "No se pudo cargar. {{error}}"
+  },
+  "welcome": {
+    "tagline": "Encuentra ayuda local de confianza, o encuentra trabajo cerca de ti.",
+    "continueAsClient": "Continuar como Cliente",
+    "continueAsHandyman": "Continuar como Técnico",
+    "logIn": "Iniciar Sesión"
+  },
+  "signIn": {
+    "title": "Iniciar Sesión",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "submit": "Iniciar Sesión",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "back": "Atrás"
+  },
+  "forgotPassword": {
+    "title": "Restablecer Contraseña",
+    "email": "Correo Electrónico",
+    "submit": "Enviar Enlace",
+    "sent": "Si existe una cuenta con ese correo, enviamos un enlace para restablecer la contraseña.",
+    "backToSignIn": "Volver a Iniciar Sesión"
+  },
+  "clientSignUp": {
+    "title": "Regístrate como Cliente",
+    "fullName": "Nombre Completo",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "submit": "Crear Cuenta de Cliente",
+    "confirmationSent": "Enviamos un enlace de confirmación a {{email}}. Confírmalo y luego regresa a iniciar sesión.",
+    "back": "Atrás"
+  },
+  "handymanSignUp": {
+    "title": "Regístrate como Técnico",
+    "fullName": "Nombre Completo",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "hint": "Podrás elegir tus oficios y los pueblos donde trabajas desde tu perfil después de registrarte.",
+    "submit": "Crear Cuenta de Técnico",
+    "confirmationSent": "Enviamos un enlace de confirmación a {{email}}. Confírmalo y luego regresa a iniciar sesión.",
+    "back": "Atrás"
+  },
+  "clientHome": {
+    "title": "Tus Trabajos",
+    "empty": "Todavía no has publicado ningún trabajo. Usa la pestaña Publicar para empezar."
+  },
+  "time": {
+    "justNow": "Ahora mismo",
+    "minutesAgo_one": "Hace {{count}} minuto",
+    "minutesAgo_other": "Hace {{count}} minutos",
+    "hoursAgo_one": "Hace {{count}} hora",
+    "hoursAgo_other": "Hace {{count}} horas",
+    "daysAgo_one": "Hace {{count}} día",
+    "daysAgo_other": "Hace {{count}} días"
+  },
+  "jobStatus": {
+    "open": "Abierto",
+    "hired": "Contratado",
+    "completed": "Completado",
+    "cancelled": "Cancelado"
+  },
+  "handymanJobFeed": {
+    "title": "Trabajos Disponibles",
+    "description": "Los trabajos abiertos que coincidan con tus pueblos y oficios aparecerán aquí. Próximamente."
+  },
+  "myBids": {
+    "description": "Las ofertas que hayas enviado, y su estado, aparecerán aquí. Próximamente."
+  },
+  "postJob": {
+    "title": "Publicar un Trabajo",
+    "titleLabel": "Título",
+    "descriptionLabel": "Descripción",
+    "tradeLabel": "Oficio",
+    "puebloLabel": "Pueblo",
+    "addressLabel": "Dirección Exacta",
+    "addressHint": "Solo se comparte con el técnico que contrates — todos los demás solo ven el pueblo.",
+    "maxBidsLabel": "Máximo de Ofertas Permitidas",
+    "photosLabel": "Fotos",
+    "addPhotos": "Añadir Fotos",
+    "submit": "Publicar Trabajo",
+    "posting": "Publicando...",
+    "errors": {
+      "title": "El título es obligatorio.",
+      "trade": "Elige un oficio.",
+      "pueblo": "Elige un pueblo.",
+      "address": "La dirección es obligatoria."
+    },
+    "nudgeTitle": "Casi listo",
+    "nudgePhotos": "Los trabajos con fotos suelen recibir mejores ofertas. ¿Publicar sin fotos?",
+    "nudgeDescription": "Una descripción ayuda a los técnicos a entender el trabajo. ¿Publicar sin una?",
+    "nudgeBoth": "Los trabajos con descripción y fotos suelen recibir mejores ofertas. ¿Publicar sin ellos?",
+    "cancel": "Cancelar",
+    "postAnyway": "Publicar de Todas Formas"
+  },
+  "browseHandymen": {
+    "title": "Buscar Técnicos",
+    "description": "Busca y filtra técnicos por pueblo y oficio, luego mira su perfil o invítalo a cotizar un trabajo. Próximamente."
+  },
+  "messages": {
+    "title": "Mensajes",
+    "clientDescription": "Las conversaciones con técnicos sobre tus trabajos aparecerán aquí. Próximamente.",
+    "handymanDescription": "Las conversaciones con clientes sobre trabajos aparecerán aquí. Próximamente."
+  },
+  "clientProfile": {
+    "title": "Tu Perfil",
+    "description": "Sesión iniciada como {{email}}. Podrás editar tu nombre, teléfono y foto más adelante."
+  },
+  "handymanProfile": {
+    "title": "Tu Perfil",
+    "description": "Sesión iniciada como {{email}}. Podrás editar tu biografía, certificaciones y portafolio más adelante.",
+    "editTrades": "Editar Oficios",
+    "editPueblos": "Editar Pueblos"
+  },
+  "jobDetail": {
+    "notFound": "Trabajo no encontrado.",
+    "bidsComingSoon": "Ofertas: próximamente.",
+    "maxBids": "Hasta {{count}} ofertas",
+    "edit": "Editar Trabajo"
+  },
+  "jobEdit": {
+    "save": "Guardar Cambios",
+    "notAllowed": "No se pudo guardar — es posible que no tengas permiso para editar este trabajo, o que ya no exista."
+  },
+  "handymanPublicProfile": {
+    "description": "Técnico {{id}}: biografía, oficios, pueblos, certificaciones, portafolio, reseñas e invitar a cotizar aparecerán aquí. Próximamente."
+  },
+  "handymanPueblos": {
+    "intro": "Toca cada pueblo donde trabajas. Te notificaremos sobre trabajos publicados allí.",
+    "saveButton_one": "Guardar ({{count}} seleccionado)",
+    "saveButton_other": "Guardar ({{count}} seleccionados)",
+    "saved": "Guardado."
+  },
+  "handymanTrades": {
+    "intro": "Elige cada oficio que realizas. Solo verás trabajos que coincidan con alguno de estos.",
+    "saveButton_one": "Guardar ({{count}} seleccionado)",
+    "saveButton_other": "Guardar ({{count}} seleccionados)",
+    "saved": "Guardado."
+  },
+  "tabs": {
+    "clientHome": "Inicio",
+    "postJob": "Publicar",
+    "browse": "Buscar",
+    "messages": "Mensajes",
+    "profile": "Perfil",
+    "handymanJobs": "Trabajos",
+    "myBids": "Mis Ofertas"
+  },
+  "headers": {
+    "jobDetails": "Detalles del Trabajo",
+    "handymanProfile": "Perfil del Técnico",
+    "settings": "Configuración",
+    "yourTrades": "Tus Oficios",
+    "yourPueblos": "Tus Pueblos",
+    "editJob": "Editar Trabajo"
+  }
+}
