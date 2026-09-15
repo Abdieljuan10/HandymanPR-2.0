@@ -24,10 +24,28 @@ the field directly (e.g. flip `is_verified` to `true`). Edits made this way go t
 your Supabase admin access, not the app, so they're allowed even though the app itself
 is blocked from changing those specific fields.
 
-## Not done yet (comes later, not schema)
+## Storage buckets + bidding/messaging fixes (run once)
 
-- **Storage buckets** for photos/files (avatars, portfolio photos, job photos,
-  certification uploads) — these are Supabase Storage buckets, a separate setup step
-  from the database tables above.
-- **Realtime** for the chat feature (`job_messages`) — Supabase can push new messages
-  live; we'll turn that on when we build the chat screens.
+1. In **SQL Editor**, **New query**, open `migrations/20260918000000_storage_bidding_messaging.sql`,
+   copy the entire contents, paste, and **Run**.
+2. Check it worked: go to **Storage** in the sidebar. You should see four buckets:
+   `job-photos` (already existed), `avatars`, `portfolio-photos` (all public), and
+   `certifications` (private).
+
+This one file creates the `avatars`, `portfolio-photos`, and `certifications`
+buckets with upload/delete policies scoped to each file's owner; tightens a bid
+so a handyman can only withdraw their own still-pending bid and a client can only
+accept/reject a still-pending bid on their own job; closes a gap where a handyman
+could write an arbitrary `client_id` into a new chat thread; and turns on Realtime
+for `job_messages` so chat screens get new messages live instead of polling.
+
+Nothing here needs a manual toggle in the dashboard beyond running the file —
+Storage buckets and their policies are just rows in `storage.buckets` /
+`storage.objects`, same mechanism as the tables above.
+
+## Not done yet
+
+- **Certification upload UI** — the `certifications` bucket and its RLS policies
+  exist, but no screen uploads to it yet. When that screen gets built, fetch files
+  with `supabase.storage.from('certifications').createSignedUrl(path, expiresIn)`,
+  not a public URL — the bucket is private.

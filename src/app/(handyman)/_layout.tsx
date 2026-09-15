@@ -8,6 +8,7 @@ export default function HandymanLayout() {
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="job/[id]/index" options={{ title: t('headers.jobDetails') }} />
+      <Stack.Screen name="conversation/[id]/index" options={{ title: t('headers.chat') }} />
       <Stack.Screen name="trades" options={{ title: t('headers.yourTrades') }} />
       <Stack.Screen name="pueblos" options={{ title: t('headers.yourPueblos') }} />
       <Stack.Screen name="profile-settings" options={{ title: t('headers.settings') }} />

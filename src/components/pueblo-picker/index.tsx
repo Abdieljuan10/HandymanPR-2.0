@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { PuebloList } from '@/components/pueblo-picker/pueblo-list';
 import { PuebloMap } from '@/components/pueblo-picker/pueblo-map';
 import { PrimaryButton } from '@/components/primary-button';
+import { PUEBLO_SHAPES } from '@/constants/pueblo-shapes';
 import { Spacing } from '@/constants/theme';
 
 type PuebloPickerProps = {
@@ -49,6 +50,23 @@ export function PuebloPicker({ mode, selected, onChange }: PuebloPickerProps) {
           style={styles.toggleButton}
         />
       </View>
+
+      {mode === 'multi' && (
+        <View style={styles.toggleRow}>
+          <PrimaryButton
+            label={t('puebloPicker.selectAll')}
+            variant="secondary"
+            onPress={() => onChange(PUEBLO_SHAPES.map((shape) => shape.slug))}
+            style={styles.toggleButton}
+          />
+          <PrimaryButton
+            label={t('puebloPicker.clearAll')}
+            variant="secondary"
+            onPress={() => onChange([])}
+            style={styles.toggleButton}
+          />
+        </View>
+      )}
 
       {view === 'map' ? (
         <PuebloMap selected={selectedSet} onToggle={handleToggle} />

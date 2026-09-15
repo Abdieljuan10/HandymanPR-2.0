@@ -75,7 +75,12 @@
     "empty": "Ningún trabajo abierto coincide con tus pueblos y oficios ahora mismo. Vuelve a revisar pronto."
   },
   "myBids": {
-    "description": "Las ofertas que hayas enviado, y su estado, aparecerán aquí. Próximamente."
+    "empty": "Todavía no has enviado ninguna oferta.",
+    "sections": {
+      "accepted": "Aceptadas",
+      "pending": "Pendientes",
+      "closed": "Rechazadas / Retiradas"
+    }
   },
   "postJob": {
     "title": "Publicar un Trabajo",
@@ -108,9 +113,7 @@
     "description": "Busca y filtra técnicos por pueblo y oficio, luego mira su perfil o invítalo a cotizar un trabajo. Próximamente."
   },
   "messages": {
-    "title": "Mensajes",
-    "clientDescription": "Las conversaciones con técnicos sobre tus trabajos aparecerán aquí. Próximamente.",
-    "handymanDescription": "Las conversaciones con clientes sobre trabajos aparecerán aquí. Próximamente."
+    "title": "Mensajes"
   },
   "clientProfile": {
     "title": "Tu Perfil",
@@ -140,7 +143,11 @@
     "submitting": "Enviando...",
     "errors": {
       "price": "Ingresa un precio mayor a $0."
-    }
+    },
+    "nudgeTitle": "Casi listo",
+    "nudgeNote": "Una nota ayuda al cliente a entender tu cotización. ¿Enviar sin una?",
+    "cancel": "Cancelar",
+    "submitAnyway": "Enviar de Todas Formas"
   },
   "bidStatus": {
     "pending": "Pendiente",
@@ -152,7 +159,10 @@
     "title": "Tu Oferta",
     "hiredMessage": "¡Conseguiste este trabajo! La dirección exacta está visible arriba.",
     "rejectedMessage": "El cliente eligió a otro técnico para este trabajo.",
-    "closedNoBid": "Este trabajo ya no acepta ofertas."
+    "closedNoBid": "Este trabajo ya no acepta ofertas.",
+    "withdraw": "Retirar Oferta",
+    "confirmWithdrawTitle": "¿Retirar esta oferta?",
+    "confirmWithdrawMessage": "El cliente ya no verá tu oferta, y no podrás volver a ofertar en este trabajo."
   },
   "bids": {
     "title": "Ofertas",
@@ -199,6 +209,31 @@
     "settings": "Configuración",
     "yourTrades": "Tus Oficios",
     "yourPueblos": "Tus Pueblos",
-    "editJob": "Editar Trabajo"
+    "editJob": "Editar Trabajo",
+    "chat": "Chat"
+  },
+  "conversation": {
+    "messageClient": "Hacer una Pregunta",
+    "messageHandyman": "Mensaje",
+    "placeholder": "Escribe un mensaje...",
+    "send": "Enviar",
+    "empty": "Todavía no hay mensajes. ¡Saluda!",
+    "listEmpty": "Todavía no hay conversaciones.",
+    "startedAgo": "Iniciado {{time}}"
+  },
+  "puebloPicker": {
+    "selectAll": "Seleccionar Todos",
+    "clearAll": "Quitar Todos"
+  },
+  "jobDelete": {
+    "deleteButton": "Eliminar Trabajo",
+    "cancelButton": "Cancelar Trabajo",
+    "confirmDeleteTitle": "¿Eliminar este trabajo?",
+    "confirmDeleteMessage": "Este trabajo todavía no tiene una oferta aceptada, así que se puede eliminar permanentemente. Esto no se puede deshacer.",
+    "confirmCancelTitle": "¿Cancelar este trabajo?",
+    "confirmCancelMessage": "Ya contrataste a un técnico para este trabajo. Cancelarlo no lo eliminará, pero terminará el trabajo como cancelado para ambos.",
+    "confirm": "Confirmar",
+    "cancelDialog": "No, mejor no",
+    "error": "No se pudo hacer eso — es posible que el trabajo ya no esté en un estado que lo permita."
   }
 }

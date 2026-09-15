@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Link, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
@@ -39,6 +39,7 @@ const BID_SELECT = 'id, price, note, status, created_at, handyman_profiles(id, f
 export default function JobDetailScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [job, setJob] = useState<JobDetailRow | null | undefined>(undefined);
   const [photos, setPhotos] = useState<{ photo_url: string }[]>([]);
@@ -46,6 +47,8 @@ export default function JobDetailScreen() {
   const [bids, setBids] = useState<BidRow[]>([]);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [acceptError, setAcceptError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!id) return null;
@@ -102,6 +105,53 @@ export default function JobDetailScreen() {
       setJob((result.jobResult.data as JobDetailRow | null) ?? null);
       setAddress(result.addressResult.data?.full_address ?? null);
       setBids((result.bidsResult.data as BidRow[] | null) ?? []);
+    }
+  }
+
+  function confirmRemoveJob() {
+    if (job?.status === 'open') {
+      Alert.alert(t('jobDelete.confirmDeleteTitle'), t('jobDelete.confirmDeleteMessage'), [
+        { text: t('jobDelete.cancelDialog'), style: 'cancel' },
+        { text: t('jobDelete.confirm'), style: 'destructive', onPress: handleDelete },
+      ]);
+    } else if (job?.status === 'hired') {
+      Alert.alert(t('jobDelete.confirmCancelTitle'), t('jobDelete.confirmCancelMessage'), [
+        { text: t('jobDelete.cancelDialog'), style: 'cancel' },
+        { text: t('jobDelete.confirm'), style: 'destructive', onPress: handleCancelJob },
+      ]);
+    }
+  }
+
+  async function handleDelete() {
+    if (!id) return;
+    setRemoving(true);
+    setRemoveError(null);
+
+    const { error } = await supabase.from('jobs').delete().eq('id', id);
+    setRemoving(false);
+
+    if (error) {
+      setRemoveError(t('jobDelete.error'));
+      return;
+    }
+    router.back();
+  }
+
+  async function handleCancelJob() {
+    if (!id) return;
+    setRemoving(true);
+    setRemoveError(null);
+
+    const { error } = await supabase.from('jobs').update({ status: 'cancelled' }).eq('id', id);
+    setRemoving(false);
+
+    if (error) {
+      setRemoveError(t('jobDelete.error'));
+      return;
+    }
+    const result = await fetchAll();
+    if (result) {
+      setJob((result.jobResult.data as JobDetailRow | null) ?? null);
     }
   }
 
@@ -162,6 +212,21 @@ export default function JobDetailScreen() {
             <Link href={`/job/${job.id}/edit`} asChild>
               <PrimaryButton label={t('jobDetail.edit')} variant="secondary" />
             </Link>
+          )}
+
+          {removeError && (
+            <ThemedText type="small" style={styles.error}>
+              {removeError}
+            </ThemedText>
+          )}
+
+          {(job.status === 'open' || job.status === 'hired') && (
+            <PrimaryButton
+              label={job.status === 'open' ? t('jobDelete.deleteButton') : t('jobDelete.cancelButton')}
+              variant="secondary"
+              loading={removing}
+              onPress={confirmRemoveJob}
+            />
           )}
 
           <ThemedText type="smallBold" style={styles.bidsTitle}>

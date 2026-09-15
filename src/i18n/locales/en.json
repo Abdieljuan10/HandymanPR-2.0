@@ -75,7 +75,12 @@
     "empty": "No open jobs match your pueblos and trades right now. Check back soon."
   },
   "myBids": {
-    "description": "Bids you've submitted, and their status, will show up here. Coming soon."
+    "empty": "You haven't submitted any bids yet.",
+    "sections": {
+      "accepted": "Accepted",
+      "pending": "Pending",
+      "closed": "Rejected / Withdrawn"
+    }
   },
   "postJob": {
     "title": "Post a Job",
@@ -108,9 +113,7 @@
     "description": "Search and filter handymen by pueblo and trade, then view a profile or invite them to quote a job. Coming soon."
   },
   "messages": {
-    "title": "Messages",
-    "clientDescription": "Conversations with handymen about your jobs will show up here. Coming soon.",
-    "handymanDescription": "Conversations with clients about jobs will show up here. Coming soon."
+    "title": "Messages"
   },
   "clientProfile": {
     "title": "Your Profile",
@@ -140,7 +143,11 @@
     "submitting": "Submitting...",
     "errors": {
       "price": "Enter a price greater than $0."
-    }
+    },
+    "nudgeTitle": "Almost done",
+    "nudgeNote": "A note helps the client understand your quote. Submit without one?",
+    "cancel": "Cancel",
+    "submitAnyway": "Submit Anyway"
   },
   "bidStatus": {
     "pending": "Pending",
@@ -152,7 +159,10 @@
     "title": "Your Bid",
     "hiredMessage": "You got this job! The exact address is visible above.",
     "rejectedMessage": "The client chose another handyman for this job.",
-    "closedNoBid": "This job is no longer accepting bids."
+    "closedNoBid": "This job is no longer accepting bids.",
+    "withdraw": "Withdraw Bid",
+    "confirmWithdrawTitle": "Withdraw this bid?",
+    "confirmWithdrawMessage": "The client will no longer see your offer, and you won't be able to bid on this job again."
   },
   "bids": {
     "title": "Bids",
@@ -199,6 +209,31 @@
     "settings": "Settings",
     "yourTrades": "Your Trades",
     "yourPueblos": "Your Pueblos",
-    "editJob": "Edit Job"
+    "editJob": "Edit Job",
+    "chat": "Chat"
+  },
+  "conversation": {
+    "messageClient": "Ask a Question",
+    "messageHandyman": "Message",
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "empty": "No messages yet. Say hello!",
+    "listEmpty": "No conversations yet.",
+    "startedAgo": "Started {{time}}"
+  },
+  "puebloPicker": {
+    "selectAll": "Select All",
+    "clearAll": "Clear All"
+  },
+  "jobDelete": {
+    "deleteButton": "Delete Job",
+    "cancelButton": "Cancel Job",
+    "confirmDeleteTitle": "Delete this job?",
+    "confirmDeleteMessage": "This job has no accepted bid yet, so it can be deleted permanently. This can't be undone.",
+    "confirmCancelTitle": "Cancel this job?",
+    "confirmCancelMessage": "You've already hired a handyman for this job. Cancelling won't delete it, but it will end the job as cancelled for both of you.",
+    "confirm": "Confirm",
+    "cancelDialog": "Never mind",
+    "error": "Couldn't do that — the job may no longer be in a state that allows it."
   }
 }

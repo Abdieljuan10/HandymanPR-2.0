@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
@@ -17,6 +17,7 @@ import { formatRelativeTime } from '@/utils/relative-time';
 
 type JobDetailRow = {
   id: string;
+  client_id: string;
   title: string;
   description: string;
   status: 'open' | 'hired' | 'completed' | 'cancelled';
@@ -36,6 +37,7 @@ export default function HandymanJobDetailScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
   const { session } = useSession();
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [job, setJob] = useState<JobDetailRow | null | undefined>(undefined);
@@ -48,6 +50,9 @@ export default function HandymanJobDetailScreen() {
   const [priceError, setPriceError] = useState<string | undefined>(undefined);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const [messaging, setMessaging] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -56,7 +61,7 @@ export default function HandymanJobDetailScreen() {
 
       supabase
         .from('jobs')
-        .select('id, title, description, status, created_at, pueblos(name), trades(name_es, name_en)')
+        .select('id, client_id, title, description, status, created_at, pueblos(name), trades(name_es, name_en)')
         .eq('id', id)
         .maybeSingle()
         .then(({ data }) => {
@@ -97,6 +102,16 @@ export default function HandymanJobDetailScreen() {
     }, [id, session])
   );
 
+  function confirmMissingNote(): Promise<boolean> {
+    if (note.trim()) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      Alert.alert(t('bidForm.nudgeTitle'), t('bidForm.nudgeNote'), [
+        { text: t('bidForm.cancel'), style: 'cancel', onPress: () => resolve(false) },
+        { text: t('bidForm.submitAnyway'), onPress: () => resolve(true) },
+      ]);
+    });
+  }
+
   async function handleSubmitBid() {
     if (!id || !session) return;
 
@@ -106,6 +121,10 @@ export default function HandymanJobDetailScreen() {
       return;
     }
     setPriceError(undefined);
+
+    const proceed = await confirmMissingNote();
+    if (!proceed) return;
+
     setSubmitError(null);
     setSubmitting(true);
 
@@ -127,6 +146,59 @@ export default function HandymanJobDetailScreen() {
       return;
     }
     setMyBid(data as MyBidRow);
+  }
+
+  function confirmWithdraw() {
+    Alert.alert(t('myBid.confirmWithdrawTitle'), t('myBid.confirmWithdrawMessage'), [
+      { text: t('bids.confirmCancel'), style: 'cancel' },
+      { text: t('myBid.withdraw'), style: 'destructive', onPress: handleWithdraw },
+    ]);
+  }
+
+  async function handleWithdraw() {
+    if (!myBid) return;
+    setWithdrawing(true);
+    setWithdrawError(null);
+
+    const { error } = await supabase.from('bids').update({ status: 'withdrawn' }).eq('id', myBid.id);
+    setWithdrawing(false);
+
+    if (error) {
+      setWithdrawError(error.message);
+      return;
+    }
+    setMyBid({ ...myBid, status: 'withdrawn' });
+  }
+
+  async function handleMessage() {
+    if (!id || !session || !job) return;
+    setMessaging(true);
+
+    const { data: existing } = await supabase
+      .from('job_conversations')
+      .select('id')
+      .eq('job_id', id)
+      .eq('handyman_id', session.user.id)
+      .maybeSingle();
+
+    let conversationId = existing?.id as string | undefined;
+
+    if (!conversationId) {
+      const { data: created, error } = await supabase
+        .from('job_conversations')
+        .insert({ job_id: id, client_id: job.client_id, handyman_id: session.user.id })
+        .select('id')
+        .single();
+
+      if (error || !created) {
+        setMessaging(false);
+        return;
+      }
+      conversationId = created.id;
+    }
+
+    setMessaging(false);
+    router.push(`/conversation/${conversationId}`);
   }
 
   if (job === undefined || myBid === undefined) {
@@ -171,6 +243,13 @@ export default function HandymanJobDetailScreen() {
 
           <ThemedText type="default">{job.description}</ThemedText>
 
+          <PrimaryButton
+            label={t('conversation.messageClient')}
+            variant="secondary"
+            loading={messaging}
+            onPress={handleMessage}
+          />
+
           {address && (
             <ThemedView type="backgroundElement" style={styles.addressBox}>
               <ThemedText type="smallBold">{t('postJob.addressLabel')}</ThemedText>
@@ -195,6 +274,19 @@ export default function HandymanJobDetailScreen() {
                 <ThemedText type="small" themeColor="textSecondary">
                   {t('myBid.rejectedMessage')}
                 </ThemedText>
+              )}
+              {withdrawError && (
+                <ThemedText type="small" style={styles.error}>
+                  {withdrawError}
+                </ThemedText>
+              )}
+              {myBid.status === 'pending' && (
+                <PrimaryButton
+                  label={t('myBid.withdraw')}
+                  variant="secondary"
+                  loading={withdrawing}
+                  onPress={confirmWithdraw}
+                />
               )}
             </ThemedView>
           ) : job.status === 'open' ? (

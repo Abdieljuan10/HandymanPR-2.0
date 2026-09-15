@@ -1,7 +1,9 @@
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
@@ -15,6 +17,12 @@ import { usePueblos } from '@/hooks/use-pueblos';
 import { supabase } from '@/lib/supabase';
 
 const MIN_BIDS = 3;
+
+function storagePathFromJobPhotoUrl(url: string): string | null {
+  const marker = '/object/public/job-photos/';
+  const index = url.indexOf(marker);
+  return index === -1 ? null : url.slice(index + marker.length);
+}
 
 type FieldErrors = {
   title?: string;
@@ -37,6 +45,8 @@ export default function EditJobScreen() {
   const [tradeIds, setTradeIds] = useState<number[]>([]);
   const [puebloSlugs, setPuebloSlugs] = useState<string[]>([]);
   const [maxBids, setMaxBids] = useState(MIN_BIDS);
+  const [photos, setPhotos] = useState<{ id: string; photo_url: string }[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -52,7 +62,8 @@ export default function EditJobScreen() {
         .eq('id', id)
         .maybeSingle(),
       supabase.from('job_locations').select('full_address').eq('job_id', id).maybeSingle(),
-    ]).then(([jobResult, locationResult]) => {
+      supabase.from('job_photos').select('id, photo_url').eq('job_id', id).order('sort_order'),
+    ]).then(([jobResult, locationResult, photosResult]) => {
       if (!isMounted) return;
       const job = jobResult.data;
       if (job) {
@@ -64,6 +75,7 @@ export default function EditJobScreen() {
         setMaxBids(job.max_bids);
       }
       setAddress(locationResult.data?.full_address ?? '');
+      setPhotos(photosResult.data ?? []);
       setLoading(false);
     });
 
@@ -71,6 +83,64 @@ export default function EditJobScreen() {
       isMounted = false;
     };
   }, [id, pueblos]);
+
+  async function handlePickPhotos() {
+    if (!id) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      quality: 0.7,
+    });
+    if (result.canceled) return;
+
+    setUploadingPhoto(true);
+    let nextSortOrder = photos.length;
+
+    for (const asset of result.assets) {
+      try {
+        const response = await fetch(asset.uri);
+        const arrayBuffer = await response.arrayBuffer();
+        const extension = asset.uri.split('.').pop() ?? 'jpg';
+        const path = `${id}/${Date.now()}-${nextSortOrder}.${extension}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('job-photos')
+          .upload(path, arrayBuffer, { contentType: asset.mimeType ?? 'image/jpeg' });
+
+        if (uploadError) {
+          console.warn('Photo upload failed:', uploadError.message);
+          continue;
+        }
+
+        const { data: publicUrl } = supabase.storage.from('job-photos').getPublicUrl(path);
+        const { data: row } = await supabase
+          .from('job_photos')
+          .insert({ job_id: id, photo_url: publicUrl.publicUrl, sort_order: nextSortOrder })
+          .select('id, photo_url')
+          .single();
+
+        if (row) setPhotos((prev) => [...prev, row]);
+        nextSortOrder += 1;
+      } catch (photoError) {
+        console.warn('Photo upload failed:', photoError);
+      }
+    }
+
+    setUploadingPhoto(false);
+  }
+
+  async function handleRemovePhoto(photo: { id: string; photo_url: string }) {
+    setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+
+    const path = storagePathFromJobPhotoUrl(photo.photo_url);
+    if (path) {
+      await supabase.storage.from('job-photos').remove([path]);
+    }
+    await supabase.from('job_photos').delete().eq('id', photo.id);
+  }
 
   function validate(): FieldErrors {
     const errors: FieldErrors = {};
@@ -257,6 +327,26 @@ export default function EditJobScreen() {
             />
           </View>
 
+          <ThemedText type="smallBold">{t('postJob.photosLabel')}</ThemedText>
+          <View style={styles.photoRow}>
+            {photos.map((photo) => (
+              <View key={photo.id} style={styles.photoThumbWrapper}>
+                <Image source={{ uri: photo.photo_url }} style={styles.photoThumb} />
+                <Pressable style={styles.removeBadge} onPress={() => handleRemovePhoto(photo)}>
+                  <ThemedText type="smallBold" style={styles.removeBadgeText}>
+                    ×
+                  </ThemedText>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+          <PrimaryButton
+            label={t('postJob.addPhotos')}
+            variant="secondary"
+            onPress={handlePickPhotos}
+            loading={uploadingPhoto}
+          />
+
           {submitError && (
             <ThemedText type="small" style={styles.error}>
               {submitError}
@@ -297,6 +387,33 @@ const styles = StyleSheet.create({
   },
   stepperButton: {
     width: 48,
+  },
+  photoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  photoThumbWrapper: {
+    position: 'relative',
+  },
+  photoThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: Spacing.two,
+  },
+  removeBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#d64545',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeBadgeText: {
+    color: '#ffffff',
   },
   error: {
     color: '#d64545',
