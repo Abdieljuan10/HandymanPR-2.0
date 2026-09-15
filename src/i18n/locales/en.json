@@ -72,7 +72,7 @@
   },
   "handymanJobFeed": {
     "title": "Job Feed",
-    "description": "Open jobs matching your pueblos and trades will show up here. Coming soon."
+    "empty": "No open jobs match your pueblos and trades right now. Check back soon."
   },
   "myBids": {
     "description": "Bids you've submitted, and their status, will show up here. Coming soon."
@@ -124,7 +124,6 @@
   },
   "jobDetail": {
     "notFound": "Job not found.",
-    "bidsComingSoon": "Bids: coming soon.",
     "maxBids": "Up to {{count}} bids",
     "edit": "Edit Job"
   },
@@ -132,8 +131,46 @@
     "save": "Save Changes",
     "notAllowed": "Couldn't save — you may not have permission to edit this job, or it no longer exists."
   },
+  "bidForm": {
+    "title": "Submit a Bid",
+    "priceLabel": "Your Price ($)",
+    "noteLabel": "Note (optional)",
+    "notePlaceholder": "Anything the client should know about your quote...",
+    "submit": "Submit Bid",
+    "submitting": "Submitting...",
+    "errors": {
+      "price": "Enter a price greater than $0."
+    }
+  },
+  "bidStatus": {
+    "pending": "Pending",
+    "accepted": "Accepted",
+    "rejected": "Not selected",
+    "withdrawn": "Withdrawn"
+  },
+  "myBid": {
+    "title": "Your Bid",
+    "hiredMessage": "You got this job! The exact address is visible above.",
+    "rejectedMessage": "The client chose another handyman for this job.",
+    "closedNoBid": "This job is no longer accepting bids."
+  },
+  "bids": {
+    "title": "Bids",
+    "empty": "No bids yet.",
+    "accept": "Accept Bid",
+    "confirmTitle": "Accept this bid?",
+    "confirmMessage": "This will hire {{name}} for ${{price}} and share your job's exact address with them. Other bids will be automatically declined.",
+    "confirmAccept": "Accept",
+    "confirmCancel": "Cancel",
+    "acceptError": "Couldn't accept this bid. It may have already been withdrawn, or the job may no longer be open."
+  },
   "handymanPublicProfile": {
-    "description": "Handyman {{id}}: bio, trades, pueblos, certifications, portfolio, reviews, and \"invite to quote\" will go here. Coming soon."
+    "notFound": "Handyman not found.",
+    "verified": "Verified",
+    "yearsExperience_one": "{{count}} year of experience",
+    "yearsExperience_other": "{{count}} years of experience",
+    "tradesTitle": "Trades",
+    "pueblosTitle": "Works In"
   },
   "handymanPueblos": {
     "intro": "Tap every pueblo you work in. You'll be notified about jobs posted there.",

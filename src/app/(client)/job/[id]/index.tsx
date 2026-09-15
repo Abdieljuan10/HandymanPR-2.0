@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '@/components/primary-button';
@@ -24,6 +24,18 @@ type JobDetailRow = {
   trades: { name_es: string; name_en: string } | null;
 };
 
+type BidRow = {
+  id: string;
+  price: number;
+  note: string | null;
+  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+  created_at: string;
+  handyman_profiles: { id: string; full_name: string } | null;
+};
+
+const JOB_SELECT = 'id, title, description, status, max_bids, created_at, pueblos(name), trades(name_es, name_en)';
+const BID_SELECT = 'id, price, note, status, created_at, handyman_profiles(id, full_name)';
+
 export default function JobDetailScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
@@ -31,44 +43,67 @@ export default function JobDetailScreen() {
   const [job, setJob] = useState<JobDetailRow | null | undefined>(undefined);
   const [photos, setPhotos] = useState<{ photo_url: string }[]>([]);
   const [address, setAddress] = useState<string | null>(null);
+  const [bids, setBids] = useState<BidRow[]>([]);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
+
+  const fetchAll = useCallback(async () => {
+    if (!id) return null;
+    const [jobResult, photosResult, addressResult, bidsResult] = await Promise.all([
+      supabase.from('jobs').select(JOB_SELECT).eq('id', id).maybeSingle(),
+      supabase.from('job_photos').select('photo_url').eq('job_id', id).order('sort_order'),
+      supabase.from('job_locations').select('full_address').eq('job_id', id).maybeSingle(),
+      supabase.from('bids').select(BID_SELECT).eq('job_id', id).order('created_at', { ascending: true }),
+    ]);
+    return { jobResult, photosResult, addressResult, bidsResult };
+  }, [id]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!id) return;
       let isMounted = true;
-
-      supabase
-        .from('jobs')
-        .select('id, title, description, status, max_bids, created_at, pueblos(name), trades(name_es, name_en)')
-        .eq('id', id)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (isMounted) setJob((data as JobDetailRow | null) ?? null);
-        });
-
-      supabase
-        .from('job_photos')
-        .select('photo_url')
-        .eq('job_id', id)
-        .order('sort_order')
-        .then(({ data }) => {
-          if (isMounted) setPhotos(data ?? []);
-        });
-
-      supabase
-        .from('job_locations')
-        .select('full_address')
-        .eq('job_id', id)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (isMounted) setAddress(data?.full_address ?? null);
-        });
-
+      fetchAll().then((result) => {
+        if (!isMounted || !result) return;
+        setJob((result.jobResult.data as JobDetailRow | null) ?? null);
+        setPhotos(result.photosResult.data ?? []);
+        setAddress(result.addressResult.data?.full_address ?? null);
+        setBids((result.bidsResult.data as BidRow[] | null) ?? []);
+      });
       return () => {
         isMounted = false;
       };
-    }, [id])
+    }, [fetchAll])
   );
+
+  function confirmAccept(bid: BidRow) {
+    Alert.alert(
+      t('bids.confirmTitle'),
+      t('bids.confirmMessage', { name: bid.handyman_profiles?.full_name ?? '', price: bid.price.toFixed(2) }),
+      [
+        { text: t('bids.confirmCancel'), style: 'cancel' },
+        { text: t('bids.confirmAccept'), onPress: () => acceptBid(bid.id) },
+      ]
+    );
+  }
+
+  async function acceptBid(bidId: string) {
+    setAcceptingId(bidId);
+    setAcceptError(null);
+
+    const { error } = await supabase.from('bids').update({ status: 'accepted' }).eq('id', bidId);
+    setAcceptingId(null);
+
+    if (error) {
+      setAcceptError(t('bids.acceptError'));
+      return;
+    }
+
+    const result = await fetchAll();
+    if (result) {
+      setJob((result.jobResult.data as JobDetailRow | null) ?? null);
+      setAddress(result.addressResult.data?.full_address ?? null);
+      setBids((result.bidsResult.data as BidRow[] | null) ?? []);
+    }
+  }
 
   if (job === undefined) {
     return (
@@ -123,14 +158,53 @@ export default function JobDetailScreen() {
             {t('jobDetail.maxBids', { count: job.max_bids })}
           </ThemedText>
 
-          <ThemedText type="default" themeColor="textSecondary">
-            {t('jobDetail.bidsComingSoon')}
-          </ThemedText>
-
           {job.status === 'open' && (
             <Link href={`/job/${job.id}/edit`} asChild>
               <PrimaryButton label={t('jobDetail.edit')} variant="secondary" />
             </Link>
+          )}
+
+          <ThemedText type="smallBold" style={styles.bidsTitle}>
+            {t('bids.title')}
+          </ThemedText>
+
+          {acceptError && (
+            <ThemedText type="small" style={styles.error}>
+              {acceptError}
+            </ThemedText>
+          )}
+
+          {bids.length === 0 ? (
+            <ThemedText type="default" themeColor="textSecondary">
+              {t('bids.empty')}
+            </ThemedText>
+          ) : (
+            bids.map((bid) => (
+              <ThemedView key={bid.id} type="backgroundElement" style={styles.bidCard}>
+                {bid.handyman_profiles && (
+                  <Link href={`/handyman/${bid.handyman_profiles.id}`} asChild>
+                    <Pressable>
+                      <ThemedText type="linkPrimary">{bid.handyman_profiles.full_name}</ThemedText>
+                    </Pressable>
+                  </Link>
+                )}
+                <ThemedText type="default">${bid.price.toFixed(2)}</ThemedText>
+                {bid.note && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {bid.note}
+                  </ThemedText>
+                )}
+                <ThemedText type="small">{t(`bidStatus.${bid.status}`)}</ThemedText>
+
+                {job.status === 'open' && bid.status === 'pending' && (
+                  <PrimaryButton
+                    label={t('bids.accept')}
+                    loading={acceptingId === bid.id}
+                    onPress={() => confirmAccept(bid)}
+                  />
+                )}
+              </ThemedView>
+            ))
           )}
         </ScrollView>
       </SafeAreaView>
@@ -164,5 +238,16 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     gap: Spacing.one,
     marginTop: Spacing.two,
+  },
+  bidsTitle: {
+    marginTop: Spacing.three,
+  },
+  bidCard: {
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
+    gap: Spacing.one,
+  },
+  error: {
+    color: '#d64545',
   },
 });

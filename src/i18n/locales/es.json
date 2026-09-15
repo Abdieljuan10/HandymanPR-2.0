@@ -72,7 +72,7 @@
   },
   "handymanJobFeed": {
     "title": "Trabajos Disponibles",
-    "description": "Los trabajos abiertos que coincidan con tus pueblos y oficios aparecerán aquí. Próximamente."
+    "empty": "Ningún trabajo abierto coincide con tus pueblos y oficios ahora mismo. Vuelve a revisar pronto."
   },
   "myBids": {
     "description": "Las ofertas que hayas enviado, y su estado, aparecerán aquí. Próximamente."
@@ -124,7 +124,6 @@
   },
   "jobDetail": {
     "notFound": "Trabajo no encontrado.",
-    "bidsComingSoon": "Ofertas: próximamente.",
     "maxBids": "Hasta {{count}} ofertas",
     "edit": "Editar Trabajo"
   },
@@ -132,8 +131,46 @@
     "save": "Guardar Cambios",
     "notAllowed": "No se pudo guardar — es posible que no tengas permiso para editar este trabajo, o que ya no exista."
   },
+  "bidForm": {
+    "title": "Enviar una Oferta",
+    "priceLabel": "Tu Precio ($)",
+    "noteLabel": "Nota (opcional)",
+    "notePlaceholder": "Cualquier cosa que el cliente deba saber sobre tu cotización...",
+    "submit": "Enviar Oferta",
+    "submitting": "Enviando...",
+    "errors": {
+      "price": "Ingresa un precio mayor a $0."
+    }
+  },
+  "bidStatus": {
+    "pending": "Pendiente",
+    "accepted": "Aceptada",
+    "rejected": "No seleccionada",
+    "withdrawn": "Retirada"
+  },
+  "myBid": {
+    "title": "Tu Oferta",
+    "hiredMessage": "¡Conseguiste este trabajo! La dirección exacta está visible arriba.",
+    "rejectedMessage": "El cliente eligió a otro técnico para este trabajo.",
+    "closedNoBid": "Este trabajo ya no acepta ofertas."
+  },
+  "bids": {
+    "title": "Ofertas",
+    "empty": "Todavía no hay ofertas.",
+    "accept": "Aceptar Oferta",
+    "confirmTitle": "¿Aceptar esta oferta?",
+    "confirmMessage": "Esto contratará a {{name}} por ${{price}} y compartirá la dirección exacta de tu trabajo con esa persona. Las demás ofertas serán rechazadas automáticamente.",
+    "confirmAccept": "Aceptar",
+    "confirmCancel": "Cancelar",
+    "acceptError": "No se pudo aceptar esta oferta. Puede que ya haya sido retirada, o que el trabajo ya no esté abierto."
+  },
   "handymanPublicProfile": {
-    "description": "Técnico {{id}}: biografía, oficios, pueblos, certificaciones, portafolio, reseñas e invitar a cotizar aparecerán aquí. Próximamente."
+    "notFound": "Técnico no encontrado.",
+    "verified": "Verificado",
+    "yearsExperience_one": "{{count}} año de experiencia",
+    "yearsExperience_other": "{{count}} años de experiencia",
+    "tradesTitle": "Oficios",
+    "pueblosTitle": "Trabaja En"
   },
   "handymanPueblos": {
     "intro": "Toca cada pueblo donde trabajas. Te notificaremos sobre trabajos publicados allí.",
