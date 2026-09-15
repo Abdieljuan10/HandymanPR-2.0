@@ -25,6 +25,7 @@ export default function MyBidsScreen() {
   const { t } = useTranslation();
   const { session } = useSession();
   const [bids, setBids] = useState<MyBidRow[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -33,11 +34,22 @@ export default function MyBidsScreen() {
 
       supabase
         .from('bids')
-        .select('id, price, status, created_at, jobs(id, title, pueblos(name))')
+        // "jobs" is disambiguated to "!job_id" because bids and jobs have two
+        // FKs between them (bids.job_id, and jobs.hired_bid_id pointing back)
+        // — without the hint, PostgREST can't tell which relationship to
+        // embed and errors out, which silently produced an empty list here
+        // (the error was never checked, so it looked like "no bids").
+        .select('id, price, status, created_at, jobs!job_id(id, title, pueblos(name))')
         .eq('handyman_id', session.user.id)
         .order('created_at', { ascending: false })
-        .then(({ data }) => {
-          if (isMounted) setBids((data as unknown as MyBidRow[] | null) ?? []);
+        .then(({ data, error }) => {
+          if (!isMounted) return;
+          if (error) {
+            setLoadError(error.message);
+            return;
+          }
+          setLoadError(null);
+          setBids((data as unknown as MyBidRow[] | null) ?? []);
         });
 
       return () => {
@@ -66,7 +78,11 @@ export default function MyBidsScreen() {
           {t('tabs.myBids')}
         </ThemedText>
 
-        {bids === null ? (
+        {loadError ? (
+          <ThemedText type="small" style={styles.error}>
+            {t('common.loadError', { error: loadError })}
+          </ThemedText>
+        ) : bids === null ? (
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         ) : sections.length === 0 ? (
           <ThemedText type="default" themeColor="textSecondary">
@@ -129,5 +145,8 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     gap: Spacing.one,
     marginBottom: Spacing.two,
+  },
+  error: {
+    color: '#d64545',
   },
 });

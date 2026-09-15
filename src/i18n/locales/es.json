@@ -53,7 +53,15 @@
   },
   "clientHome": {
     "title": "Tus Trabajos",
-    "empty": "Todavía no has publicado ningún trabajo. Usa la pestaña Publicar para empezar."
+    "empty": "Todavía no has publicado ningún trabajo. Usa la pestaña Publicar para empezar.",
+    "bidCount_one": "{{count}} oferta",
+    "bidCount_other": "{{count}} ofertas",
+    "sections": {
+      "hired": "Contratado",
+      "open": "Abierto",
+      "completed": "Completado",
+      "cancelled": "Cancelado"
+    }
   },
   "time": {
     "justNow": "Ahora mismo",
@@ -72,7 +80,12 @@
   },
   "handymanJobFeed": {
     "title": "Trabajos Disponibles",
-    "empty": "Ningún trabajo abierto coincide con tus pueblos y oficios ahora mismo. Vuelve a revisar pronto."
+    "empty": "Ningún trabajo abierto coincide con tus pueblos y oficios ahora mismo. Vuelve a revisar pronto.",
+    "emptyFiltered": "Ningún trabajo coincide con tus filtros. Intenta quitar algunos.",
+    "showFilters": "Filtros",
+    "hideFilters": "Ocultar Filtros",
+    "filtersActive": "Filtros (activos)",
+    "clearFilters": "Quitar Filtros"
   },
   "myBids": {
     "empty": "Todavía no has enviado ninguna oferta.",

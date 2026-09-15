@@ -53,7 +53,15 @@
   },
   "clientHome": {
     "title": "Your Jobs",
-    "empty": "You haven't posted a job yet. Use the Post Job tab to get started."
+    "empty": "You haven't posted a job yet. Use the Post Job tab to get started.",
+    "bidCount_one": "{{count}} bid",
+    "bidCount_other": "{{count}} bids",
+    "sections": {
+      "hired": "Hired",
+      "open": "Open",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    }
   },
   "time": {
     "justNow": "Just now",
@@ -72,7 +80,12 @@
   },
   "handymanJobFeed": {
     "title": "Job Feed",
-    "empty": "No open jobs match your pueblos and trades right now. Check back soon."
+    "empty": "No open jobs match your pueblos and trades right now. Check back soon.",
+    "emptyFiltered": "No jobs match your filters. Try clearing some.",
+    "showFilters": "Filters",
+    "hideFilters": "Hide Filters",
+    "filtersActive": "Filters (active)",
+    "clearFilters": "Clear Filters"
   },
   "myBids": {
     "empty": "You haven't submitted any bids yet.",
