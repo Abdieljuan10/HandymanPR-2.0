@@ -14,7 +14,7 @@ The app's core retention hook — a handyman getting pinged about a job in
 their pueblo. Needs a **development build** (push doesn't work in Expo Go).
 Walking the client through EAS setup, Android first.
 
-**Status as of 2026-09-15, paused for a usage-limit break — resume here:**
+**Status as of 2026-09-15, mid-EAS-setup — resume here:**
 
 - [x] `push_tokens` table migration written AND run by the client
       (`20260920000000_push_tokens.sql`) — `user_id` + `device_id` (a device
@@ -40,15 +40,36 @@ Walking the client through EAS setup, Android first.
       `ios.bundleIdentifier` set to `com.abdieljuan.handymanpr` (EAS build
       requires both, neither existed before).
 - [x] Installed `expo-notifications`, `expo-device`, `eas-cli` (dev dep).
-- [ ] **`eas login` — asked the client to run this via `! npx eas login`
-      (their account: `abdieljuan`, expo.dev/accounts/abdieljuan). Not
-      confirmed done as of the pause.** This is the very next step.
-- [ ] Once logged in: `eas init` to link the project (writes
-      `extra.eas.projectId` into app.json — `registerForPushNotifications`
-      already reads this and no-ops until it's there), configure `eas.json`
-      Android build profile, trigger the first cloud build.
-- [ ] Client downloads/installs the resulting `.apk`, confirms a row lands
-      in `push_tokens` after logging in on the dev build.
+- [x] `eas login` / `eas init` done — project linked
+      (`extra.eas.projectId` = `4013c550-44a7-4733-aa20-8b247cc8b972` in
+      `app.json`), `eas.json` Android `development` profile configured,
+      `expo-dev-client` installed. Pushed as `fd1a8b4`.
+- [x] First two build attempts (from commit `9e816e1`) both failed —
+      `npm ci` errored with `Missing: typescript@5.9.3 from lock file`
+      because `package.json`/`package-lock.json` were out of sync at that
+      commit. Already fixed by `fd1a8b4` (added `expo-dev-client` and
+      resynced the lock file) — confirmed in a later session by running
+      `npm install --package-lock-only` at HEAD and seeing no diff.
+- [x] Found and removed an unwanted `android.permission.RECORD_AUDIO` entry
+      that `eas init` had added to `app.json` — the app only calls
+      `launchImageLibraryAsync({ mediaTypes: ['images'] })`, no camera/video
+      capture, no `expo-av`/`expo-camera` installed, and
+      `expo-image-picker`'s own `AndroidManifest.xml` only requires
+      `CAMERA` + legacy storage permissions, not audio. Pushed as `f3ce32a`.
+      A handyman app asking for microphone access at the install prompt
+      looked bad to the client. **Confirm image picking still works once
+      the next dev build is installed on a device** — removal was verified
+      by reading source, not by running the built app yet.
+- [ ] **Build `566b4ca1-d968-4824-9044-fda06ce57bdf` triggered 2026-09-15
+      from HEAD (`f3ce32a`, includes the RECORD_AUDIO fix) — was "in
+      queue" as of trigger time. Check status with `eas build:list` or
+      `eas build:view 566b4ca1-d968-4824-9044-fda06ce57bdf` before doing
+      anything else.** Logs:
+      https://expo.dev/accounts/abdieljuan/projects/HandymanPR/builds/566b4ca1-d968-4824-9044-fda06ce57bdf
+- [ ] Client downloads/installs the resulting `.apk`, confirms: (a) a row
+      lands in `push_tokens` after logging in on the dev build, (b) the
+      photo picker on post-job / edit-job still works without the
+      RECORD_AUDIO permission.
 - [ ] **Only after that's confirmed working**: build the actual
       notify-handymen-on-job-post trigger — deliberately not started yet,
       no point wiring sends before a token can be confirmed to round-trip.
