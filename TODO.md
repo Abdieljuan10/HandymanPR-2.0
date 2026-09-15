@@ -44,12 +44,20 @@ Walking the client through EAS setup, Android first.
       (`extra.eas.projectId` = `4013c550-44a7-4733-aa20-8b247cc8b972` in
       `app.json`), `eas.json` Android `development` profile configured,
       `expo-dev-client` installed. Pushed as `fd1a8b4`.
-- [x] First two build attempts (from commit `9e816e1`) both failed —
-      `npm ci` errored with `Missing: typescript@5.9.3 from lock file`
-      because `package.json`/`package-lock.json` were out of sync at that
-      commit. Already fixed by `fd1a8b4` (added `expo-dev-client` and
-      resynced the lock file) — confirmed in a later session by running
-      `npm install --package-lock-only` at HEAD and seeing no diff.
+- [x] First **three** build attempts all failed with the same `npm ci`
+      error: `Missing: typescript@5.9.3 from lock file`. First guess
+      (that `fd1a8b4` already fixed a lockfile/package.json desync) was
+      **wrong** — `npm install --package-lock-only` gives a false pass
+      because npm 11 (local) tolerates this gap; only `npm ci` under
+      npm 10 reproduces it. Real root cause: `@expo/config` (transitive)
+      declares an *optional* peerDependency on `typescript ^5.0.0`, not
+      satisfied by our top-level `~6.0.3` — npm needs a nested
+      `typescript@5.9.3` to cover it, and the committed lockfile never
+      had that nested entry. Fixed in `2e391ac` by regenerating
+      `package-lock.json` from scratch with npm 10 and verifying `npm ci`
+      passes under both npm 10 and npm 11 *before* triggering a build
+      (each attempt costs 25+ min in queue — don't guess next time,
+      always pull the actual build log and reproduce locally first).
 - [x] Found and removed an unwanted `android.permission.RECORD_AUDIO` entry
       that `eas init` had added to `app.json` — the app only calls
       `launchImageLibraryAsync({ mediaTypes: ['images'] })`, no camera/video
@@ -60,12 +68,19 @@ Walking the client through EAS setup, Android first.
       looked bad to the client. **Confirm image picking still works once
       the next dev build is installed on a device** — removal was verified
       by reading source, not by running the built app yet.
-- [ ] **Build `566b4ca1-d968-4824-9044-fda06ce57bdf` triggered 2026-09-15
-      from HEAD (`f3ce32a`, includes the RECORD_AUDIO fix) — was "in
-      queue" as of trigger time. Check status with `eas build:list` or
-      `eas build:view 566b4ca1-d968-4824-9044-fda06ce57bdf` before doing
-      anything else.** Logs:
-      https://expo.dev/accounts/abdieljuan/projects/HandymanPR/builds/566b4ca1-d968-4824-9044-fda06ce57bdf
+- [ ] **Build `cfdbf5fe-7f24-4dc2-8923-aabad58814a3` triggered 2026-09-15
+      from HEAD (`2e391ac`, includes the lockfile fix + RECORD_AUDIO
+      removal) — check status with `eas build:list` or
+      `eas build:view cfdbf5fe-7f24-4dc2-8923-aabad58814a3` before doing
+      anything else.** This one was verified locally to get past the
+      Install Dependencies step (see above) — if it still fails, it'll
+      be a *different* error further along (e.g. gradle/native build),
+      not the npm ci issue. Logs:
+      https://expo.dev/accounts/abdieljuan/projects/HandymanPR/builds/cfdbf5fe-7f24-4dc2-8923-aabad58814a3
+      (previous failed attempts, for reference:
+      `d43d5dbe-0910-46d0-ab39-a7d9c3dc9f08`,
+      `9868db1a-d4ea-47f2-bc8b-697a2286e88b`,
+      `566b4ca1-d968-4824-9044-fda06ce57bdf`.)
 - [ ] Client downloads/installs the resulting `.apk`, confirms: (a) a row
       lands in `push_tokens` after logging in on the dev build, (b) the
       photo picker on post-job / edit-job still works without the
