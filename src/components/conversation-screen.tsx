@@ -1,15 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  TextInput,
-  View,
-  StyleSheet,
-} from 'react-native';
+import { FlatList, TextInput, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -138,10 +132,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+        <KeyboardAvoidingScreen>
           <ThemedText type="small" themeColor="textSecondary" style={styles.headerText}>
             {header.jobTitle} · {header.otherPartyName}
           </ThemedText>
@@ -191,7 +182,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
               style={styles.sendButton}
             />
           </View>
-        </KeyboardAvoidingView>
+        </KeyboardAvoidingScreen>
       </SafeAreaView>
     </ThemedView>
   );

@@ -7,6 +7,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
+import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
 import { PlaceholderScreen } from '@/components/placeholder-screen';
 import { PrimaryButton } from '@/components/primary-button';
 import { PuebloPicker } from '@/components/pueblo-picker';
@@ -194,6 +195,7 @@ export default function PostJobScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingScreen>
         <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
           <ThemedText type="subtitle">{t('postJob.title')}</ThemedText>
 
@@ -301,6 +303,7 @@ export default function PostJobScreen() {
             loading={submitting}
           />
         </ScrollView>
+        </KeyboardAvoidingScreen>
       </SafeAreaView>
     </ThemedView>
   );

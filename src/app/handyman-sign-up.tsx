@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
+import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -28,52 +29,54 @@ export default function HandymanSignUpScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="subtitle" style={styles.title}>
-          {t('handymanSignUp.title')}
-        </ThemedText>
-
-        {needsConfirmation ? (
-          <ThemedText type="default">
-            {t('handymanSignUp.confirmationSent', { email })}
+        <KeyboardAvoidingScreen style={styles.keyboardScreen}>
+          <ThemedText type="subtitle" style={styles.title}>
+            {t('handymanSignUp.title')}
           </ThemedText>
-        ) : (
-          <>
-            <FormField label={t('handymanSignUp.fullName')} value={fullName} onChangeText={setFullName} />
-            <FormField
-              label={t('handymanSignUp.email')}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              textContentType="emailAddress"
-            />
-            <FormField
-              label={t('handymanSignUp.password')}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              textContentType="newPassword"
-            />
 
-            <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
-              {t('handymanSignUp.hint')}
+          {needsConfirmation ? (
+            <ThemedText type="default">
+              {t('handymanSignUp.confirmationSent', { email })}
             </ThemedText>
+          ) : (
+            <>
+              <FormField label={t('handymanSignUp.fullName')} value={fullName} onChangeText={setFullName} />
+              <FormField
+                label={t('handymanSignUp.email')}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                textContentType="emailAddress"
+              />
+              <FormField
+                label={t('handymanSignUp.password')}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                textContentType="newPassword"
+              />
 
-            {error && (
-              <ThemedText type="small" style={styles.error}>
-                {error}
+              <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+                {t('handymanSignUp.hint')}
               </ThemedText>
-            )}
 
-            <PrimaryButton label={t('handymanSignUp.submit')} onPress={submit} loading={loading} />
-          </>
-        )}
+              {error && (
+                <ThemedText type="small" style={styles.error}>
+                  {error}
+                </ThemedText>
+              )}
 
-        <Link href="/welcome" style={styles.link}>
-          <ThemedText type="link" themeColor="textSecondary">
-            {t('handymanSignUp.back')}
-          </ThemedText>
-        </Link>
+              <PrimaryButton label={t('handymanSignUp.submit')} onPress={submit} loading={loading} />
+            </>
+          )}
+
+          <Link href="/welcome" style={styles.link}>
+            <ThemedText type="link" themeColor="textSecondary">
+              {t('handymanSignUp.back')}
+            </ThemedText>
+          </Link>
+        </KeyboardAvoidingScreen>
       </SafeAreaView>
     </ThemedView>
   );
@@ -87,11 +90,13 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    justifyContent: 'center',
     paddingHorizontal: Spacing.four,
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     width: '100%',
+  },
+  keyboardScreen: {
+    justifyContent: 'center',
   },
   title: {
     marginBottom: Spacing.four,

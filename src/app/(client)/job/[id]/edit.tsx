@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
 import { JobPhoto } from '@/components/job-photo';
+import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
 import { PrimaryButton } from '@/components/primary-button';
 import { PuebloPicker } from '@/components/pueblo-picker';
 import { ThemedText } from '@/components/themed-text';
@@ -252,6 +253,7 @@ export default function EditJobScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingScreen>
         <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
           <FormField
             label={t('postJob.titleLabel')}
@@ -359,6 +361,7 @@ export default function EditJobScreen() {
             loading={submitting}
           />
         </ScrollView>
+        </KeyboardAvoidingScreen>
       </SafeAreaView>
     </ThemedView>
   );

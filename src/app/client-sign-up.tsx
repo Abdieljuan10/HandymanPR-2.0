@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
+import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -28,48 +29,50 @@ export default function ClientSignUpScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="subtitle" style={styles.title}>
-          {t('clientSignUp.title')}
-        </ThemedText>
-
-        {needsConfirmation ? (
-          <ThemedText type="default">
-            {t('clientSignUp.confirmationSent', { email })}
+        <KeyboardAvoidingScreen style={styles.keyboardScreen}>
+          <ThemedText type="subtitle" style={styles.title}>
+            {t('clientSignUp.title')}
           </ThemedText>
-        ) : (
-          <>
-            <FormField label={t('clientSignUp.fullName')} value={fullName} onChangeText={setFullName} />
-            <FormField
-              label={t('clientSignUp.email')}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              textContentType="emailAddress"
-            />
-            <FormField
-              label={t('clientSignUp.password')}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              textContentType="newPassword"
-            />
 
-            {error && (
-              <ThemedText type="small" style={styles.error}>
-                {error}
-              </ThemedText>
-            )}
+          {needsConfirmation ? (
+            <ThemedText type="default">
+              {t('clientSignUp.confirmationSent', { email })}
+            </ThemedText>
+          ) : (
+            <>
+              <FormField label={t('clientSignUp.fullName')} value={fullName} onChangeText={setFullName} />
+              <FormField
+                label={t('clientSignUp.email')}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                textContentType="emailAddress"
+              />
+              <FormField
+                label={t('clientSignUp.password')}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                textContentType="newPassword"
+              />
 
-            <PrimaryButton label={t('clientSignUp.submit')} onPress={submit} loading={loading} />
-          </>
-        )}
+              {error && (
+                <ThemedText type="small" style={styles.error}>
+                  {error}
+                </ThemedText>
+              )}
 
-        <Link href="/welcome" style={styles.link}>
-          <ThemedText type="link" themeColor="textSecondary">
-            {t('clientSignUp.back')}
-          </ThemedText>
-        </Link>
+              <PrimaryButton label={t('clientSignUp.submit')} onPress={submit} loading={loading} />
+            </>
+          )}
+
+          <Link href="/welcome" style={styles.link}>
+            <ThemedText type="link" themeColor="textSecondary">
+              {t('clientSignUp.back')}
+            </ThemedText>
+          </Link>
+        </KeyboardAvoidingScreen>
       </SafeAreaView>
     </ThemedView>
   );
@@ -83,11 +86,13 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    justifyContent: 'center',
     paddingHorizontal: Spacing.four,
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     width: '100%',
+  },
+  keyboardScreen: {
+    justifyContent: 'center',
   },
   title: {
     marginBottom: Spacing.four,
