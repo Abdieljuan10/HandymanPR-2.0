@@ -2,13 +2,14 @@
 
 Order set by the client (2026-09-15): **push notifications → chat → job
 completion + reviews → scheduling → portfolio/certs/subscriptions → visual
-polish.** Chat is already built (see below); push notifications is next.
+polish.** Chat and push notifications are both done now (see below) — **job
+completion + reviews is next.**
 
 Whoever picks up a session on this repo: read this file first, and update it
 — move finished items to "Done", adjust anything that changed shape — before
 committing at the end of your session. See the instruction in `CLAUDE.md`.
 
-## Next up: push notifications — IN PROGRESS, sending half just built
+## Push notifications — DONE, confirmed end-to-end on 2026-09-16
 
 The app's core retention hook — a handyman getting pinged about a job in
 their pueblo. Needs a **development build** (push doesn't work in Expo Go).
@@ -78,18 +79,6 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       Function, no trigger, nothing ever called Expo's push API. Only the
       registration half (`push_tokens` table + `registerForPushNotifications`)
       was built. Built the sending half in `ea5cc41` — see below.
-- [ ] **Not yet confirmed: does a row actually land in `push_tokens`?**
-      Nobody has checked the table directly yet. Run this in the Supabase
-      SQL Editor to check:
-      ```sql
-      select user_id, device_id, platform, created_at, updated_at
-      from push_tokens order by created_at desc;
-      ```
-      If it's empty despite the client having granted notification
-      permission and logged in on the dev build, `registerForPushNotifications()`
-      is failing silently — it now logs the error via `console.error`
-      (fixed in `ea5cc41`, previously swallowed silently), so check Metro
-      logs on the next login too.
 - [x] **Sending half built** (`ea5cc41`,
       `20260922000000_push_notifications_send.sql`) — sends go straight
       from Postgres via `pg_net` rather than a deployed Edge Function (no
@@ -99,20 +88,49 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       -> notify the other party, new job posted -> notify matching
       handymen (subscribed immediately, free-tier via a once-a-minute
       `pg_cron` job once the 15-minute `visible_to_free_at` head start
-      passes).
-- [ ] **Before running the migration**: enable the `pg_net` and `pg_cron`
-      extensions via Database -> Extensions in the Supabase dashboard —
-      Supabase blocks enabling those two straight from the SQL Editor.
-      Then run `20260922000000_push_notifications_send.sql` in the SQL
-      Editor like every other migration so far.
-- [ ] **Once the migration's run and a `push_tokens` row is confirmed**:
-      test each of the four notification types end to end on the dev
-      build (bid a job, accept/reject a bid, send a message, post a
-      matching job) and confirm the push actually arrives.
+      passes). Client enabled `pg_net`/`pg_cron` via the dashboard and ran
+      the migration — confirmed via `select jobname from cron.job`.
+- [x] `push_tokens` was empty even after granting permission and logging
+      in on both devices. Root cause: `registerForPushNotifications(...)
+      .catch(() => {})` at both call sites in `session-provider.tsx` was
+      swallowing every thrown error, including ones thrown *before* the
+      function ever reached the upsert (where a separate, earlier fix
+      already logged upsert-specific errors) — so a hard failure inside
+      `getExpoPushTokenAsync()` was completely invisible. Fixed in
+      `068f0a6` to log via `console.error`, which also surfaces as an
+      on-device LogBox overlay in a dev build. Next cold start showed the
+      real error: `"Unable to get Firebase Messaging instance... Default
+      FirebaseApp is not initialized"`.
+- [x] **Real root cause: Android push on a non-Expo-Go build requires
+      Firebase Cloud Messaging (FCM V1) credentials**, which this EAS
+      project never had — confirmed via Expo's own SDK 57 docs. Client
+      walked through Firebase Console (created a project, registered
+      `com.abdieljuan.handymanpr`, downloaded `google-services.json`) and
+      `eas credentials` (uploaded the FCM V1 service account key) —
+      `google-services.json` wired into `app.json` and committed in
+      `deacc12` (safe to commit, public identifiers only; the service
+      account key itself is NOT in the repo, uploaded directly to EAS).
+- [x] Two more build attempts after that, both `npm ci` failures with the
+      *same* `Missing: typescript@5.9.3 from lock file` bug already fixed
+      once in `2e391ac` — turned out my own later `npm install --save-dev
+      @expo/ngrok` (`9187c35`) had silently regenerated `package-lock.json`
+      under local npm 11 and dropped the nested entry npm 10 needs again.
+      Fixed for good (hopefully) in `447da04`. **Lesson for next time**:
+      any `package.json` change needs the npm-10 `npm ci` round-trip
+      re-verified, not just the first time it's fixed.
+- [x] Build `97eb2112-af05-4035-a86c-61c4f0371542` finished clean with
+      both fixes. Client installed it, cold-started, no more red error,
+      confirmed a row in `push_tokens`, and **received a live "New job
+      near you" push notification end to end** on 2026-09-16. All four
+      notification types are wired (new bid, bid accepted/rejected, new
+      message, new job posted) — only the job-posted one has been
+      manually confirmed delivered so far; the other three run the exact
+      same `send_push_to_users()` path, so they're expected to work, but
+      call it out if one doesn't when actually triggered.
 - [ ] Consider a read/unread or "last notified" marker for messages so a
       long conversation doesn't re-notify on every message if the app's in
       foreground already — not in the schema today, not built (deliberately
-      out of scope until the above is confirmed working end to end).
+      deferred, this is a polish item now that the core mechanism works).
 
 ## Then: job completion + reviews
 
@@ -180,6 +198,13 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
 - [ ] Color scheme
 - [ ] App name header
 
+## Known minor issues (low priority, not fixed yet)
+
+- **Web only**: `pueblo-map.tsx:26` logs `Unknown event handler property
+  \`onResponderTerminate\`. It will be ignored.` in the browser console.
+  Doesn't happen in the native app (Android/iOS) — cosmetic console noise
+  on web only, found 2026-09-16 while testing push notifications.
+
 ## Parked (explicitly not now, don't build without asking)
 
 - Swipe-to-dismiss on rejected bids in My Bids — probably "hide from my
@@ -203,7 +228,9 @@ load" message instead of a silent black box on any remote job photo,
 keyboard-avoiding on every text-field screen (chat, sign-in, sign-up,
 forgot-password, post-job, job edit, bid form — `KeyboardAvoidingScreen`
 shared component, `fc7f390`), pull-to-refresh on every list screen
-(`4fc0e63`), and a handyman being able to cancel a hired job (`373938f`).
+(`4fc0e63`), a handyman being able to cancel a hired job (`373938f`), and
+push notifications end to end (registration + FCM V1 setup + `pg_net`-based
+sending on new bid/bid status/new message/new job — see history above).
 
 ---
 
