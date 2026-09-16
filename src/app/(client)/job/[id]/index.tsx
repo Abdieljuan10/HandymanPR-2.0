@@ -133,7 +133,7 @@ export default function JobDetailScreen() {
     setRemoving(false);
 
     if (error) {
-      setRemoveError(t('jobDelete.error'));
+      setRemoveError(`${t('jobDelete.error')} (${error.message})`);
       return;
     }
     router.back();
@@ -148,7 +148,7 @@ export default function JobDetailScreen() {
     setRemoving(false);
 
     if (error) {
-      setRemoveError(t('jobDelete.error'));
+      setRemoveError(`${t('jobDelete.error')} (${error.message})`);
       return;
     }
     const result = await fetchAll();
@@ -167,7 +167,7 @@ export default function JobDetailScreen() {
     setRenewing(false);
 
     if (error) {
-      setRenewError(t('jobDelete.error'));
+      setRenewError(`${t('jobDelete.error')} (${error.message})`);
       return;
     }
     const result = await fetchAll();

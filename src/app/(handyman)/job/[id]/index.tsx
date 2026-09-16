@@ -189,7 +189,7 @@ export default function HandymanJobDetailScreen() {
     setCancelling(false);
 
     if (error) {
-      setCancelError(t('jobDelete.error'));
+      setCancelError(`${t('jobDelete.error')} (${error.message})`);
       return;
     }
     setJob({ ...job, status: 'open' });

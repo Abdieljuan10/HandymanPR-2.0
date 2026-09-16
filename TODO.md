@@ -204,10 +204,31 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       migration) stay at `status = 'cancelled'` for good — this doesn't
       retroactively reopen historical data, only changes what happens going
       forward. App side (both job-detail screens, My Bids sections,
-      en/es i18n) updated to match; `npx tsc --noEmit` clean. **Resume
-      here**: run this migration, then test — cancel a hired job as each
-      side once, confirm it reopens and a *new* bidder can bid on it
-      (that's the bid-cap bug check).
+      en/es i18n) updated to match; `npx tsc --noEmit` clean.
+      **Bug found on-device, fixed (`20260924010000_fix_cancel_bid_guard.sql`,
+      not yet run)**: cancelling failed on every job tested, both sides,
+      with the withdraw-guard's error message ("You can only withdraw a bid
+      that is still pending."). Root cause: `enforce_bid_update()` (a
+      `before update` trigger on `bids` from
+      `20260918000000_storage_bidding_messaging.sql`) only recognizes
+      `pending -> withdrawn`/`accepted`/`rejected` — it fires regardless of
+      who owns the calling function (SECURITY DEFINER bypasses RLS, not
+      triggers), so `cancel_hired_job()`'s `accepted -> cancelled` update
+      always got rejected. Fixed with a transaction-local `set_config` flag
+      that only `cancel_hired_job()` sets, rather than widening the
+      trigger's allowed transitions generally — widening it would let
+      either party update a bid straight to `'cancelled'` via a direct
+      client-side `.update()` (existing RLS already permits touching their
+      own bid/job's bids), bypassing the job-reopen and
+      `job_cancellations` logging entirely. This was caught fast because
+      the generic `jobDelete.error` catch-all in both job-detail screens
+      (plus `handleDelete`/`handleRenew` on the client side) now appends
+      the real Supabase error message instead of hiding it — worth keeping
+      that pattern for future RPC error handling in this app.
+      **Resume here**: run `20260924000000_job_cancellation_reopen.sql`
+      (if not already) then `20260924010000_fix_cancel_bid_guard.sql`, then
+      retest — cancel a hired job as each side once, confirm it reopens
+      and a *new* bidder can bid on it (the bid-cap check).
 - [ ] **Mutual agreed date** (minimal — deliberately NOT full scheduling,
       see "Then: scheduling" below, kept as its own later feature by
       request 2026-09-16): client proposes a date after hiring, handyman
