@@ -151,6 +151,24 @@
     "maxBids": "Up to {{count}} bids",
     "edit": "Edit Job"
   },
+  "jobDate": {
+    "title": "Job Date",
+    "none": "No date agreed yet.",
+    "agreed": "Agreed for {{date}}.",
+    "yourProposal": "You proposed {{date}} — waiting for the other side to confirm.",
+    "theirProposal": "{{party}} proposed {{date}}.",
+    "confirm": "Confirm This Date",
+    "propose": "Propose a Date",
+    "proposeDifferent": "Propose a Different Date",
+    "submitProposal": "Submit Proposal",
+    "cancelPropose": "Never Mind",
+    "month": "Month",
+    "day": "Day",
+    "year": "Year",
+    "invalidDate": "That's not a valid date.",
+    "theClient": "The client",
+    "theHandyman": "The handyman"
+  },
   "jobEdit": {
     "save": "Save Changes",
     "notAllowed": "Couldn't save — you may not have permission to edit this job, or it no longer exists."

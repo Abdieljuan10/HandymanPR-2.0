@@ -151,6 +151,24 @@
     "maxBids": "Hasta {{count}} ofertas",
     "edit": "Editar Trabajo"
   },
+  "jobDate": {
+    "title": "Fecha del Trabajo",
+    "none": "Todavía no se ha acordado una fecha.",
+    "agreed": "Acordada para el {{date}}.",
+    "yourProposal": "Propusiste el {{date}} — esperando que la otra parte confirme.",
+    "theirProposal": "{{party}} propuso el {{date}}.",
+    "confirm": "Confirmar Esta Fecha",
+    "propose": "Proponer una Fecha",
+    "proposeDifferent": "Proponer una Fecha Diferente",
+    "submitProposal": "Enviar Propuesta",
+    "cancelPropose": "No, mejor no",
+    "month": "Mes",
+    "day": "Día",
+    "year": "Año",
+    "invalidDate": "Esa no es una fecha válida.",
+    "theClient": "El cliente",
+    "theHandyman": "El técnico"
+  },
   "jobEdit": {
     "save": "Guardar Cambios",
     "notAllowed": "No se pudo guardar — es posible que no tengas permiso para editar este trabajo, o que ya no exista."

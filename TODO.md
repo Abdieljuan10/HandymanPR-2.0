@@ -14,7 +14,8 @@ then completion + blind reviews. Working through it in four phases:
    confirmed end-to-end on 2026-09-16** (reopened to Open, bid shows
    Cancelled, notification arrived, cancellation logged, a new bid could be
    placed on the reopened job) — see below.
-3. Mutual agreed date — **starting now, resume here.**
+3. Mutual agreed date — **migration + app side written, not yet run/tested
+   by the client — resume here.**
 4. Job completion + blind reviews — not started.
 
 Whoever picks up a session on this repo: read this file first, and update it
@@ -228,19 +229,37 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       (plus `handleDelete`/`handleRenew` on the client side) now appends
       the real Supabase error message instead of hiding it — worth keeping
       that pattern for future RPC error handling in this app.
-- [ ] **Mutual agreed date** (minimal — deliberately NOT full scheduling,
-      see "Then: scheduling" below, kept as its own later feature by
-      request 2026-09-16): client proposes a date after hiring, handyman
-      confirms; either side can propose a change, the other confirms.
-      Mutual by construction — `confirm_job_date()` rejects confirming your
-      own proposal — so neither side can set the date unilaterally (a
-      handyman delaying to dodge a bad review, or a client backdating to
-      review early). `jobs.agreed_date`/`proposed_date`/`proposed_by`, plus
-      `propose_job_date()`/`confirm_job_date()` RPCs. Date input is JS-only
-      (three linked month/day/year `FormField`s, validated as a real
-      calendar date) — deliberately not a native date-picker dependency,
-      to avoid another EAS build cycle; can upgrade to a native picker later
-      during the UI redesign pass if a rebuild is happening anyway.
+- [x] **Mutual agreed date — migration written
+      (`20260925000000_agreed_job_date.sql`), app side wired up, not yet run
+      or tested by the client.** Minimal — deliberately NOT full
+      scheduling, see "Then: scheduling" below, kept as its own later
+      feature by request 2026-09-16. Client proposes a date after hiring,
+      handyman confirms; either side can propose a change, the other
+      confirms. Mutual by construction — `confirm_job_date()` rejects
+      confirming your own proposal — so neither side can set the date
+      unilaterally (a handyman delaying to dodge a bad review, or a client
+      backdating to review early). `jobs.agreed_date`/`proposed_date`/
+      `proposed_by`, plus `propose_job_date()`/`confirm_job_date()` RPCs,
+      and push notifications on both propose and confirm. Also finishes the
+      ordering note left in Phase 2: `cancel_hired_job()` now clears all
+      three columns too, so a stale agreed date can't carry into a fresh
+      round of bidding after a cancellation reopens the job.
+      Date input is JS-only, per the client's call after the build-queue
+      pain earlier this session — a new shared `DateInput` component
+      (`src/components/date-input.tsx`, three linked month/day/year
+      `FormField`s, validated as a real calendar date), no native
+      date-picker dependency, no EAS build needed. A new shared
+      `JobDateCard` component (`src/components/job-date-card.tsx`) handles
+      the propose/confirm UI and is used by both job-detail screens, shown
+      only while `status === 'hired'`. Can upgrade to a native picker later
+      during the UI redesign pass if a rebuild is happening anyway — the DB
+      side doesn't care how the date was collected.
+      **Resume here**: run `20260925000000_agreed_job_date.sql`, then test
+      — propose a date as one side, confirm the confirm button is hidden
+      for the proposer and visible for the other side, confirm as the
+      other side, confirm the push notifications arrive for both propose
+      and confirm, and try proposing a counter-date to make sure it
+      overwrites cleanly.
 - [ ] **Job completion**: after the agreed date, either side can mark the
       job complete via `mark_job_complete()` (gated on `agreed_date` being
       set and having passed). This is what unlocks reviews.

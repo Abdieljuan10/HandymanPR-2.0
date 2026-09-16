@@ -5,6 +5,7 @@ import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
+import { JobDateCard } from '@/components/job-date-card';
 import { JobPhoto } from '@/components/job-photo';
 import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
 import { PrimaryButton } from '@/components/primary-button';
@@ -23,9 +24,16 @@ type JobDetailRow = {
   description: string;
   status: 'open' | 'hired' | 'completed' | 'cancelled' | 'expired';
   created_at: string;
+  agreed_date: string | null;
+  proposed_date: string | null;
+  proposed_by: string | null;
   pueblos: { name: string } | null;
   trades: { name_es: string; name_en: string } | null;
+  client_profiles: { full_name: string } | null;
 };
+
+const JOB_SELECT =
+  'id, client_id, title, description, status, created_at, agreed_date, proposed_date, proposed_by, pueblos(name), trades(name_es, name_en), client_profiles(full_name)';
 
 type MyBidRow = {
   id: string;
@@ -57,19 +65,20 @@ export default function HandymanJobDetailScreen() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
+  const fetchJob = useCallback(async () => {
+    if (!id) return null;
+    const { data } = await supabase.from('jobs').select(JOB_SELECT).eq('id', id).maybeSingle();
+    return (data as JobDetailRow | null) ?? null;
+  }, [id]);
+
   useFocusEffect(
     useCallback(() => {
       if (!id || !session) return;
       let isMounted = true;
 
-      supabase
-        .from('jobs')
-        .select('id, client_id, title, description, status, created_at, pueblos(name), trades(name_es, name_en)')
-        .eq('id', id)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (isMounted) setJob((data as JobDetailRow | null) ?? null);
-        });
+      fetchJob().then((data) => {
+        if (isMounted) setJob(data);
+      });
 
       supabase
         .from('job_photos')
@@ -192,7 +201,7 @@ export default function HandymanJobDetailScreen() {
       setCancelError(`${t('jobDelete.error')} (${error.message})`);
       return;
     }
-    setJob({ ...job, status: 'open' });
+    setJob(await fetchJob());
   }
 
   async function handleMessage() {
@@ -284,6 +293,18 @@ export default function HandymanJobDetailScreen() {
                 {t('myBid.hiredMessage')}
               </ThemedText>
             </ThemedView>
+          )}
+
+          {job.status === 'hired' && session && (
+            <JobDateCard
+              jobId={job.id}
+              myId={session.user.id}
+              agreedDate={job.agreed_date}
+              proposedDate={job.proposed_date}
+              proposedBy={job.proposed_by}
+              otherPartyLabel={job.client_profiles?.full_name ?? t('jobDate.theClient')}
+              onChanged={async () => setJob(await fetchJob())}
+            />
           )}
 
           {myBid ? (

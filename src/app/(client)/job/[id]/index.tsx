@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { JobDateCard } from '@/components/job-date-card';
 import { JobPhoto } from '@/components/job-photo';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
@@ -11,6 +12,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
+import { useSession } from '@/providers/session-provider';
 import { formatRelativeTime } from '@/utils/relative-time';
 
 type JobDetailRow = {
@@ -20,6 +22,9 @@ type JobDetailRow = {
   status: 'open' | 'hired' | 'completed' | 'cancelled' | 'expired';
   max_bids: number;
   created_at: string;
+  agreed_date: string | null;
+  proposed_date: string | null;
+  proposed_by: string | null;
   pueblos: { name: string } | null;
   trades: { name_es: string; name_en: string } | null;
 };
@@ -33,12 +38,14 @@ type BidRow = {
   handyman_profiles: { id: string; full_name: string } | null;
 };
 
-const JOB_SELECT = 'id, title, description, status, max_bids, created_at, pueblos(name), trades(name_es, name_en)';
+const JOB_SELECT =
+  'id, title, description, status, max_bids, created_at, agreed_date, proposed_date, proposed_by, pueblos(name), trades(name_es, name_en)';
 const BID_SELECT = 'id, price, note, status, created_at, handyman_profiles(id, full_name)';
 
 export default function JobDetailScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
+  const { session } = useSession();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [job, setJob] = useState<JobDetailRow | null | undefined>(undefined);
@@ -223,6 +230,25 @@ export default function JobDetailScreen() {
               <ThemedText type="smallBold">{t('postJob.addressLabel')}</ThemedText>
               <ThemedText type="default">{address}</ThemedText>
             </ThemedView>
+          )}
+
+          {job.status === 'hired' && session && (
+            <JobDateCard
+              jobId={job.id}
+              myId={session.user.id}
+              agreedDate={job.agreed_date}
+              proposedDate={job.proposed_date}
+              proposedBy={job.proposed_by}
+              otherPartyLabel={
+                bids.find((b) => b.status === 'accepted')?.handyman_profiles?.full_name ?? t('jobDate.theHandyman')
+              }
+              onChanged={async () => {
+                const result = await fetchAll();
+                if (result) {
+                  setJob((result.jobResult.data as JobDetailRow | null) ?? null);
+                }
+              }}
+            />
           )}
 
           <ThemedText type="small" themeColor="textSecondary">
