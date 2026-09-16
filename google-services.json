@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "185331874294",
+    "project_id": "handymanpr-44ba1",
+    "storage_bucket": "handymanpr-44ba1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:185331874294:android:3e480aed08563b5ee62fd7",
+        "android_client_info": {
+          "package_name": "com.abdieljuan.handymanpr"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBSNIzSXwtEUxyeGPIB2di1kINptuQynds"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
