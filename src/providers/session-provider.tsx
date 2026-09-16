@@ -75,7 +75,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setRole(nextRole);
       setIsLoading(false);
       if (data.session) {
-        registerForPushNotifications(data.session.user.id).catch(() => {});
+        registerForPushNotifications(data.session.user.id).catch((err) =>
+          console.error('Push registration failed:', err)
+        );
       }
     });
 
@@ -88,7 +90,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setRole(nextRole);
       setIsLoading(false);
       if (nextSession) {
-        registerForPushNotifications(nextSession.user.id).catch(() => {});
+        registerForPushNotifications(nextSession.user.id).catch((err) =>
+          console.error('Push registration failed:', err)
+        );
       }
     });
 
