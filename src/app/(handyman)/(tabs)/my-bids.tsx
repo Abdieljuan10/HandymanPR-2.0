@@ -19,7 +19,7 @@ type MyBidRow = {
   jobs: {
     id: string;
     title: string;
-    status: 'open' | 'hired' | 'completed' | 'cancelled' | 'expired';
+    status: 'open' | 'hired' | 'pending_completion' | 'completed' | 'cancelled' | 'expired';
     pueblos: { name: string } | null;
   } | null;
 };

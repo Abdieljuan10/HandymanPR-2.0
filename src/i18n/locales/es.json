@@ -58,6 +58,7 @@
     "bidCount_one": "{{count}} oferta",
     "bidCount_other": "{{count}} ofertas",
     "sections": {
+      "pendingCompletion": "Finalización Pendiente",
       "hired": "Contratado",
       "open": "Abierto",
       "completed": "Completado",
@@ -77,6 +78,7 @@
   "jobStatus": {
     "open": "Abierto",
     "hired": "Contratado",
+    "pending_completion": "Finalización Pendiente",
     "completed": "Completado",
     "cancelled": "Cancelado",
     "expired": "Expirado"
@@ -171,7 +173,13 @@
   },
   "jobCompletion": {
     "markComplete": "Marcar Completado",
-    "hint": "Podrás marcarlo como completado a partir del {{date}}."
+    "hint": "Podrás marcarlo como completado a partir del {{date}}.",
+    "cardTitle": "Finalización",
+    "pendingMine": "Marcaste esto como completado — esperando que {{party}} confirme o dispute.",
+    "pendingTheirs": "{{party}} marcó este trabajo como completado.",
+    "confirm": "Confirmar Completado",
+    "dispute": "Disputar",
+    "undo": "Deshacer"
   },
   "reviews": {
     "cardTitle": "Reseñas",

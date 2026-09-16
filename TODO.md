@@ -18,7 +18,13 @@ then completion + blind reviews. Working through it in four phases:
    (propose, confirm, counter-propose, notifications both directions,
    proposer correctly can't confirm their own date) — see below.
 4. Job completion + blind reviews — **migration + app side written, not
-   yet run/tested by the client — resume here.**
+   yet run/tested by the client — resume here.** Revised 2026-09-17 so
+   completion is mutual (confirm/dispute/auto-confirm-after-7-days/undo),
+   like the agreed date — see below.
+
+There's also an open bug report (date-proposal identity mixup, awaiting a
+fresh repro from the client) and a queued item (per-user language +
+bilingual notifications) — both detailed further down.
 
 Whoever picks up a session on this repo: read this file first, and update it
 — move finished items to "Done", adjust anything that changed shape — before
@@ -258,40 +264,105 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       only while `status === 'hired'`. Can upgrade to a native picker later
       during the UI redesign pass if a rebuild is happening anyway — the DB
       side doesn't care how the date was collected.
-- [x] **Job completion + blind reviews — migration written
-      (`20260926000000_job_completion_reviews.sql`), app side wired up, not
-      yet run or tested by the client.** After the agreed date, either
-      side can mark the job complete via `mark_job_complete()` (gated on
-      `agreed_date` being set and having passed, raises a clear error
-      otherwise) — no mutual confirmation needed for completion itself,
-      unlike the date agreement. This unlocks reviews.
-      **Reviews (blind, like Trusted Housesitters)**: both sides write after
-      the job is completed; neither sees the other's review until both have
-      submitted, or a 7-day window closes — then whatever exists publishes.
-      `reviews` table already exists (author/subject resolved server-side
-      via `set_review_parties`, one review per job per role) — added a new
-      `published_at` column, a rewritten `reviews_select` policy (visible
-      once published, or always to your own review), a trigger
-      (`try_publish_job_reviews`) that publishes both once both exist, and
-      a daily cron (`publish_expired_review_windows()`) for the 7-day
-      force-publish path.
-      App side: new `ReviewsCard` component (`src/components/reviews-card.tsx`)
-      on both job-detail screens, shown when `status === 'completed'` —
-      shows your own review (published or not), the other side's once
-      visible, or a "didn't submit in time" note if the window closed with
-      only one review. New review-submission screens
-      (`src/app/(client)/job/[id]/review.tsx` and the handyman equivalent)
-      with a new shared `StarRating` component
-      (`src/components/star-rating.tsx`). A "Mark Complete" button shows on
-      both job-detail screens while `status === 'hired'` with an
-      `agreed_date` set; before the date arrives it shows a hint with the
-      date instead. `npx tsc --noEmit` clean.
-      **Resume here**: run `20260926000000_job_completion_reviews.sql`,
-      then test the full loop on a test job — mark complete, submit a
-      review as each side, confirm neither sees the other's until both are
-      in, and separately test the 7-day force-publish path by backdating
-      a test job's `completed_at` in Table Editor and running
-      `select publish_expired_review_windows();` directly.
+- [x] **Job completion is mutual, like the agreed date — migration written
+      (`20260927000000_mutual_job_completion.sql`), app side wired up, not
+      yet run or tested by the client.** Original version (below) let
+      either side mark a job complete alone, which started the review
+      window and locked the job with no undo — flagged by the client as a
+      real risk (a handyman marking a job done that wasn't, or a client
+      tapping it by mistake). Now: one side marks complete
+      (`mark_job_complete()`, same eligibility gate as before — hired,
+      `agreed_date` set and passed) → job enters a new `'pending_completion'`
+      status instead of completing outright → the other side gets a push
+      and either confirms (`confirm_job_completion()` → `'completed'`) or
+      disputes (`dispute_job_completion()` → back to `'hired'`) → if
+      nobody acts for 7 days, `auto_confirm_stale_completions()` (daily
+      cron) confirms it anyway. The person who marked it can undo while
+      still pending (`undo_job_completion()`), also back to `'hired'`.
+      Reviews still only unlock at `status = 'completed'` —
+      `set_review_parties` already gates on that exactly, so nothing
+      needed there; a review genuinely can't be written during
+      `pending_completion`.
+      App side: new `CompletionCard` component
+      (`src/components/completion-card.tsx`) replaces the old inline
+      "Mark Complete" button on both job-detail screens — shows the
+      mark-complete gate while hired, or the pending/confirm/dispute/undo
+      UI while `status === 'pending_completion'` (which side sees Confirm
+      vs. Undo depends on whether `completion_marked_by` is you). Added
+      `pending_completion` to every job-status type union and UI spot that
+      switches on job status (client Your Jobs sections, handyman My Bids
+      job-status union) — it gets its own section on Your Jobs, same
+      treatment as `expired`. `npx tsc --noEmit` clean.
+      **Resume here**: run `20260926000000_job_completion_reviews.sql`
+      first if not already (adds `completed_at`/reviews plumbing), then
+      `20260927000000_mutual_job_completion.sql`. Test the full loop: mark
+      complete as one side, confirm the OTHER side sees confirm/dispute
+      (not the marker), confirm undo works for the marker while pending,
+      confirm dispute reopens to hired, then do a real confirm and check
+      reviews unlock — submit a review as each side, confirm neither sees
+      the other's until both are in. Separately test the 7-day
+      auto-confirm by backdating a test job's `completion_marked_at` in
+      Table Editor and running `select auto_confirm_stale_completions();`
+      directly, and the review-window force-publish the same way with
+      `completed_at` and `select publish_expired_review_windows();`.
+      ~~Original one-sided version~~: after the agreed date, either side
+      marks complete via `mark_job_complete()`, unlocking reviews
+      immediately. Reviews (blind, like Trusted Housesitters): both sides
+      write after the job is completed; neither sees the other's review
+      until both have submitted, or a 7-day window closes — then whatever
+      exists publishes. `reviews` table already existed (author/subject
+      resolved server-side via `set_review_parties`, one review per job
+      per role) — added `published_at`, a rewritten `reviews_select`
+      policy (visible once published, or always to your own review), a
+      trigger (`try_publish_job_reviews`) that publishes both once both
+      exist, and a daily cron (`publish_expired_review_windows()`) for the
+      7-day force-publish path — all of this part is unchanged by the
+      mutual-completion revision above, only *how* a job reaches
+      `'completed'` changed. New `ReviewsCard` component
+      (`src/components/reviews-card.tsx`), review-submission screens
+      (`src/app/(client)/job/[id]/review.tsx` and the handyman equivalent),
+      and a shared `StarRating` component (`src/components/star-rating.tsx`).
+
+## Known bug — under investigation, awaiting fresh repro
+
+- **Date-proposal identity mixup**: client reported that after the
+  handyman proposed a date on job "Último trabajo 2" (Ponce, Techado) and
+  switched to the client side, the client saw "Propusiste el Nov 22,
+  2060 — esperando..." (i.e. thought *it* had proposed the date) and got
+  no Confirm button. Re-audited both `propose_job_date()`'s SQL
+  (`proposed_by = auth.uid()`) and `JobDateCard`'s comparison
+  (`proposedBy === myId`) — both correct in isolation, and this is the
+  same `auth.uid()` mechanism that correctly told client/handyman apart
+  during Phase 2 cancellation testing. Leading theories: duplicate test
+  job with the same title, or a stale fetch on one device. Diagnostic
+  query handed to the client:
+  ```sql
+  select j.id, j.title, j.proposed_date, j.proposed_by,
+         j.client_id, b.handyman_id as hired_handyman_id
+  from jobs j
+  left join bids b on b.id = j.hired_bid_id
+  where j.title = 'Último trabajo 2';
+  ```
+  Client's test data has since changed (created/deleted jobs while
+  waiting on a session limit reset) — **waiting on a fresh repro + the
+  query result before touching any code here.**
+
+## Queued next
+
+- **Per-user language + bilingual notifications**: every push notification
+  body across all the migrations (new bid, bid status, new message, new
+  job, job expired, job renewed, job cancelled, date proposed/confirmed,
+  completion pending/confirmed/disputed/undone/auto-confirmed, review-
+  related) is hardcoded English. The app itself is bilingual
+  (`src/i18n/locales/en.json`/`es.json`, `language-provider`), but that's
+  a client-side-only preference right now — nothing persists a user's
+  language server-side, so `send_push_to_users()` has no way to pick a
+  language when composing a push. Needs: a language column on
+  `client_profiles`/`handyman_profiles` (or wherever), the app syncing the
+  provider's current language to it, and every notification-sending
+  function rewritten to pick body text per-recipient instead of one
+  hardcoded English string. Not started — flagged by the client as
+  pending, to pick up after the completion-mutuality work above ships.
 
 ## Then: scheduling
 

@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
 import { formatRelativeTime } from '@/utils/relative-time';
 
-type JobStatus = 'open' | 'hired' | 'completed' | 'cancelled' | 'expired';
+type JobStatus = 'open' | 'hired' | 'pending_completion' | 'completed' | 'cancelled' | 'expired';
 
 type ClientJobRow = {
   id: string;
@@ -26,6 +26,7 @@ type Section = { key: string; titleKey: string; data: ClientJobRow[] };
 
 const STATUS_COLORS: Record<Exclude<JobStatus, 'open'>, string> = {
   hired: '#2e9e5b',
+  pending_completion: '#e0a72e',
   completed: '#3c87f7',
   cancelled: '#d64545',
   expired: '#9a9a9a',
@@ -93,12 +94,14 @@ export default function ClientHomeScreen() {
   const sections = useMemo<Section[]>(() => {
     if (!jobs) return [];
     const hired = jobs.filter((job) => job.status === 'hired');
+    const pendingCompletion = jobs.filter((job) => job.status === 'pending_completion');
     const open = jobs.filter((job) => job.status === 'open');
     const completed = jobs.filter((job) => job.status === 'completed');
     const cancelled = jobs.filter((job) => job.status === 'cancelled');
     const expired = jobs.filter((job) => job.status === 'expired');
 
     return [
+      { key: 'pendingCompletion', titleKey: 'clientHome.sections.pendingCompletion', data: pendingCompletion },
       { key: 'hired', titleKey: 'clientHome.sections.hired', data: hired },
       { key: 'open', titleKey: 'clientHome.sections.open', data: open },
       { key: 'completed', titleKey: 'clientHome.sections.completed', data: completed },

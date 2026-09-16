@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CompletionCard } from '@/components/completion-card';
 import { JobDateCard } from '@/components/job-date-card';
 import { JobPhoto } from '@/components/job-photo';
 import { PrimaryButton } from '@/components/primary-button';
@@ -20,12 +21,13 @@ type JobDetailRow = {
   id: string;
   title: string;
   description: string;
-  status: 'open' | 'hired' | 'completed' | 'cancelled' | 'expired';
+  status: 'open' | 'hired' | 'pending_completion' | 'completed' | 'cancelled' | 'expired';
   max_bids: number;
   created_at: string;
   agreed_date: string | null;
   proposed_date: string | null;
   proposed_by: string | null;
+  completion_marked_by: string | null;
   pueblos: { name: string } | null;
   trades: { name_es: string; name_en: string } | null;
 };
@@ -48,7 +50,7 @@ type ReviewRow = {
 };
 
 const JOB_SELECT =
-  'id, title, description, status, max_bids, created_at, agreed_date, proposed_date, proposed_by, pueblos(name), trades(name_es, name_en)';
+  'id, title, description, status, max_bids, created_at, agreed_date, proposed_date, proposed_by, completion_marked_by, pueblos(name), trades(name_es, name_en)';
 const BID_SELECT = 'id, price, note, status, created_at, handyman_profiles(id, full_name)';
 const REVIEW_SELECT = 'id, author_id, rating, comment, published_at';
 
@@ -69,8 +71,6 @@ export default function JobDetailScreen() {
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
-  const [completing, setCompleting] = useState(false);
-  const [completeError, setCompleteError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!id) return null;
@@ -198,25 +198,6 @@ export default function JobDetailScreen() {
     }
   }
 
-  async function handleMarkComplete() {
-    if (!id) return;
-    setCompleting(true);
-    setCompleteError(null);
-
-    const { error } = await supabase.rpc('mark_job_complete', { p_job_id: id });
-    setCompleting(false);
-
-    if (error) {
-      setCompleteError(error.message);
-      return;
-    }
-    const result = await fetchAll();
-    if (result) {
-      setJob((result.jobResult.data as JobDetailRow | null) ?? null);
-      setReviews((result.reviewsResult.data as ReviewRow[] | null) ?? []);
-    }
-  }
-
   if (job === undefined) {
     return (
       <ThemedView style={styles.container}>
@@ -324,25 +305,24 @@ export default function JobDetailScreen() {
             </ThemedView>
           )}
 
-          {job.status === 'hired' && job.agreed_date && (
-            <>
-              {completeError && (
-                <ThemedText type="small" style={styles.error}>
-                  {completeError}
-                </ThemedText>
-              )}
-              {new Date(job.agreed_date) <= new Date() ? (
-                <PrimaryButton
-                  label={t('jobCompletion.markComplete')}
-                  loading={completing}
-                  onPress={handleMarkComplete}
-                />
-              ) : (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t('jobCompletion.hint', { date: job.agreed_date })}
-                </ThemedText>
-              )}
-            </>
+          {(job.status === 'hired' || job.status === 'pending_completion') && session && (
+            <CompletionCard
+              jobId={job.id}
+              myId={session.user.id}
+              status={job.status}
+              agreedDate={job.agreed_date}
+              completionMarkedBy={job.completion_marked_by}
+              otherPartyLabel={
+                bids.find((b) => b.status === 'accepted')?.handyman_profiles?.full_name ?? t('jobDate.theHandyman')
+              }
+              onChanged={async () => {
+                const result = await fetchAll();
+                if (result) {
+                  setJob((result.jobResult.data as JobDetailRow | null) ?? null);
+                  setReviews((result.reviewsResult.data as ReviewRow[] | null) ?? []);
+                }
+              }}
+            />
           )}
 
           {job.status === 'completed' && session && (

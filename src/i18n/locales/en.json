@@ -58,6 +58,7 @@
     "bidCount_one": "{{count}} bid",
     "bidCount_other": "{{count}} bids",
     "sections": {
+      "pendingCompletion": "Completion Pending",
       "hired": "Hired",
       "open": "Open",
       "completed": "Completed",
@@ -77,6 +78,7 @@
   "jobStatus": {
     "open": "Open",
     "hired": "Hired",
+    "pending_completion": "Completion Pending",
     "completed": "Completed",
     "cancelled": "Cancelled",
     "expired": "Expired"
@@ -171,7 +173,13 @@
   },
   "jobCompletion": {
     "markComplete": "Mark Complete",
-    "hint": "You can mark this complete starting {{date}}."
+    "hint": "You can mark this complete starting {{date}}.",
+    "cardTitle": "Completion",
+    "pendingMine": "You marked this complete — waiting for {{party}} to confirm or dispute.",
+    "pendingTheirs": "{{party}} marked this job complete.",
+    "confirm": "Confirm Complete",
+    "dispute": "Dispute",
+    "undo": "Undo"
   },
   "reviews": {
     "cardTitle": "Reviews",

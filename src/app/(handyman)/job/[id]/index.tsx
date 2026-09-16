@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CompletionCard } from '@/components/completion-card';
 import { FormField } from '@/components/form-field';
 import { JobDateCard } from '@/components/job-date-card';
 import { JobPhoto } from '@/components/job-photo';
@@ -23,18 +24,19 @@ type JobDetailRow = {
   client_id: string;
   title: string;
   description: string;
-  status: 'open' | 'hired' | 'completed' | 'cancelled' | 'expired';
+  status: 'open' | 'hired' | 'pending_completion' | 'completed' | 'cancelled' | 'expired';
   created_at: string;
   agreed_date: string | null;
   proposed_date: string | null;
   proposed_by: string | null;
+  completion_marked_by: string | null;
   pueblos: { name: string } | null;
   trades: { name_es: string; name_en: string } | null;
   client_profiles: { full_name: string } | null;
 };
 
 const JOB_SELECT =
-  'id, client_id, title, description, status, created_at, agreed_date, proposed_date, proposed_by, pueblos(name), trades(name_es, name_en), client_profiles(full_name)';
+  'id, client_id, title, description, status, created_at, agreed_date, proposed_date, proposed_by, completion_marked_by, pueblos(name), trades(name_es, name_en), client_profiles(full_name)';
 
 type MyBidRow = {
   id: string;
@@ -76,8 +78,6 @@ export default function HandymanJobDetailScreen() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
-  const [completing, setCompleting] = useState(false);
-  const [completeError, setCompleteError] = useState<string | null>(null);
 
   const fetchJob = useCallback(async () => {
     if (!id) return null;
@@ -228,22 +228,6 @@ export default function HandymanJobDetailScreen() {
     setJob(await fetchJob());
   }
 
-  async function handleMarkComplete() {
-    if (!id) return;
-    setCompleting(true);
-    setCompleteError(null);
-
-    const { error } = await supabase.rpc('mark_job_complete', { p_job_id: id });
-    setCompleting(false);
-
-    if (error) {
-      setCompleteError(error.message);
-      return;
-    }
-    setJob(await fetchJob());
-    setReviews(await fetchReviews());
-  }
-
   async function handleMessage() {
     if (!id || !session || !job) return;
     setMessaging(true);
@@ -347,25 +331,19 @@ export default function HandymanJobDetailScreen() {
             />
           )}
 
-          {job.status === 'hired' && job.agreed_date && (
-            <>
-              {completeError && (
-                <ThemedText type="small" style={styles.error}>
-                  {completeError}
-                </ThemedText>
-              )}
-              {new Date(job.agreed_date) <= new Date() ? (
-                <PrimaryButton
-                  label={t('jobCompletion.markComplete')}
-                  loading={completing}
-                  onPress={handleMarkComplete}
-                />
-              ) : (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t('jobCompletion.hint', { date: job.agreed_date })}
-                </ThemedText>
-              )}
-            </>
+          {(job.status === 'hired' || job.status === 'pending_completion') && session && (
+            <CompletionCard
+              jobId={job.id}
+              myId={session.user.id}
+              status={job.status}
+              agreedDate={job.agreed_date}
+              completionMarkedBy={job.completion_marked_by}
+              otherPartyLabel={job.client_profiles?.full_name ?? t('jobDate.theClient')}
+              onChanged={async () => {
+                setJob(await fetchJob());
+                setReviews(await fetchReviews());
+              }}
+            />
           )}
 
           {job.status === 'completed' && session && (
