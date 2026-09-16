@@ -14,9 +14,11 @@ then completion + blind reviews. Working through it in four phases:
    confirmed end-to-end on 2026-09-16** (reopened to Open, bid shows
    Cancelled, notification arrived, cancellation logged, a new bid could be
    placed on the reopened job) — see below.
-3. Mutual agreed date — **migration + app side written, not yet run/tested
-   by the client — resume here.**
-4. Job completion + blind reviews — not started.
+3. Mutual agreed date — **DONE, confirmed end-to-end on 2026-09-16**
+   (propose, confirm, counter-propose, notifications both directions,
+   proposer correctly can't confirm their own date) — see below.
+4. Job completion + blind reviews — **migration + app side written, not
+   yet run/tested by the client — resume here.**
 
 Whoever picks up a session on this repo: read this file first, and update it
 — move finished items to "Done", adjust anything that changed shape — before
@@ -229,9 +231,11 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       (plus `handleDelete`/`handleRenew` on the client side) now appends
       the real Supabase error message instead of hiding it — worth keeping
       that pattern for future RPC error handling in this app.
-- [x] **Mutual agreed date — migration written
-      (`20260925000000_agreed_job_date.sql`), app side wired up, not yet run
-      or tested by the client.** Minimal — deliberately NOT full
+- [x] **Mutual agreed date — DONE, confirmed end-to-end on 2026-09-16**
+      (propose, confirm, counter-propose, notifications both directions,
+      proposer correctly can't confirm their own date; the UI already
+      distinguishes the agreed date from a pending proposal clearly, no
+      fix needed there). Minimal — deliberately NOT full
       scheduling, see "Then: scheduling" below, kept as its own later
       feature by request 2026-09-16. Client proposes a date after hiring,
       handyman confirms; either side can propose a change, the other
@@ -254,26 +258,40 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       only while `status === 'hired'`. Can upgrade to a native picker later
       during the UI redesign pass if a rebuild is happening anyway — the DB
       side doesn't care how the date was collected.
-      **Resume here**: run `20260925000000_agreed_job_date.sql`, then test
-      — propose a date as one side, confirm the confirm button is hidden
-      for the proposer and visible for the other side, confirm as the
-      other side, confirm the push notifications arrive for both propose
-      and confirm, and try proposing a counter-date to make sure it
-      overwrites cleanly.
-- [ ] **Job completion**: after the agreed date, either side can mark the
-      job complete via `mark_job_complete()` (gated on `agreed_date` being
-      set and having passed). This is what unlocks reviews.
-- [ ] **Reviews (blind, like Trusted Housesitters)**: both sides write after
-      the job date; neither sees the other's review until both have
+- [x] **Job completion + blind reviews — migration written
+      (`20260926000000_job_completion_reviews.sql`), app side wired up, not
+      yet run or tested by the client.** After the agreed date, either
+      side can mark the job complete via `mark_job_complete()` (gated on
+      `agreed_date` being set and having passed, raises a clear error
+      otherwise) — no mutual confirmation needed for completion itself,
+      unlike the date agreement. This unlocks reviews.
+      **Reviews (blind, like Trusted Housesitters)**: both sides write after
+      the job is completed; neither sees the other's review until both have
       submitted, or a 7-day window closes — then whatever exists publishes.
       `reviews` table already exists (author/subject resolved server-side
-      via `set_review_parties`, one review per job per role) — needs a new
+      via `set_review_parties`, one review per job per role) — added a new
       `published_at` column, a rewritten `reviews_select` policy (visible
-      once published, or always to your own review), a trigger that
-      publishes both once both exist, and a daily cron
-      (`publish_expired_review_windows()`) for the 7-day force-publish path.
-      Still no UI at all — needs a review-submission screen and a status
-      view on the job detail screen.
+      once published, or always to your own review), a trigger
+      (`try_publish_job_reviews`) that publishes both once both exist, and
+      a daily cron (`publish_expired_review_windows()`) for the 7-day
+      force-publish path.
+      App side: new `ReviewsCard` component (`src/components/reviews-card.tsx`)
+      on both job-detail screens, shown when `status === 'completed'` —
+      shows your own review (published or not), the other side's once
+      visible, or a "didn't submit in time" note if the window closed with
+      only one review. New review-submission screens
+      (`src/app/(client)/job/[id]/review.tsx` and the handyman equivalent)
+      with a new shared `StarRating` component
+      (`src/components/star-rating.tsx`). A "Mark Complete" button shows on
+      both job-detail screens while `status === 'hired'` with an
+      `agreed_date` set; before the date arrives it shows a hint with the
+      date instead. `npx tsc --noEmit` clean.
+      **Resume here**: run `20260926000000_job_completion_reviews.sql`,
+      then test the full loop on a test job — mark complete, submit a
+      review as each side, confirm neither sees the other's until both are
+      in, and separately test the 7-day force-publish path by backdating
+      a test job's `completed_at` in Table Editor and running
+      `select publish_expired_review_windows();` directly.
 
 ## Then: scheduling
 

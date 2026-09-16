@@ -9,6 +9,7 @@ import { JobDateCard } from '@/components/job-date-card';
 import { JobPhoto } from '@/components/job-photo';
 import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
 import { PrimaryButton } from '@/components/primary-button';
+import { ReviewsCard } from '@/components/reviews-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -42,6 +43,16 @@ type MyBidRow = {
   status: 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'cancelled';
 };
 
+type ReviewRow = {
+  id: string;
+  author_id: string | null;
+  rating: number;
+  comment: string | null;
+  published_at: string | null;
+};
+
+const REVIEW_SELECT = 'id, author_id, rating, comment, published_at';
+
 export default function HandymanJobDetailScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
@@ -64,11 +75,20 @@ export default function HandymanJobDetailScreen() {
   const [messaging, setMessaging] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [completing, setCompleting] = useState(false);
+  const [completeError, setCompleteError] = useState<string | null>(null);
 
   const fetchJob = useCallback(async () => {
     if (!id) return null;
     const { data } = await supabase.from('jobs').select(JOB_SELECT).eq('id', id).maybeSingle();
     return (data as JobDetailRow | null) ?? null;
+  }, [id]);
+
+  const fetchReviews = useCallback(async () => {
+    if (!id) return [];
+    const { data } = await supabase.from('reviews').select(REVIEW_SELECT).eq('job_id', id);
+    return (data as ReviewRow[] | null) ?? [];
   }, [id]);
 
   useFocusEffect(
@@ -78,6 +98,10 @@ export default function HandymanJobDetailScreen() {
 
       fetchJob().then((data) => {
         if (isMounted) setJob(data);
+      });
+
+      fetchReviews().then((data) => {
+        if (isMounted) setReviews(data);
       });
 
       supabase
@@ -204,6 +228,22 @@ export default function HandymanJobDetailScreen() {
     setJob(await fetchJob());
   }
 
+  async function handleMarkComplete() {
+    if (!id) return;
+    setCompleting(true);
+    setCompleteError(null);
+
+    const { error } = await supabase.rpc('mark_job_complete', { p_job_id: id });
+    setCompleting(false);
+
+    if (error) {
+      setCompleteError(error.message);
+      return;
+    }
+    setJob(await fetchJob());
+    setReviews(await fetchReviews());
+  }
+
   async function handleMessage() {
     if (!id || !session || !job) return;
     setMessaging(true);
@@ -304,6 +344,36 @@ export default function HandymanJobDetailScreen() {
               proposedBy={job.proposed_by}
               otherPartyLabel={job.client_profiles?.full_name ?? t('jobDate.theClient')}
               onChanged={async () => setJob(await fetchJob())}
+            />
+          )}
+
+          {job.status === 'hired' && job.agreed_date && (
+            <>
+              {completeError && (
+                <ThemedText type="small" style={styles.error}>
+                  {completeError}
+                </ThemedText>
+              )}
+              {new Date(job.agreed_date) <= new Date() ? (
+                <PrimaryButton
+                  label={t('jobCompletion.markComplete')}
+                  loading={completing}
+                  onPress={handleMarkComplete}
+                />
+              ) : (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t('jobCompletion.hint', { date: job.agreed_date })}
+                </ThemedText>
+              )}
+            </>
+          )}
+
+          {job.status === 'completed' && session && (
+            <ReviewsCard
+              jobId={job.id}
+              myId={session.user.id}
+              reviews={reviews}
+              otherPartyLabel={job.client_profiles?.full_name ?? t('jobDate.theClient')}
             />
           )}
 

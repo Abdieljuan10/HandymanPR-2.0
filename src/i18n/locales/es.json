@@ -169,6 +169,26 @@
     "theClient": "El cliente",
     "theHandyman": "El técnico"
   },
+  "jobCompletion": {
+    "markComplete": "Marcar Completado",
+    "hint": "Podrás marcarlo como completado a partir del {{date}}."
+  },
+  "reviews": {
+    "cardTitle": "Reseñas",
+    "title": "Dejar una Reseña",
+    "blindNotice": "Tu reseña permanece oculta hasta que la otra parte envíe la suya, o después de 7 días — lo que ocurra primero.",
+    "commentLabel": "Comentario (opcional)",
+    "commentPlaceholder": "¿Cómo te fue?",
+    "submit": "Enviar Reseña",
+    "leaveButton": "Dejar una Reseña",
+    "pending": "Tu reseña fue enviada — esperando a la otra parte.",
+    "yourReview": "Tu reseña: {{stars}}",
+    "theirReview": "Reseña de {{party}}: {{stars}}",
+    "noOtherReview": "La otra parte no envió una reseña a tiempo.",
+    "errors": {
+      "rating": "Elige una calificación de estrellas."
+    }
+  },
   "jobEdit": {
     "save": "Guardar Cambios",
     "notAllowed": "No se pudo guardar — es posible que no tengas permiso para editar este trabajo, o que ya no exista."

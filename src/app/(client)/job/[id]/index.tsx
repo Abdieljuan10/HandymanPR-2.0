@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { JobDateCard } from '@/components/job-date-card';
 import { JobPhoto } from '@/components/job-photo';
 import { PrimaryButton } from '@/components/primary-button';
+import { ReviewsCard } from '@/components/reviews-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -38,9 +39,18 @@ type BidRow = {
   handyman_profiles: { id: string; full_name: string } | null;
 };
 
+type ReviewRow = {
+  id: string;
+  author_id: string | null;
+  rating: number;
+  comment: string | null;
+  published_at: string | null;
+};
+
 const JOB_SELECT =
   'id, title, description, status, max_bids, created_at, agreed_date, proposed_date, proposed_by, pueblos(name), trades(name_es, name_en)';
 const BID_SELECT = 'id, price, note, status, created_at, handyman_profiles(id, full_name)';
+const REVIEW_SELECT = 'id, author_id, rating, comment, published_at';
 
 export default function JobDetailScreen() {
   const { t } = useTranslation();
@@ -58,16 +68,20 @@ export default function JobDetailScreen() {
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [completing, setCompleting] = useState(false);
+  const [completeError, setCompleteError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!id) return null;
-    const [jobResult, photosResult, addressResult, bidsResult] = await Promise.all([
+    const [jobResult, photosResult, addressResult, bidsResult, reviewsResult] = await Promise.all([
       supabase.from('jobs').select(JOB_SELECT).eq('id', id).maybeSingle(),
       supabase.from('job_photos').select('photo_url').eq('job_id', id).order('sort_order'),
       supabase.from('job_locations').select('full_address').eq('job_id', id).maybeSingle(),
       supabase.from('bids').select(BID_SELECT).eq('job_id', id).order('created_at', { ascending: true }),
+      supabase.from('reviews').select(REVIEW_SELECT).eq('job_id', id),
     ]);
-    return { jobResult, photosResult, addressResult, bidsResult };
+    return { jobResult, photosResult, addressResult, bidsResult, reviewsResult };
   }, [id]);
 
   useFocusEffect(
@@ -79,6 +93,7 @@ export default function JobDetailScreen() {
         setPhotos(result.photosResult.data ?? []);
         setAddress(result.addressResult.data?.full_address ?? null);
         setBids((result.bidsResult.data as BidRow[] | null) ?? []);
+        setReviews((result.reviewsResult.data as ReviewRow[] | null) ?? []);
       });
       return () => {
         isMounted = false;
@@ -180,6 +195,25 @@ export default function JobDetailScreen() {
     const result = await fetchAll();
     if (result) {
       setJob((result.jobResult.data as JobDetailRow | null) ?? null);
+    }
+  }
+
+  async function handleMarkComplete() {
+    if (!id) return;
+    setCompleting(true);
+    setCompleteError(null);
+
+    const { error } = await supabase.rpc('mark_job_complete', { p_job_id: id });
+    setCompleting(false);
+
+    if (error) {
+      setCompleteError(error.message);
+      return;
+    }
+    const result = await fetchAll();
+    if (result) {
+      setJob((result.jobResult.data as JobDetailRow | null) ?? null);
+      setReviews((result.reviewsResult.data as ReviewRow[] | null) ?? []);
     }
   }
 
@@ -288,6 +322,38 @@ export default function JobDetailScreen() {
               )}
               <PrimaryButton label={t('jobExpiry.renewButton')} loading={renewing} onPress={handleRenew} />
             </ThemedView>
+          )}
+
+          {job.status === 'hired' && job.agreed_date && (
+            <>
+              {completeError && (
+                <ThemedText type="small" style={styles.error}>
+                  {completeError}
+                </ThemedText>
+              )}
+              {new Date(job.agreed_date) <= new Date() ? (
+                <PrimaryButton
+                  label={t('jobCompletion.markComplete')}
+                  loading={completing}
+                  onPress={handleMarkComplete}
+                />
+              ) : (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t('jobCompletion.hint', { date: job.agreed_date })}
+                </ThemedText>
+              )}
+            </>
+          )}
+
+          {job.status === 'completed' && session && (
+            <ReviewsCard
+              jobId={job.id}
+              myId={session.user.id}
+              reviews={reviews}
+              otherPartyLabel={
+                bids.find((b) => b.status === 'accepted')?.handyman_profiles?.full_name ?? t('jobDate.theHandyman')
+              }
+            />
           )}
 
           <ThemedText type="smallBold" style={styles.bidsTitle}>

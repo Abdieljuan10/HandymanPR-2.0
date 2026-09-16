@@ -169,6 +169,26 @@
     "theClient": "The client",
     "theHandyman": "The handyman"
   },
+  "jobCompletion": {
+    "markComplete": "Mark Complete",
+    "hint": "You can mark this complete starting {{date}}."
+  },
+  "reviews": {
+    "cardTitle": "Reviews",
+    "title": "Leave a Review",
+    "blindNotice": "Your review stays hidden until the other side submits theirs, or after 7 days — whichever comes first.",
+    "commentLabel": "Comment (optional)",
+    "commentPlaceholder": "How did it go?",
+    "submit": "Submit Review",
+    "leaveButton": "Leave a Review",
+    "pending": "Your review is submitted — waiting on the other side.",
+    "yourReview": "Your review: {{stars}}",
+    "theirReview": "{{party}}'s review: {{stars}}",
+    "noOtherReview": "The other side didn't submit a review in time.",
+    "errors": {
+      "rating": "Pick a star rating."
+    }
+  },
   "jobEdit": {
     "save": "Save Changes",
     "notAllowed": "Couldn't save — you may not have permission to edit this job, or it no longer exists."
