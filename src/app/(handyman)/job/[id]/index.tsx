@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
 import { JobPhoto } from '@/components/job-photo';
+import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -53,6 +54,8 @@ export default function HandymanJobDetailScreen() {
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [messaging, setMessaging] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -170,6 +173,28 @@ export default function HandymanJobDetailScreen() {
     setMyBid({ ...myBid, status: 'withdrawn' });
   }
 
+  function confirmCancelJob() {
+    Alert.alert(t('myBid.confirmCancelJobTitle'), t('myBid.confirmCancelJobMessage'), [
+      { text: t('jobDelete.cancelDialog'), style: 'cancel' },
+      { text: t('jobDelete.confirm'), style: 'destructive', onPress: handleCancelJob },
+    ]);
+  }
+
+  async function handleCancelJob() {
+    if (!id || !job) return;
+    setCancelling(true);
+    setCancelError(null);
+
+    const { error } = await supabase.rpc('cancel_job_as_handyman', { p_job_id: id });
+    setCancelling(false);
+
+    if (error) {
+      setCancelError(t('jobDelete.error'));
+      return;
+    }
+    setJob({ ...job, status: 'cancelled' });
+  }
+
   async function handleMessage() {
     if (!id || !session || !job) return;
     setMessaging(true);
@@ -226,6 +251,7 @@ export default function HandymanJobDetailScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingScreen>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {photos.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
@@ -288,6 +314,19 @@ export default function HandymanJobDetailScreen() {
                   onPress={confirmWithdraw}
                 />
               )}
+              {cancelError && (
+                <ThemedText type="small" style={styles.error}>
+                  {cancelError}
+                </ThemedText>
+              )}
+              {myBid.status === 'accepted' && job.status === 'hired' && (
+                <PrimaryButton
+                  label={t('myBid.cancelJob')}
+                  variant="secondary"
+                  loading={cancelling}
+                  onPress={confirmCancelJob}
+                />
+              )}
             </ThemedView>
           ) : job.status === 'open' ? (
             <ThemedView type="backgroundElement" style={styles.bidForm}>
@@ -328,6 +367,7 @@ export default function HandymanJobDetailScreen() {
             </ThemedText>
           )}
         </ScrollView>
+        </KeyboardAvoidingScreen>
       </SafeAreaView>
     </ThemedView>
   );

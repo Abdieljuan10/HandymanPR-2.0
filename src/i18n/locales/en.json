@@ -93,7 +93,8 @@
     "sections": {
       "accepted": "Accepted",
       "pending": "Pending",
-      "closed": "Rejected / Withdrawn"
+      "closed": "Rejected / Withdrawn",
+      "jobCancelled": "Job Cancelled"
     }
   },
   "postJob": {
@@ -176,7 +177,11 @@
     "closedNoBid": "This job is no longer accepting bids.",
     "withdraw": "Withdraw Bid",
     "confirmWithdrawTitle": "Withdraw this bid?",
-    "confirmWithdrawMessage": "The client will no longer see your offer, and you won't be able to bid on this job again."
+    "confirmWithdrawMessage": "The client will no longer see your offer, and you won't be able to bid on this job again.",
+    "cancelJob": "Cancel Job",
+    "confirmCancelJobTitle": "Cancel this job?",
+    "confirmCancelJobMessage": "This will end the job as cancelled for both you and the client. This can't be undone.",
+    "jobCancelledMessage": "This job was cancelled."
   },
   "bids": {
     "title": "Bids",

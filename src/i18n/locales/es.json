@@ -93,7 +93,8 @@
     "sections": {
       "accepted": "Aceptadas",
       "pending": "Pendientes",
-      "closed": "Rechazadas / Retiradas"
+      "closed": "Rechazadas / Retiradas",
+      "jobCancelled": "Trabajo Cancelado"
     }
   },
   "postJob": {
@@ -176,7 +177,11 @@
     "closedNoBid": "Este trabajo ya no acepta ofertas.",
     "withdraw": "Retirar Oferta",
     "confirmWithdrawTitle": "¿Retirar esta oferta?",
-    "confirmWithdrawMessage": "El cliente ya no verá tu oferta, y no podrás volver a ofertar en este trabajo."
+    "confirmWithdrawMessage": "El cliente ya no verá tu oferta, y no podrás volver a ofertar en este trabajo.",
+    "cancelJob": "Cancelar Trabajo",
+    "confirmCancelJobTitle": "¿Cancelar este trabajo?",
+    "confirmCancelJobMessage": "Esto terminará el trabajo como cancelado para ti y para el cliente. Esto no se puede deshacer.",
+    "jobCancelledMessage": "Este trabajo fue cancelado."
   },
   "bids": {
     "title": "Ofertas",
