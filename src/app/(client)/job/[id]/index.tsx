@@ -71,6 +71,7 @@ export default function JobDetailScreen() {
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!id) return null;
@@ -89,7 +90,8 @@ export default function JobDetailScreen() {
       let isMounted = true;
       fetchAll().then((result) => {
         if (!isMounted || !result) return;
-        setJob((result.jobResult.data as JobDetailRow | null) ?? null);
+        setLoadError(result.jobResult.error ? result.jobResult.error.message : null);
+        setJob(result.jobResult.error ? null : ((result.jobResult.data as JobDetailRow | null) ?? null));
         setPhotos(result.photosResult.data ?? []);
         setAddress(result.addressResult.data?.full_address ?? null);
         setBids((result.bidsResult.data as BidRow[] | null) ?? []);
@@ -212,7 +214,7 @@ export default function JobDetailScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
-          <ThemedText type="default">{t('jobDetail.notFound')}</ThemedText>
+          <ThemedText type="default">{loadError ?? t('jobDetail.notFound')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
     );

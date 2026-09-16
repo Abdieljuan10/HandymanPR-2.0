@@ -78,11 +78,13 @@ export default function HandymanJobDetailScreen() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const fetchJob = useCallback(async () => {
     if (!id) return null;
-    const { data } = await supabase.from('jobs').select(JOB_SELECT).eq('id', id).maybeSingle();
-    return (data as JobDetailRow | null) ?? null;
+    const { data, error } = await supabase.from('jobs').select(JOB_SELECT).eq('id', id).maybeSingle();
+    setLoadError(error ? error.message : null);
+    return error ? null : ((data as JobDetailRow | null) ?? null);
   }, [id]);
 
   const fetchReviews = useCallback(async () => {
@@ -273,7 +275,7 @@ export default function HandymanJobDetailScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
-          <ThemedText type="default">{t('jobDetail.notFound')}</ThemedText>
+          <ThemedText type="default">{loadError ?? t('jobDetail.notFound')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
     );
