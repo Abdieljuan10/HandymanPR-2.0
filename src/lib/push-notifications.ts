@@ -56,7 +56,7 @@ export async function registerForPushNotifications(userId: string): Promise<void
   const { data: expoPushToken } = await Notifications.getExpoPushTokenAsync({ projectId });
   const deviceId = await getOrCreateDeviceId();
 
-  await supabase.from('push_tokens').upsert(
+  const { error } = await supabase.from('push_tokens').upsert(
     {
       user_id: userId,
       device_id: deviceId,
@@ -65,4 +65,13 @@ export async function registerForPushNotifications(userId: string): Promise<void
     },
     { onConflict: 'user_id,device_id' }
   );
+
+  // Every earlier early-return above is an intentional no-op (Expo Go,
+  // simulator, no EAS project yet, permission declined) — this one isn't.
+  // Getting this far means we have a real token and it still didn't save,
+  // which is worth knowing about instead of silently looking like "no push
+  // support" from the outside.
+  if (error) {
+    console.error('Failed to save push token:', error.message);
+  }
 }
