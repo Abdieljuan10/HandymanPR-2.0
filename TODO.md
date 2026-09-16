@@ -8,13 +8,12 @@ Whoever picks up a session on this repo: read this file first, and update it
 — move finished items to "Done", adjust anything that changed shape — before
 committing at the end of your session. See the instruction in `CLAUDE.md`.
 
-## Next up: push notifications — IN PROGRESS, mid-setup
+## Next up: push notifications — IN PROGRESS, sending half just built
 
 The app's core retention hook — a handyman getting pinged about a job in
 their pueblo. Needs a **development build** (push doesn't work in Expo Go).
-Walking the client through EAS setup, Android first.
 
-**Status as of 2026-09-15, mid-EAS-setup — resume here:**
+**Status as of 2026-09-15 — resume here:**
 
 - [x] `push_tokens` table migration written AND run by the client
       (`20260920000000_push_tokens.sql`) — `user_id` + `device_id` (a device
@@ -65,39 +64,55 @@ Walking the client through EAS setup, Android first.
       `expo-image-picker`'s own `AndroidManifest.xml` only requires
       `CAMERA` + legacy storage permissions, not audio. Pushed as `f3ce32a`.
       A handyman app asking for microphone access at the install prompt
-      looked bad to the client. **Confirm image picking still works once
-      the next dev build is installed on a device** — removal was verified
-      by reading source, not by running the built app yet.
-- [ ] **Build `cfdbf5fe-7f24-4dc2-8923-aabad58814a3` triggered 2026-09-15
-      from HEAD (`2e391ac`, includes the lockfile fix + RECORD_AUDIO
-      removal) — check status with `eas build:list` or
-      `eas build:view cfdbf5fe-7f24-4dc2-8923-aabad58814a3` before doing
-      anything else.** This one was verified locally to get past the
-      Install Dependencies step (see above) — if it still fails, it'll
-      be a *different* error further along (e.g. gradle/native build),
-      not the npm ci issue. Logs:
-      https://expo.dev/accounts/abdieljuan/projects/HandymanPR/builds/cfdbf5fe-7f24-4dc2-8923-aabad58814a3
-      (previous failed attempts, for reference:
-      `d43d5dbe-0910-46d0-ab39-a7d9c3dc9f08`,
-      `9868db1a-d4ea-47f2-bc8b-697a2286e88b`,
-      `566b4ca1-d968-4824-9044-fda06ce57bdf`.)
-- [ ] Client downloads/installs the resulting `.apk`, confirms: (a) a row
-      lands in `push_tokens` after logging in on the dev build, (b) the
-      photo picker on post-job / edit-job still works without the
-      RECORD_AUDIO permission.
-- [ ] **Only after that's confirmed working**: build the actual
-      notify-handymen-on-job-post trigger — deliberately not started yet,
-      no point wiring sends before a token can be confirmed to round-trip.
-      Then: new bid on your job (client), bid accepted/rejected (handyman),
-      new message (both). Respect the 15-minute subscriber head start
-      (mirrors `jobs.visible_to_free_at`) for the job-post notification.
-- [ ] Sending mechanism still undecided: likely a Supabase Edge Function or
-      a DB trigger using `pg_net` to call Expo's push API directly, triggered
-      on `jobs`/`bids`/`job_messages` insert or `bids` status update. Decide
-      once there's a real device+token to test against.
+      looked bad to the client. **Confirmed working** — client tested the
+      photo picker on the dev build after this landed, no regression.
+- [x] Build `cfdbf5fe-7f24-4dc2-8923-aabad58814a3` finished successfully —
+      APK installed and ran on a physical Android device via a tunnel
+      (`expo start --dev-client --tunnel`, needed `@expo/ngrok` installed
+      as a dev dep since the client was on cellular, not the same Wi-Fi).
+- [x] Client tested on two Android devices: chat, My Bids, Your Jobs, and
+      the photo picker (post-RECORD_AUDIO-removal) all confirmed working.
+      **Push notifications confirmed NOT working** — tested 4 jobs across
+      subscribed/unsubscribed, foreground/background, two devices. Root
+      cause confirmed: **the sending half never existed** — no Edge
+      Function, no trigger, nothing ever called Expo's push API. Only the
+      registration half (`push_tokens` table + `registerForPushNotifications`)
+      was built. Built the sending half in `ea5cc41` — see below.
+- [ ] **Not yet confirmed: does a row actually land in `push_tokens`?**
+      Nobody has checked the table directly yet. Run this in the Supabase
+      SQL Editor to check:
+      ```sql
+      select user_id, device_id, platform, created_at, updated_at
+      from push_tokens order by created_at desc;
+      ```
+      If it's empty despite the client having granted notification
+      permission and logged in on the dev build, `registerForPushNotifications()`
+      is failing silently — it now logs the error via `console.error`
+      (fixed in `ea5cc41`, previously swallowed silently), so check Metro
+      logs on the next login too.
+- [x] **Sending half built** (`ea5cc41`,
+      `20260922000000_push_notifications_send.sql`) — sends go straight
+      from Postgres via `pg_net` rather than a deployed Edge Function (no
+      Supabase CLI auth set up here, and every other schema change ships
+      by hand through the SQL Editor already). Four triggers: new bid ->
+      notify client, bid accepted/rejected -> notify handyman, new message
+      -> notify the other party, new job posted -> notify matching
+      handymen (subscribed immediately, free-tier via a once-a-minute
+      `pg_cron` job once the 15-minute `visible_to_free_at` head start
+      passes).
+- [ ] **Before running the migration**: enable the `pg_net` and `pg_cron`
+      extensions via Database -> Extensions in the Supabase dashboard —
+      Supabase blocks enabling those two straight from the SQL Editor.
+      Then run `20260922000000_push_notifications_send.sql` in the SQL
+      Editor like every other migration so far.
+- [ ] **Once the migration's run and a `push_tokens` row is confirmed**:
+      test each of the four notification types end to end on the dev
+      build (bid a job, accept/reject a bid, send a message, post a
+      matching job) and confirm the push actually arrives.
 - [ ] Consider a read/unread or "last notified" marker for messages so a
       long conversation doesn't re-notify on every message if the app's in
-      foreground already — not in the schema today.
+      foreground already — not in the schema today, not built (deliberately
+      out of scope until the above is confirmed working end to end).
 
 ## Then: job completion + reviews
 
@@ -115,6 +130,12 @@ Walking the client through EAS setup, Android first.
       returns to open, or client can repost. Nobody gets reviewed. Record
       the cancellation per account (new column/table — schema doesn't track
       this yet) but don't surface it publicly.
+      **Partially done**: both sides can now actually cancel a hired job
+      (client could already; handyman side added 2026-09-15 via
+      `cancel_job_as_handyman()`, `373938f`) — but it only sets
+      `status = 'cancelled'`. Still missing: returning the job to `open`
+      instead of a dead end, letting the client repost, and the
+      per-account cancellation record for reputation tracking.
 - [ ] **Job expiry**: a job with no bids expires after a set period; ask the
       client whether to renew (Facebook Marketplace pattern). No expiry
       column or job exists for this yet — needs a `expires_at` (or similar)
@@ -165,9 +186,6 @@ Walking the client through EAS setup, Android first.
   view," not a real delete, since bids stay tied to job history.
 - Sorting/filtering on the handyman job feed beyond pueblo/trade (added
   2026-09-19) — e.g. sort by price/date.
-- Pull-to-refresh on any screen beyond the one it was originally built for
-  (Your Jobs) — client home already has it; every other list refetches on
-  focus instead, which was judged sufficient.
 
 ## Done (for context, not a task list)
 
@@ -180,8 +198,12 @@ job+handyman, opens before bidding, Realtime), handyman public profile
 gap below), Storage buckets for job-photos/avatars/portfolio-photos/
 certifications (job-photos bucket confirmed public + policies fixed
 2026-09-15 — it was never actually created before that, hence "Bucket not
-found" errors), and a `JobPhoto` component that shows a visible "failed to
-load" message instead of a silent black box on any remote job photo.
+found" errors), a `JobPhoto` component that shows a visible "failed to
+load" message instead of a silent black box on any remote job photo,
+keyboard-avoiding on every text-field screen (chat, sign-in, sign-up,
+forgot-password, post-job, job edit, bid form — `KeyboardAvoidingScreen`
+shared component, `fc7f390`), pull-to-refresh on every list screen
+(`4fc0e63`), and a handyman being able to cancel a hired job (`373938f`).
 
 ---
 
