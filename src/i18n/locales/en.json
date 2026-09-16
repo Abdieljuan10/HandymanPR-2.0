@@ -174,7 +174,8 @@
     "pending": "Pending",
     "accepted": "Accepted",
     "rejected": "Not selected",
-    "withdrawn": "Withdrawn"
+    "withdrawn": "Withdrawn",
+    "cancelled": "Cancelled"
   },
   "myBid": {
     "title": "Your Bid",
@@ -186,8 +187,8 @@
     "confirmWithdrawMessage": "The client will no longer see your offer, and you won't be able to bid on this job again.",
     "cancelJob": "Cancel Job",
     "confirmCancelJobTitle": "Cancel this job?",
-    "confirmCancelJobMessage": "This will end the job as cancelled for both you and the client. This can't be undone.",
-    "jobCancelledMessage": "This job was cancelled."
+    "confirmCancelJobMessage": "This will end your hire and reopen the job so the client can get new bids. This can't be undone.",
+    "jobCancelledMessage": "This job was cancelled — you're no longer hired, and it's open again for new bids."
   },
   "bids": {
     "title": "Bids",
@@ -256,7 +257,7 @@
     "confirmDeleteTitle": "Delete this job?",
     "confirmDeleteMessage": "This job has no accepted bid yet, so it can be deleted permanently. This can't be undone.",
     "confirmCancelTitle": "Cancel this job?",
-    "confirmCancelMessage": "You've already hired a handyman for this job. Cancelling won't delete it, but it will end the job as cancelled for both of you.",
+    "confirmCancelMessage": "You've already hired a handyman for this job. Cancelling will end the hire and reopen the job so you can get new bids.",
     "confirm": "Confirm",
     "cancelDialog": "Never mind",
     "error": "Couldn't do that — the job may no longer be in a state that allows it."

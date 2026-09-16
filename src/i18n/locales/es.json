@@ -174,7 +174,8 @@
     "pending": "Pendiente",
     "accepted": "Aceptada",
     "rejected": "No seleccionada",
-    "withdrawn": "Retirada"
+    "withdrawn": "Retirada",
+    "cancelled": "Cancelada"
   },
   "myBid": {
     "title": "Tu Oferta",
@@ -186,8 +187,8 @@
     "confirmWithdrawMessage": "El cliente ya no verá tu oferta, y no podrás volver a ofertar en este trabajo.",
     "cancelJob": "Cancelar Trabajo",
     "confirmCancelJobTitle": "¿Cancelar este trabajo?",
-    "confirmCancelJobMessage": "Esto terminará el trabajo como cancelado para ti y para el cliente. Esto no se puede deshacer.",
-    "jobCancelledMessage": "Este trabajo fue cancelado."
+    "confirmCancelJobMessage": "Esto terminará tu contrato y reabrirá el trabajo para que el cliente reciba nuevas ofertas. Esto no se puede deshacer.",
+    "jobCancelledMessage": "Este trabajo fue cancelado — ya no estás contratado, y está abierto de nuevo para nuevas ofertas."
   },
   "bids": {
     "title": "Ofertas",
@@ -256,7 +257,7 @@
     "confirmDeleteTitle": "¿Eliminar este trabajo?",
     "confirmDeleteMessage": "Este trabajo todavía no tiene una oferta aceptada, así que se puede eliminar permanentemente. Esto no se puede deshacer.",
     "confirmCancelTitle": "¿Cancelar este trabajo?",
-    "confirmCancelMessage": "Ya contrataste a un técnico para este trabajo. Cancelarlo no lo eliminará, pero terminará el trabajo como cancelado para ambos.",
+    "confirmCancelMessage": "Ya contrataste a un técnico para este trabajo. Cancelarlo terminará el contrato y reabrirá el trabajo para que recibas nuevas ofertas.",
     "confirm": "Confirmar",
     "cancelDialog": "No, mejor no",
     "error": "No se pudo hacer eso — es posible que el trabajo ya no esté en un estado que lo permita."

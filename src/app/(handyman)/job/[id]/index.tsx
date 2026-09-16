@@ -31,7 +31,7 @@ type MyBidRow = {
   id: string;
   price: number;
   note: string | null;
-  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'cancelled';
 };
 
 export default function HandymanJobDetailScreen() {
@@ -185,14 +185,14 @@ export default function HandymanJobDetailScreen() {
     setCancelling(true);
     setCancelError(null);
 
-    const { error } = await supabase.rpc('cancel_job_as_handyman', { p_job_id: id });
+    const { error } = await supabase.rpc('cancel_hired_job', { p_job_id: id });
     setCancelling(false);
 
     if (error) {
       setCancelError(t('jobDelete.error'));
       return;
     }
-    setJob({ ...job, status: 'cancelled' });
+    setJob({ ...job, status: 'open' });
   }
 
   async function handleMessage() {
@@ -299,6 +299,11 @@ export default function HandymanJobDetailScreen() {
               {myBid.status === 'rejected' && (
                 <ThemedText type="small" themeColor="textSecondary">
                   {t('myBid.rejectedMessage')}
+                </ThemedText>
+              )}
+              {myBid.status === 'cancelled' && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t('myBid.jobCancelledMessage')}
                 </ThemedText>
               )}
               {withdrawError && (

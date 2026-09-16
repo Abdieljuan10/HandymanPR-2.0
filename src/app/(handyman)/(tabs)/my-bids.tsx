@@ -14,12 +14,12 @@ import { formatRelativeTime } from '@/utils/relative-time';
 type MyBidRow = {
   id: string;
   price: number;
-  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'cancelled';
   created_at: string;
   jobs: {
     id: string;
     title: string;
-    status: 'open' | 'hired' | 'completed' | 'cancelled';
+    status: 'open' | 'hired' | 'completed' | 'cancelled' | 'expired';
     pueblos: { name: string } | null;
   } | null;
 };
@@ -74,10 +74,16 @@ export default function MyBidsScreen() {
 
   const sections = useMemo<Section[]>(() => {
     if (!bids) return [];
-    // An accepted bid whose job was later cancelled isn't "still accepted"
+    // A bid whose job was cancelled after being hired isn't "still accepted"
     // from the handyman's point of view — it needs its own section rather
-    // than sitting under "Accepted" looking like an active hire.
-    const jobCancelled = bids.filter((b) => b.status === 'accepted' && b.jobs?.status === 'cancelled');
+    // than sitting under "Accepted" looking like an active hire. bid.status
+    // = 'cancelled' is the ground-truth marker going forward (the job
+    // itself reopens to 'open', it doesn't stay 'cancelled'); the job-status
+    // check alongside it only still matters for jobs cancelled before this
+    // distinction existed, which are stuck at status = 'cancelled' for good.
+    const jobCancelled = bids.filter(
+      (b) => b.status === 'cancelled' || (b.status === 'accepted' && b.jobs?.status === 'cancelled')
+    );
     const accepted = bids.filter((b) => b.status === 'accepted' && b.jobs?.status !== 'cancelled');
     const pending = bids.filter((b) => b.status === 'pending');
     const closed = bids.filter((b) => b.status === 'rejected' || b.status === 'withdrawn');

@@ -28,7 +28,7 @@ type BidRow = {
   id: string;
   price: number;
   note: string | null;
-  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'cancelled';
   created_at: string;
   handyman_profiles: { id: string; full_name: string } | null;
 };
@@ -144,7 +144,7 @@ export default function JobDetailScreen() {
     setRemoving(true);
     setRemoveError(null);
 
-    const { error } = await supabase.from('jobs').update({ status: 'cancelled' }).eq('id', id);
+    const { error } = await supabase.rpc('cancel_hired_job', { p_job_id: id });
     setRemoving(false);
 
     if (error) {
@@ -154,6 +154,7 @@ export default function JobDetailScreen() {
     const result = await fetchAll();
     if (result) {
       setJob((result.jobResult.data as JobDetailRow | null) ?? null);
+      setBids((result.bidsResult.data as BidRow[] | null) ?? []);
     }
   }
 

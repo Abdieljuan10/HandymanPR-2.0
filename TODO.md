@@ -10,8 +10,8 @@ job expiry done first, cancellation's dead-end gap finished alongside it,
 then completion + blind reviews. Working through it in four phases:
 1. Job expiry — **DONE, confirmed end-to-end on 2026-09-16** (expired,
    pushed, showed Renew button, renewed back to open) — see below.
-2. Finish cancellation (return to open + per-account record) — **starting
-   now, resume here.**
+2. Finish cancellation (return to open + per-account record) —
+   **migration written, not yet run by the client — resume here.**
 3. Mutual agreed date — not started.
 4. Job completion + blind reviews — not started.
 
@@ -178,24 +178,36 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       when it actually expired. Low-effort fix later — swap
       `formatRelativeTime(job.created_at, ...)` for `expires_at` on the
       expired-status line specifically.
-- [ ] **Finish cancellation**: either side can cancel before the agreed
-      date; job returns to `open` (not a dead end) so it's back in the feed
-      for new bids — this doubles as "repost," no separate repost flow
-      needed. Record the cancellation per account privately (not surfaced
-      publicly yet).
-      **Partially done today**: both sides can cancel a hired job (client
-      could already; handyman side added 2026-09-15 via
-      `cancel_job_as_handyman()`, `373938f`) — but it only sets
-      `status = 'cancelled'`, a dead end. Still to do: a
-      `cancel_hired_job()` RPC replacing `cancel_job_as_handyman` that
-      reopens the job, clears `hired_bid_id`/agreed-date fields, marks the
-      old winning bid `'cancelled'` (new `bid_status` value), and logs to a
-      new `job_cancellations` table (RLS on, zero select policies — admin-
-      only via Table Editor, nothing public). Also needs a real bug fix
-      while touching this: `enforce_bid_insert`'s bid-cap count currently
-      uses `status <> 'withdrawn'`, so old `rejected` bids would still count
-      against `max_bids` on a reopened job and block all new bids —
-      changing that count to `status = 'pending'`.
+- [x] **Finish cancellation — migration written
+      (`20260924000000_job_cancellation_reopen.sql`), not yet run by the
+      client.** Either side can cancel a hired job; it now returns to
+      `open` (not a dead end) so it's back in the feed for new bids — this
+      doubles as "repost," no separate repost flow needed. The cancellation
+      is recorded per account privately (not surfaced publicly).
+      Replaced `cancel_job_as_handyman()` (both sides used different code
+      paths before — client did a plain `.update()`, handyman had its own
+      RPC) with one unified `cancel_hired_job()` usable by either party:
+      reopens the job, clears `hired_bid_id`, marks the old winning bid
+      `'cancelled'` (new `bid_status` value, distinct from `'rejected'`),
+      logs to a new `job_cancellations` table (RLS on, zero select
+      policies — admin-only via Table Editor, nothing public), and pushes
+      the other party. **Ordering note**: this ships before Phase 3 exists,
+      so it can't yet clear `agreed_date`/`proposed_date`/`proposed_by` on
+      cancel — Phase 3's migration must `create or replace` this same
+      function to also clear those columns once they exist.
+      Also fixed a real bug this reopen would've hit immediately:
+      `enforce_bid_insert`'s bid-cap count used `status <> 'withdrawn'`, so
+      old `rejected` bids from before the job was hired would still count
+      against `max_bids` once reopened — a job that was already at its cap
+      would block every new bid. Fixed to count only `status = 'pending'`.
+      **Note**: jobs cancelled under the old dead-end behavior (before this
+      migration) stay at `status = 'cancelled'` for good — this doesn't
+      retroactively reopen historical data, only changes what happens going
+      forward. App side (both job-detail screens, My Bids sections,
+      en/es i18n) updated to match; `npx tsc --noEmit` clean. **Resume
+      here**: run this migration, then test — cancel a hired job as each
+      side once, confirm it reopens and a *new* bidder can bid on it
+      (that's the bid-cap bug check).
 - [ ] **Mutual agreed date** (minimal — deliberately NOT full scheduling,
       see "Then: scheduling" below, kept as its own later feature by
       request 2026-09-16): client proposes a date after hiring, handyman
