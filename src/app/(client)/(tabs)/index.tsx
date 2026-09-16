@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
 import { formatRelativeTime } from '@/utils/relative-time';
 
-type JobStatus = 'open' | 'hired' | 'completed' | 'cancelled';
+type JobStatus = 'open' | 'hired' | 'completed' | 'cancelled' | 'expired';
 
 type ClientJobRow = {
   id: string;
@@ -28,6 +28,7 @@ const STATUS_COLORS: Record<Exclude<JobStatus, 'open'>, string> = {
   hired: '#2e9e5b',
   completed: '#3c87f7',
   cancelled: '#d64545',
+  expired: '#9a9a9a',
 };
 
 const JOBS_SELECT = 'id, title, status, created_at, pueblos(name)';
@@ -95,11 +96,13 @@ export default function ClientHomeScreen() {
     const open = jobs.filter((job) => job.status === 'open');
     const completed = jobs.filter((job) => job.status === 'completed');
     const cancelled = jobs.filter((job) => job.status === 'cancelled');
+    const expired = jobs.filter((job) => job.status === 'expired');
 
     return [
       { key: 'hired', titleKey: 'clientHome.sections.hired', data: hired },
       { key: 'open', titleKey: 'clientHome.sections.open', data: open },
       { key: 'completed', titleKey: 'clientHome.sections.completed', data: completed },
+      { key: 'expired', titleKey: 'clientHome.sections.expired', data: expired },
       { key: 'cancelled', titleKey: 'clientHome.sections.cancelled', data: cancelled },
     ].filter((section) => section.data.length > 0);
   }, [jobs]);

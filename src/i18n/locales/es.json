@@ -61,6 +61,7 @@
       "hired": "Contratado",
       "open": "Abierto",
       "completed": "Completado",
+      "expired": "Expirado",
       "cancelled": "Cancelado"
     }
   },
@@ -77,7 +78,12 @@
     "open": "Abierto",
     "hired": "Contratado",
     "completed": "Completado",
-    "cancelled": "Cancelado"
+    "cancelled": "Cancelado",
+    "expired": "Expirado"
+  },
+  "jobExpiry": {
+    "expiredMessage": "Este trabajo no recibió contrataciones en 21 días y expiró. Renuévalo para que vuelva a ser visible.",
+    "renewButton": "Renovar Trabajo"
   },
   "handymanJobFeed": {
     "title": "Trabajos Disponibles",

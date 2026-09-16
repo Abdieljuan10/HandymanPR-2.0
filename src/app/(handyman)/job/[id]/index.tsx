@@ -21,7 +21,7 @@ type JobDetailRow = {
   client_id: string;
   title: string;
   description: string;
-  status: 'open' | 'hired' | 'completed' | 'cancelled';
+  status: 'open' | 'hired' | 'completed' | 'cancelled' | 'expired';
   created_at: string;
   pueblos: { name: string } | null;
   trades: { name_es: string; name_en: string } | null;

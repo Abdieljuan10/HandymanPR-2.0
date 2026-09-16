@@ -17,7 +17,7 @@ type JobDetailRow = {
   id: string;
   title: string;
   description: string;
-  status: 'open' | 'hired' | 'completed' | 'cancelled';
+  status: 'open' | 'hired' | 'completed' | 'cancelled' | 'expired';
   max_bids: number;
   created_at: string;
   pueblos: { name: string } | null;
@@ -49,6 +49,8 @@ export default function JobDetailScreen() {
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [renewing, setRenewing] = useState(false);
+  const [renewError, setRenewError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!id) return null;
@@ -155,6 +157,24 @@ export default function JobDetailScreen() {
     }
   }
 
+  async function handleRenew() {
+    if (!id) return;
+    setRenewing(true);
+    setRenewError(null);
+
+    const { error } = await supabase.rpc('renew_job', { p_job_id: id });
+    setRenewing(false);
+
+    if (error) {
+      setRenewError(t('jobDelete.error'));
+      return;
+    }
+    const result = await fetchAll();
+    if (result) {
+      setJob((result.jobResult.data as JobDetailRow | null) ?? null);
+    }
+  }
+
   if (job === undefined) {
     return (
       <ThemedView style={styles.container}>
@@ -227,6 +247,20 @@ export default function JobDetailScreen() {
               loading={removing}
               onPress={confirmRemoveJob}
             />
+          )}
+
+          {job.status === 'expired' && (
+            <ThemedView type="backgroundElement" style={styles.addressBox}>
+              <ThemedText type="default" themeColor="textSecondary">
+                {t('jobExpiry.expiredMessage')}
+              </ThemedText>
+              {renewError && (
+                <ThemedText type="small" style={styles.error}>
+                  {renewError}
+                </ThemedText>
+              )}
+              <PrimaryButton label={t('jobExpiry.renewButton')} loading={renewing} onPress={handleRenew} />
+            </ThemedView>
           )}
 
           <ThemedText type="smallBold" style={styles.bidsTitle}>

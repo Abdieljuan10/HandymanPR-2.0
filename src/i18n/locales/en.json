@@ -61,6 +61,7 @@
       "hired": "Hired",
       "open": "Open",
       "completed": "Completed",
+      "expired": "Expired",
       "cancelled": "Cancelled"
     }
   },
@@ -77,7 +78,12 @@
     "open": "Open",
     "hired": "Hired",
     "completed": "Completed",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "expired": "Expired"
+  },
+  "jobExpiry": {
+    "expiredMessage": "This job got no hires within 21 days and expired. Renew it to make it visible again.",
+    "renewButton": "Renew Job"
   },
   "handymanJobFeed": {
     "title": "Job Feed",

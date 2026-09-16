@@ -2,8 +2,18 @@
 
 Order set by the client (2026-09-15): **push notifications → chat → job
 completion + reviews → scheduling → portfolio/certs/subscriptions → visual
-polish.** Chat and push notifications are both done now (see below) — **job
-completion + reviews is next.**
+polish.** Chat and push notifications are both done now (see below).
+
+**Job completion + reviews, refined 2026-09-16**: client wants a *minimal*
+agreed-date field (not full scheduling — see "Then: agreed date" below),
+job expiry done first, cancellation's dead-end gap finished alongside it,
+then completion + blind reviews. Working through it in four phases:
+1. Job expiry — **DONE, confirmed end-to-end on 2026-09-16** (expired,
+   pushed, showed Renew button, renewed back to open) — see below.
+2. Finish cancellation (return to open + per-account record) — **starting
+   now, resume here.**
+3. Mutual agreed date — not started.
+4. Job completion + blind reviews — not started.
 
 Whoever picks up a session on this repo: read this file first, and update it
 — move finished items to "Done", adjust anything that changed shape — before
@@ -134,33 +144,85 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
 
 ## Then: job completion + reviews
 
+- [x] **Job expiry — DONE, confirmed end-to-end on 2026-09-16.** A job with
+      no accepted bid expires 21 days after posting (or after a renewal), so
+      dead listings don't pile up. `20260923000000_job_expiry.sql` — adds
+      `jobs.expires_at` (default now+21 days, backfills existing open jobs),
+      adds `'expired'` to `job_status`, an `expire_stale_jobs()` function
+      that flips stale jobs and pushes the client, on an hourly `pg_cron`
+      schedule. No RLS changes needed — the existing `status = 'open'`
+      filters (feed query + `jobs_select` policy) already drop expired jobs
+      out for free. Client tested on-device: job expired, push arrived,
+      Expired status + Renew button showed, renewing returned it to Open.
+      Renew button + `expired` status/section on both job-detail screens and
+      the client's Your Jobs list, en/es i18n added.
+      **Follow-up after on-device testing** (`20260923010000_job_renewal_notify.sql`,
+      not yet run): renewing now also re-notifies matching handymen — not
+      just reopens silently — since some may have joined that pueblo/trade
+      or started paying attention in the 21 days since the original post.
+      This needed a real `renew_job()` RPC (not the plain client-side update
+      renewal used at first) because it has to reset the 15-minute
+      subscriber head start (`visible_to_free_at`) and clear
+      `free_tier_notified_at` so the existing once-a-minute
+      `notify_free_tier_new_jobs()` cron picks the job up again for
+      free-tier handymen, plus send the immediate subscribed-handyman push
+      itself (mirrors `notify_subscribed_new_job()`'s query). Deliberately
+      does **not** touch `created_at` — no feed-order boost for a renewed
+      job; promoted placement is a paid feature for later, not something
+      renewal should give away. Also improved the expiry push copy itself
+      to nudge the client toward fixing *why* it got no bids (photos/detail)
+      rather than just offering to re-list as-is.
+      **Known minor cosmetic issue, deliberately not fixed yet** (client
+      called it low priority): on an expired job, the timestamp shown is
+      the job's original posting age ("Expired · 22 hours ago") rather than
+      when it actually expired. Low-effort fix later — swap
+      `formatRelativeTime(job.created_at, ...)` for `expires_at` on the
+      expired-status line specifically.
+- [ ] **Finish cancellation**: either side can cancel before the agreed
+      date; job returns to `open` (not a dead end) so it's back in the feed
+      for new bids — this doubles as "repost," no separate repost flow
+      needed. Record the cancellation per account privately (not surfaced
+      publicly yet).
+      **Partially done today**: both sides can cancel a hired job (client
+      could already; handyman side added 2026-09-15 via
+      `cancel_job_as_handyman()`, `373938f`) — but it only sets
+      `status = 'cancelled'`, a dead end. Still to do: a
+      `cancel_hired_job()` RPC replacing `cancel_job_as_handyman` that
+      reopens the job, clears `hired_bid_id`/agreed-date fields, marks the
+      old winning bid `'cancelled'` (new `bid_status` value), and logs to a
+      new `job_cancellations` table (RLS on, zero select policies — admin-
+      only via Table Editor, nothing public). Also needs a real bug fix
+      while touching this: `enforce_bid_insert`'s bid-cap count currently
+      uses `status <> 'withdrawn'`, so old `rejected` bids would still count
+      against `max_bids` on a reopened job and block all new bids —
+      changing that count to `status = 'pending'`.
+- [ ] **Mutual agreed date** (minimal — deliberately NOT full scheduling,
+      see "Then: scheduling" below, kept as its own later feature by
+      request 2026-09-16): client proposes a date after hiring, handyman
+      confirms; either side can propose a change, the other confirms.
+      Mutual by construction — `confirm_job_date()` rejects confirming your
+      own proposal — so neither side can set the date unilaterally (a
+      handyman delaying to dodge a bad review, or a client backdating to
+      review early). `jobs.agreed_date`/`proposed_date`/`proposed_by`, plus
+      `propose_job_date()`/`confirm_job_date()` RPCs. Date input is JS-only
+      (three linked month/day/year `FormField`s, validated as a real
+      calendar date) — deliberately not a native date-picker dependency,
+      to avoid another EAS build cycle; can upgrade to a native picker later
+      during the UI redesign pass if a rebuild is happening anyway.
 - [ ] **Job completion**: after the agreed date, either side can mark the
-      job complete. This is what unlocks reviews.
+      job complete via `mark_job_complete()` (gated on `agreed_date` being
+      set and having passed). This is what unlocks reviews.
 - [ ] **Reviews (blind, like Trusted Housesitters)**: both sides write after
       the job date; neither sees the other's review until both have
-      submitted, or a window closes (~5–7 days) — then they publish
-      together. `reviews` table already exists (author/subject resolved
-      server-side via `set_review_parties`, one review per job per role) —
-      no UI at all yet, and the "blind until both submit or window closes"
-      logic isn't in the trigger yet (it currently publishes immediately on
-      insert with no gating).
-- [ ] **Cancellation**: either side can cancel before the agreed date; job
-      returns to open, or client can repost. Nobody gets reviewed. Record
-      the cancellation per account (new column/table — schema doesn't track
-      this yet) but don't surface it publicly.
-      **Partially done**: both sides can now actually cancel a hired job
-      (client could already; handyman side added 2026-09-15 via
-      `cancel_job_as_handyman()`, `373938f`) — but it only sets
-      `status = 'cancelled'`. Still missing: returning the job to `open`
-      instead of a dead end, letting the client repost, and the
-      per-account cancellation record for reputation tracking.
-- [ ] **Job expiry**: a job with no bids expires after a set period; ask the
-      client whether to renew (Facebook Marketplace pattern). No expiry
-      column or job exists for this yet — needs a `expires_at` (or similar)
-      on `jobs` plus a scheduled check.
-- [ ] Note: "the agreed date" implies jobs need a scheduled/agreed date
-      field, which doesn't exist yet — likely arrives with Scheduling below,
-      but completion/cancellation logic depends on it existing first.
+      submitted, or a 7-day window closes — then whatever exists publishes.
+      `reviews` table already exists (author/subject resolved server-side
+      via `set_review_parties`, one review per job per role) — needs a new
+      `published_at` column, a rewritten `reviews_select` policy (visible
+      once published, or always to your own review), a trigger that
+      publishes both once both exist, and a daily cron
+      (`publish_expired_review_windows()`) for the 7-day force-publish path.
+      Still no UI at all — needs a review-submission screen and a status
+      view on the job detail screen.
 
 ## Then: scheduling
 
@@ -204,6 +266,11 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
   \`onResponderTerminate\`. It will be ignored.` in the browser console.
   Doesn't happen in the native app (Android/iOS) — cosmetic console noise
   on web only, found 2026-09-16 while testing push notifications.
+- An expired job's status line shows the job's original posting age
+  ("Expired · 22 hours ago") instead of when it actually expired — both
+  client and handyman job-detail screens use `formatRelativeTime(job.created_at, ...)`
+  for that line regardless of status. Client flagged it as low priority,
+  found 2026-09-16.
 
 ## Parked (explicitly not now, don't build without asking)
 
