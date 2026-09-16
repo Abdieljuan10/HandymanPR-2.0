@@ -264,9 +264,8 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       only while `status === 'hired'`. Can upgrade to a native picker later
       during the UI redesign pass if a rebuild is happening anyway — the DB
       side doesn't care how the date was collected.
-- [x] **Job completion is mutual, like the agreed date — migration written
-      (`20260927000000_mutual_job_completion.sql`), app side wired up, not
-      yet run or tested by the client.** Original version (below) let
+- [x] **Job completion is mutual, like the agreed date — migration written,
+      app side wired up, not yet run or tested by the client.** Original version (below) let
       either side mark a job complete alone, which started the review
       window and locked the job with no undo — flagged by the client as a
       real risk (a handyman marking a job done that wasn't, or a client
@@ -293,18 +292,42 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       switches on job status (client Your Jobs sections, handyman My Bids
       job-status union) — it gets its own section on Your Jobs, same
       treatment as `expired`. `npx tsc --noEmit` clean.
+      **Migration bug found on-device, fixed**: the first version of this
+      migration (`20260927000000_mutual_job_completion.sql`) put
+      `alter type job_status add value 'pending_completion'` in the same
+      script as the new columns/functions after it. Supabase's SQL Editor
+      runs a whole pasted script as one implicit transaction, and
+      `alter type ... add value` can't commit inside a transaction block
+      alongside other statements — it aborted the entire transaction,
+      silently rolling back *everything* in that file, including the enum
+      add itself. Every job (any status, not just pending_completion)
+      broke with "Job not found" client-side, because the job-detail
+      screens' fetch also wasn't checking `.error` on the query (fixed
+      separately, see below) — the real error was "column
+      jobs.completion_marked_by does not exist." Split into two files, now
+      committed to migrations and noted as a standing rule in `CLAUDE.md`:
+      1. `20260927000000_mutual_job_completion_enum.sql` — just the enum
+         add, run by itself.
+      2. `20260927000001_mutual_job_completion.sql` — everything else
+         (columns, the four completion RPCs, grants, the auto-confirm
+         cron) — run after file 1 commits.
+      **Also fixed while debugging**: both job-detail screens' job-fetch
+      queries only checked `.data`, never `.error` — a real Postgres/
+      PostgREST error rendered identically to a genuinely-missing job,
+      hiding the cause. Same silent-failure pattern as the cancellation
+      bug earlier. Now surfaces the real error text.
       **Resume here**: run `20260926000000_job_completion_reviews.sql`
       first if not already (adds `completed_at`/reviews plumbing), then
-      `20260927000000_mutual_job_completion.sql`. Test the full loop: mark
-      complete as one side, confirm the OTHER side sees confirm/dispute
-      (not the marker), confirm undo works for the marker while pending,
-      confirm dispute reopens to hired, then do a real confirm and check
-      reviews unlock — submit a review as each side, confirm neither sees
-      the other's until both are in. Separately test the 7-day
-      auto-confirm by backdating a test job's `completion_marked_at` in
-      Table Editor and running `select auto_confirm_stale_completions();`
-      directly, and the review-window force-publish the same way with
-      `completed_at` and `select publish_expired_review_windows();`.
+      the two files above in order. Test the full loop: mark complete as
+      one side, confirm the OTHER side sees confirm/dispute (not the
+      marker), confirm undo works for the marker while pending, confirm
+      dispute reopens to hired, then do a real confirm and check reviews
+      unlock — submit a review as each side, confirm neither sees the
+      other's until both are in. Separately test the 7-day auto-confirm by
+      backdating a test job's `completion_marked_at` in Table Editor and
+      running `select auto_confirm_stale_completions();` directly, and the
+      review-window force-publish the same way with `completed_at` and
+      `select publish_expired_review_windows();`.
       ~~Original one-sided version~~: after the agreed date, either side
       marks complete via `mark_job_complete()`, unlocking reviews
       immediately. Reviews (blind, like Trusted Housesitters): both sides

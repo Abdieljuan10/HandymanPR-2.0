@@ -1,5 +1,9 @@
 -- Run in Supabase Dashboard -> SQL Editor -> New query -> Run.
 --
+-- REQUIRES 20260927000000_mutual_job_completion_enum.sql to have already
+-- been run and committed on its own first -- this file's functions
+-- reference the 'pending_completion' enum value that adds.
+--
 -- Makes job completion mutual, like the agreed date: one side marks the
 -- job complete, the other gets a push and either confirms or disputes it.
 -- If they do nothing for 7 days, it auto-confirms. Reviews only unlock
@@ -18,11 +22,8 @@
 -- status = 'completed' to write a review, so reviews staying locked out
 -- during pending_completion needs no change there -- it's already correct.
 --
--- Safe to run more than once -- column/enum adds are guarded, every
--- function is create-or-replace, and the cron schedule is dropped and
--- recreated.
-
-alter type job_status add value if not exists 'pending_completion';
+-- Safe to run more than once -- column adds are guarded, every function
+-- is create-or-replace, and the cron schedule is dropped and recreated.
 
 alter table jobs add column if not exists completion_marked_by uuid references auth.users(id);
 alter table jobs add column if not exists completion_marked_at timestamptz;
