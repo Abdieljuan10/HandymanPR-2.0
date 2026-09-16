@@ -10,9 +10,11 @@ job expiry done first, cancellation's dead-end gap finished alongside it,
 then completion + blind reviews. Working through it in four phases:
 1. Job expiry — **DONE, confirmed end-to-end on 2026-09-16** (expired,
    pushed, showed Renew button, renewed back to open) — see below.
-2. Finish cancellation (return to open + per-account record) —
-   **migration written, not yet run by the client — resume here.**
-3. Mutual agreed date — not started.
+2. Finish cancellation (return to open + per-account record) — **DONE,
+   confirmed end-to-end on 2026-09-16** (reopened to Open, bid shows
+   Cancelled, notification arrived, cancellation logged, a new bid could be
+   placed on the reopened job) — see below.
+3. Mutual agreed date — **starting now, resume here.**
 4. Job completion + blind reviews — not started.
 
 Whoever picks up a session on this repo: read this file first, and update it
@@ -178,9 +180,10 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       when it actually expired. Low-effort fix later — swap
       `formatRelativeTime(job.created_at, ...)` for `expires_at` on the
       expired-status line specifically.
-- [x] **Finish cancellation — migration written
-      (`20260924000000_job_cancellation_reopen.sql`), not yet run by the
-      client.** Either side can cancel a hired job; it now returns to
+- [x] **Finish cancellation — DONE, confirmed end-to-end on 2026-09-16**
+      (job reopened to Open, bid shows Cancelled, notification arrived,
+      cancellation logged, a new bid could be placed on the reopened job).
+      Either side can cancel a hired job; it now returns to
       `open` (not a dead end) so it's back in the feed for new bids — this
       doubles as "repost," no separate repost flow needed. The cancellation
       is recorded per account privately (not surfaced publicly).
@@ -225,10 +228,6 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       (plus `handleDelete`/`handleRenew` on the client side) now appends
       the real Supabase error message instead of hiding it — worth keeping
       that pattern for future RPC error handling in this app.
-      **Resume here**: run `20260924000000_job_cancellation_reopen.sql`
-      (if not already) then `20260924010000_fix_cancel_bid_guard.sql`, then
-      retest — cancel a hired job as each side once, confirm it reopens
-      and a *new* bidder can bid on it (the bid-cap check).
 - [ ] **Mutual agreed date** (minimal — deliberately NOT full scheduling,
       see "Then: scheduling" below, kept as its own later feature by
       request 2026-09-16): client proposes a date after hiring, handyman
