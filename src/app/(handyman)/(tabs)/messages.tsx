@@ -1,7 +1,7 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Pressable, StyleSheet } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -22,26 +22,35 @@ export default function HandymanMessagesScreen() {
   const { t } = useTranslation();
   const { session } = useSession();
   const [conversations, setConversations] = useState<ConversationRow[] | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!session) return;
+    const { data } = await supabase
+      .from('job_conversations')
+      .select('id, created_at, jobs(title), client_profiles(full_name)')
+      .eq('handyman_id', session.user.id)
+      .order('created_at', { ascending: false });
+    setConversations((data as unknown as ConversationRow[] | null) ?? []);
+  }, [session]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!session) return;
       let isMounted = true;
-
-      supabase
-        .from('job_conversations')
-        .select('id, created_at, jobs(title), client_profiles(full_name)')
-        .eq('handyman_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .then(({ data }) => {
-          if (isMounted) setConversations((data as unknown as ConversationRow[] | null) ?? []);
-        });
-
+      load().then(() => {
+        if (!isMounted) return;
+      });
       return () => {
         isMounted = false;
       };
-    }, [session])
+    }, [load])
   );
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -57,6 +66,7 @@ export default function HandymanMessagesScreen() {
             data={conversations}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
             ListEmptyComponent={
               <ThemedText type="default" themeColor="textSecondary">
                 {t('conversation.listEmpty')}

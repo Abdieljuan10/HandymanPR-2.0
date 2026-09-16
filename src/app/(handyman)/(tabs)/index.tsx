@@ -1,7 +1,7 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Pressable, StyleSheet } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '@/components/primary-button';
@@ -35,26 +35,35 @@ export default function HandymanJobFeedScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterTradeIds, setFilterTradeIds] = useState<number[]>([]);
   const [filterPuebloSlugs, setFilterPuebloSlugs] = useState<string[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!session) return;
+    const { data } = await supabase
+      .from('jobs')
+      .select('id, title, created_at, trade_id, pueblo_id, pueblos(name), trades(name_es, name_en)')
+      .eq('status', 'open')
+      .order('created_at', { ascending: false });
+    setJobs((data as JobFeedRow[] | null) ?? []);
+  }, [session]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!session) return;
-
       let isMounted = true;
-      supabase
-        .from('jobs')
-        .select('id, title, created_at, trade_id, pueblo_id, pueblos(name), trades(name_es, name_en)')
-        .eq('status', 'open')
-        .order('created_at', { ascending: false })
-        .then(({ data }) => {
-          if (isMounted) setJobs((data as JobFeedRow[] | null) ?? []);
-        });
-
+      load().then(() => {
+        if (!isMounted) return;
+      });
       return () => {
         isMounted = false;
       };
-    }, [session])
+    }, [load])
   );
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }
 
   const filterPuebloIds = useMemo(() => {
     if (!pueblos || filterPuebloSlugs.length === 0) return null;
@@ -120,6 +129,7 @@ export default function HandymanJobFeedScreen() {
             data={filteredJobs}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
             ListEmptyComponent={
               <ThemedText type="default" themeColor="textSecondary">
                 {hasActiveFilters ? t('handymanJobFeed.emptyFiltered') : t('handymanJobFeed.empty')}
