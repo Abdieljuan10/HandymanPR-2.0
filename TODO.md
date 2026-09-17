@@ -17,10 +17,11 @@ then completion + blind reviews. Working through it in four phases:
 3. Mutual agreed date — **DONE, confirmed end-to-end on 2026-09-16**
    (propose, confirm, counter-propose, notifications both directions,
    proposer correctly can't confirm their own date) — see below.
-4. Job completion + blind reviews — **migration + app side written, not
-   yet run/tested by the client — resume here.** Revised 2026-09-17 so
-   completion is mutual (confirm/dispute/auto-confirm-after-7-days/undo),
-   like the agreed date — see below.
+4. Job completion + blind reviews — **migration split and run, schema
+   confirmed (6 enum values, 6 columns); full end-to-end flow not yet
+   tested — resume here.** Revised 2026-09-17 so completion is mutual
+   (confirm/dispute/auto-confirm-after-7-days/undo), like the agreed
+   date — see below.
 
 There's also an open bug report (date-proposal identity mixup, awaiting a
 fresh repro from the client) and a queued item (per-user language +
@@ -264,8 +265,9 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       only while `status === 'hired'`. Can upgrade to a native picker later
       during the UI redesign pass if a rebuild is happening anyway — the DB
       side doesn't care how the date was collected.
-- [x] **Job completion is mutual, like the agreed date — migration written,
-      app side wired up, not yet run or tested by the client.** Original version (below) let
+- [x] **Job completion is mutual, like the agreed date — migration split
+      and run, schema confirmed; full end-to-end flow not yet tested.**
+      Original version (below) let
       either side mark a job complete alone, which started the review
       window and locked the job with no undo — flagged by the client as a
       real risk (a handyman marking a job done that wasn't, or a client
@@ -311,14 +313,19 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       2. `20260927000001_mutual_job_completion.sql` — everything else
          (columns, the four completion RPCs, grants, the auto-confirm
          cron) — run after file 1 commits.
+      **Both files run 2026-09-17, schema confirmed**: 6 `job_status` enum
+      values, 6 new columns present. Standing rule for migrations like this
+      now documented in `CLAUDE.md`. Full functional testing (see "Resume
+      here" below) still outstanding.
       **Also fixed while debugging**: both job-detail screens' job-fetch
       queries only checked `.data`, never `.error` — a real Postgres/
       PostgREST error rendered identically to a genuinely-missing job,
       hiding the cause. Same silent-failure pattern as the cancellation
       bug earlier. Now surfaces the real error text.
-      **Resume here**: run `20260926000000_job_completion_reviews.sql`
-      first if not already (adds `completed_at`/reviews plumbing), then
-      the two files above in order. Test the full loop: mark complete as
+      **Resume here**: all three migrations run
+      (`20260926000000_job_completion_reviews.sql`, then the two split
+      files above), schema confirmed. Still need to test the full loop:
+      mark complete as
       one side, confirm the OTHER side sees confirm/dispute (not the
       marker), confirm undo works for the marker while pending, confirm
       dispute reopens to hired, then do a real confirm and check reviews
