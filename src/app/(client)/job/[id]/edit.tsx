@@ -1,5 +1,7 @@
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -15,6 +17,7 @@ import { ThemedView } from '@/components/themed-view';
 import { TradePicker } from '@/components/trade-picker';
 import { Spacing } from '@/constants/theme';
 import { usePueblos } from '@/hooks/use-pueblos';
+import { compressJobPhoto, jobPhotoStoragePath, MAX_JOB_PHOTOS } from '@/lib/job-photos';
 import { supabase } from '@/lib/supabase';
 
 const MIN_BIDS = 3;
@@ -32,12 +35,27 @@ type FieldErrors = {
   address?: string;
 };
 
+type InitialSnapshot = {
+  title: string;
+  description: string;
+  address: string;
+  tradeIds: number[];
+  puebloSlugs: string[];
+  maxBids: number;
+};
+
 export default function EditJobScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const navigation = useNavigation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { pueblos, error: pueblosError } = usePueblos();
   const scrollRef = useRef<ScrollView>(null);
+  // Set right before a successful Save calls router.back() — lets the
+  // unsaved-changes guard below wave that specific navigation through instead
+  // of prompting, without depending on state having re-rendered in time (the
+  // guard's callback reads this ref directly, not a value captured at render).
+  const justSavedRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState('');
@@ -46,11 +64,42 @@ export default function EditJobScreen() {
   const [tradeIds, setTradeIds] = useState<number[]>([]);
   const [puebloSlugs, setPuebloSlugs] = useState<string[]>([]);
   const [maxBids, setMaxBids] = useState(MIN_BIDS);
-  const [photos, setPhotos] = useState<{ id: string; photo_url: string }[]>([]);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  // Photos already saved to the job, as loaded from the DB.
+  const [existingPhotos, setExistingPhotos] = useState<{ id: string; photo_url: string }[]>([]);
+  // Ids of existingPhotos staged for removal — not deleted from Storage/the DB
+  // until Save Changes, so backing out without saving leaves them untouched.
+  const [removedPhotoIds, setRemovedPhotoIds] = useState<Set<string>>(new Set());
+  // Newly picked photos staged for upload — not uploaded until Save Changes,
+  // same reasoning as removedPhotoIds.
+  const [newPhotos, setNewPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const [initial, setInitial] = useState<InitialSnapshot | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const visibleExistingPhotos = existingPhotos.filter((p) => !removedPhotoIds.has(p.id));
+  const totalPhotoCount = visibleExistingPhotos.length + newPhotos.length;
+
+  const hasFieldChanges =
+    initial !== null &&
+    (title !== initial.title ||
+      description !== initial.description ||
+      address !== initial.address ||
+      maxBids !== initial.maxBids ||
+      tradeIds.join(',') !== initial.tradeIds.join(',') ||
+      puebloSlugs.join(',') !== initial.puebloSlugs.join(','));
+  const hasUnsavedChanges = hasFieldChanges || removedPhotoIds.size > 0 || newPhotos.length > 0;
+
+  usePreventRemove(hasUnsavedChanges, ({ data }) => {
+    if (justSavedRef.current) {
+      navigation.dispatch(data.action);
+      return;
+    }
+    Alert.alert(t('jobEdit.unsavedTitle'), t('jobEdit.unsavedMessage'), [
+      { text: t('jobEdit.keepEditing'), style: 'cancel' },
+      { text: t('jobEdit.discard'), style: 'destructive', onPress: () => navigation.dispatch(data.action) },
+    ]);
+  });
 
   useEffect(() => {
     if (!id || !pueblos) return;
@@ -67,16 +116,29 @@ export default function EditJobScreen() {
     ]).then(([jobResult, locationResult, photosResult]) => {
       if (!isMounted) return;
       const job = jobResult.data;
-      if (job) {
-        setTitle(job.title);
-        setDescription(job.description ?? '');
-        setTradeIds(job.trade_id ? [job.trade_id] : []);
-        const slug = pueblos.find((p) => p.id === job.pueblo_id)?.slug;
-        setPuebloSlugs(slug ? [slug] : []);
-        setMaxBids(job.max_bids);
-      }
-      setAddress(locationResult.data?.full_address ?? '');
-      setPhotos(photosResult.data ?? []);
+      const loadedTitle = job?.title ?? '';
+      const loadedDescription = job?.description ?? '';
+      const loadedTradeIds = job?.trade_id ? [job.trade_id] : [];
+      const loadedSlug = job ? pueblos.find((p) => p.id === job.pueblo_id)?.slug : undefined;
+      const loadedPuebloSlugs = loadedSlug ? [loadedSlug] : [];
+      const loadedMaxBids = job?.max_bids ?? MIN_BIDS;
+      const loadedAddress = locationResult.data?.full_address ?? '';
+
+      setTitle(loadedTitle);
+      setDescription(loadedDescription);
+      setTradeIds(loadedTradeIds);
+      setPuebloSlugs(loadedPuebloSlugs);
+      setMaxBids(loadedMaxBids);
+      setAddress(loadedAddress);
+      setExistingPhotos(photosResult.data ?? []);
+      setInitial({
+        title: loadedTitle,
+        description: loadedDescription,
+        address: loadedAddress,
+        tradeIds: loadedTradeIds,
+        puebloSlugs: loadedPuebloSlugs,
+        maxBids: loadedMaxBids,
+      });
       setLoading(false);
     });
 
@@ -86,7 +148,11 @@ export default function EditJobScreen() {
   }, [id, pueblos]);
 
   async function handlePickPhotos() {
-    if (!id) return;
+    if (totalPhotoCount >= MAX_JOB_PHOTOS) {
+      Alert.alert(t('postJob.photoLimitTitle'), t('postJob.photoLimit', { max: MAX_JOB_PHOTOS }));
+      return;
+    }
+
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return;
 
@@ -97,50 +163,21 @@ export default function EditJobScreen() {
     });
     if (result.canceled) return;
 
-    setUploadingPhoto(true);
-    let nextSortOrder = photos.length;
+    const remainingSlots = MAX_JOB_PHOTOS - totalPhotoCount;
+    const accepted = result.assets.slice(0, remainingSlots);
+    setNewPhotos((prev) => [...prev, ...accepted]);
 
-    for (const asset of result.assets) {
-      try {
-        const response = await fetch(asset.uri);
-        const arrayBuffer = await response.arrayBuffer();
-        const extension = asset.uri.split('.').pop() ?? 'jpg';
-        const path = `${id}/${Date.now()}-${nextSortOrder}.${extension}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('job-photos')
-          .upload(path, arrayBuffer, { contentType: asset.mimeType ?? 'image/jpeg' });
-
-        if (uploadError) {
-          console.warn('Photo upload failed:', uploadError.message);
-          continue;
-        }
-
-        const { data: publicUrl } = supabase.storage.from('job-photos').getPublicUrl(path);
-        const { data: row } = await supabase
-          .from('job_photos')
-          .insert({ job_id: id, photo_url: publicUrl.publicUrl, sort_order: nextSortOrder })
-          .select('id, photo_url')
-          .single();
-
-        if (row) setPhotos((prev) => [...prev, row]);
-        nextSortOrder += 1;
-      } catch (photoError) {
-        console.warn('Photo upload failed:', photoError);
-      }
+    if (result.assets.length > remainingSlots) {
+      Alert.alert(t('postJob.photoLimitTitle'), t('postJob.photoLimit', { max: MAX_JOB_PHOTOS }));
     }
-
-    setUploadingPhoto(false);
   }
 
-  async function handleRemovePhoto(photo: { id: string; photo_url: string }) {
-    setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+  function handleRemoveExistingPhoto(photoId: string) {
+    setRemovedPhotoIds((prev) => new Set(prev).add(photoId));
+  }
 
-    const path = storagePathFromJobPhotoUrl(photo.photo_url);
-    if (path) {
-      await supabase.storage.from('job-photos').remove([path]);
-    }
-    await supabase.from('job_photos').delete().eq('id', photo.id);
+  function handleRemoveNewPhoto(index: number) {
+    setNewPhotos((prev) => prev.filter((_, i) => i !== index));
   }
 
   function validate(): FieldErrors {
@@ -224,8 +261,50 @@ export default function EditJobScreen() {
       return;
     }
 
+    // Core fields saved — now apply the queued photo removals and additions.
+    await applyPhotoChanges(id);
+
     setSubmitting(false);
+    justSavedRef.current = true;
     router.back();
+  }
+
+  async function applyPhotoChanges(jobId: string) {
+    for (const photo of existingPhotos) {
+      if (!removedPhotoIds.has(photo.id)) continue;
+      const path = storagePathFromJobPhotoUrl(photo.photo_url);
+      if (path) {
+        await supabase.storage.from('job-photos').remove([path]);
+      }
+      await supabase.from('job_photos').delete().eq('id', photo.id);
+    }
+
+    let nextSortOrder = visibleExistingPhotos.length;
+    for (const asset of newPhotos) {
+      try {
+        const compressed = await compressJobPhoto(asset.uri, asset.width, asset.height);
+        const response = await fetch(compressed.uri);
+        const arrayBuffer = await response.arrayBuffer();
+        const path = jobPhotoStoragePath(jobId, nextSortOrder);
+
+        const { error: uploadError } = await supabase.storage
+          .from('job-photos')
+          .upload(path, arrayBuffer, { contentType: compressed.mimeType });
+
+        if (uploadError) {
+          console.warn('Photo upload failed:', uploadError.message);
+          continue;
+        }
+
+        const { data: publicUrl } = supabase.storage.from('job-photos').getPublicUrl(path);
+        await supabase
+          .from('job_photos')
+          .insert({ job_id: jobId, photo_url: publicUrl.publicUrl, sort_order: nextSortOrder });
+        nextSortOrder += 1;
+      } catch (photoError) {
+        console.warn('Photo upload failed:', photoError);
+      }
+    }
   }
 
   if (pueblosError) {
@@ -329,12 +408,29 @@ export default function EditJobScreen() {
             />
           </View>
 
-          <ThemedText type="smallBold">{t('postJob.photosLabel')}</ThemedText>
+          <View style={styles.photoLabelRow}>
+            <ThemedText type="smallBold">{t('postJob.photosLabel')}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {t('postJob.photoCount', { count: totalPhotoCount, max: MAX_JOB_PHOTOS })}
+            </ThemedText>
+          </View>
           <View style={styles.photoRow}>
-            {photos.map((photo) => (
+            {visibleExistingPhotos.map((photo) => (
               <View key={photo.id} style={styles.photoThumbWrapper}>
                 <JobPhoto uri={photo.photo_url} style={styles.photoThumb} />
-                <Pressable style={styles.removeBadge} onPress={() => handleRemovePhoto(photo)}>
+                <Pressable
+                  style={styles.removeBadge}
+                  onPress={() => handleRemoveExistingPhoto(photo.id)}>
+                  <ThemedText type="smallBold" style={styles.removeBadgeText}>
+                    ×
+                  </ThemedText>
+                </Pressable>
+              </View>
+            ))}
+            {newPhotos.map((asset, index) => (
+              <View key={asset.uri} style={styles.photoThumbWrapper}>
+                <Image source={{ uri: asset.uri }} style={styles.photoThumb} />
+                <Pressable style={styles.removeBadge} onPress={() => handleRemoveNewPhoto(index)}>
                   <ThemedText type="smallBold" style={styles.removeBadgeText}>
                     ×
                   </ThemedText>
@@ -342,12 +438,7 @@ export default function EditJobScreen() {
               </View>
             ))}
           </View>
-          <PrimaryButton
-            label={t('postJob.addPhotos')}
-            variant="secondary"
-            onPress={handlePickPhotos}
-            loading={uploadingPhoto}
-          />
+          <PrimaryButton label={t('postJob.addPhotos')} variant="secondary" onPress={handlePickPhotos} />
 
           {submitError && (
             <ThemedText type="small" style={styles.error}>
@@ -390,6 +481,11 @@ const styles = StyleSheet.create({
   },
   stepperButton: {
     width: 48,
+  },
+  photoLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   photoRow: {
     flexDirection: 'row',

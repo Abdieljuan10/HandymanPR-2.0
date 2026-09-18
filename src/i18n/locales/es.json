@@ -115,7 +115,10 @@
     "addressHint": "Solo se comparte con el técnico que contrates — todos los demás solo ven el pueblo.",
     "maxBidsLabel": "Máximo de Ofertas Permitidas",
     "photosLabel": "Fotos",
+    "photoCount": "{{count}}/{{max}}",
     "addPhotos": "Añadir Fotos",
+    "photoLimitTitle": "Límite de fotos alcanzado",
+    "photoLimit": "Puedes añadir hasta {{max}} fotos por trabajo.",
     "submit": "Publicar Trabajo",
     "posting": "Publicando...",
     "errors": {
@@ -199,7 +202,11 @@
   },
   "jobEdit": {
     "save": "Guardar Cambios",
-    "notAllowed": "No se pudo guardar — es posible que no tengas permiso para editar este trabajo, o que ya no exista."
+    "notAllowed": "No se pudo guardar — es posible que no tengas permiso para editar este trabajo, o que ya no exista.",
+    "unsavedTitle": "¿Descartar cambios?",
+    "unsavedMessage": "Tienes cambios sin guardar. Si sales ahora, se perderán.",
+    "keepEditing": "Seguir Editando",
+    "discard": "Descartar"
   },
   "bidForm": {
     "title": "Enviar una Oferta",

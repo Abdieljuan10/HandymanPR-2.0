@@ -16,6 +16,7 @@ import { ThemedView } from '@/components/themed-view';
 import { TradePicker } from '@/components/trade-picker';
 import { Spacing } from '@/constants/theme';
 import { usePueblos } from '@/hooks/use-pueblos';
+import { compressJobPhoto, jobPhotoStoragePath, MAX_JOB_PHOTOS } from '@/lib/job-photos';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
 
@@ -48,6 +49,11 @@ export default function PostJobScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   async function handlePickPhotos() {
+    if (photos.length >= MAX_JOB_PHOTOS) {
+      Alert.alert(t('postJob.photoLimitTitle'), t('postJob.photoLimit', { max: MAX_JOB_PHOTOS }));
+      return;
+    }
+
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return;
 
@@ -57,8 +63,14 @@ export default function PostJobScreen() {
       quality: 0.7,
     });
 
-    if (!result.canceled) {
-      setPhotos((prev) => [...prev, ...result.assets]);
+    if (result.canceled) return;
+
+    const remainingSlots = MAX_JOB_PHOTOS - photos.length;
+    const accepted = result.assets.slice(0, remainingSlots);
+    setPhotos((prev) => [...prev, ...accepted]);
+
+    if (result.assets.length > remainingSlots) {
+      Alert.alert(t('postJob.photoLimitTitle'), t('postJob.photoLimit', { max: MAX_JOB_PHOTOS }));
     }
   }
 
@@ -143,14 +155,14 @@ export default function PostJobScreen() {
 
     for (const [index, photo] of photos.entries()) {
       try {
-        const response = await fetch(photo.uri);
+        const compressed = await compressJobPhoto(photo.uri, photo.width, photo.height);
+        const response = await fetch(compressed.uri);
         const arrayBuffer = await response.arrayBuffer();
-        const extension = photo.uri.split('.').pop() ?? 'jpg';
-        const path = `${job.id}/${Date.now()}-${index}.${extension}`;
+        const path = jobPhotoStoragePath(job.id, index);
 
         const { error: uploadError } = await supabase.storage
           .from('job-photos')
-          .upload(path, arrayBuffer, { contentType: photo.mimeType ?? 'image/jpeg' });
+          .upload(path, arrayBuffer, { contentType: compressed.mimeType });
 
         if (uploadError) {
           console.warn('Photo upload failed:', uploadError.message);
@@ -276,7 +288,12 @@ export default function PostJobScreen() {
             />
           </View>
 
-          <ThemedText type="smallBold">{t('postJob.photosLabel')}</ThemedText>
+          <View style={styles.photoLabelRow}>
+            <ThemedText type="smallBold">{t('postJob.photosLabel')}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {t('postJob.photoCount', { count: photos.length, max: MAX_JOB_PHOTOS })}
+            </ThemedText>
+          </View>
           <View style={styles.photoRow}>
             {photos.map((photo, index) => (
               <View key={photo.uri} style={styles.photoThumbWrapper}>
@@ -336,6 +353,11 @@ const styles = StyleSheet.create({
   },
   stepperButton: {
     width: 48,
+  },
+  photoLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   photoRow: {
     flexDirection: 'row',

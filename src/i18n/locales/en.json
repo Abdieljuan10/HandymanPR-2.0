@@ -115,7 +115,10 @@
     "addressHint": "Only shared with the handyman you hire — everyone else only sees the pueblo.",
     "maxBidsLabel": "Max Bids Allowed",
     "photosLabel": "Photos",
+    "photoCount": "{{count}}/{{max}}",
     "addPhotos": "Add Photos",
+    "photoLimitTitle": "Photo limit reached",
+    "photoLimit": "You can add up to {{max}} photos per job.",
     "submit": "Post Job",
     "posting": "Posting...",
     "errors": {
@@ -199,7 +202,11 @@
   },
   "jobEdit": {
     "save": "Save Changes",
-    "notAllowed": "Couldn't save — you may not have permission to edit this job, or it no longer exists."
+    "notAllowed": "Couldn't save — you may not have permission to edit this job, or it no longer exists.",
+    "unsavedTitle": "Discard changes?",
+    "unsavedMessage": "You have unsaved changes. Leaving now will discard them.",
+    "keepEditing": "Keep Editing",
+    "discard": "Discard"
   },
   "bidForm": {
     "title": "Submit a Bid",
