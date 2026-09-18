@@ -26,8 +26,10 @@ then completion + blind reviews. Working through it in four phases:
 
 **Next, in priority order (set by the client 2026-09-17)** — see
 "## Next up" below: ~~notification deep-linking~~ (**DONE, confirmed
-end-to-end 2026-09-17**), branded Supabase signup email, per-user language
-+ bilingual notifications, unread badge on Messages, auth basics
+end-to-end 2026-09-17**), branded Supabase signup email, ~~per-user
+language + bilingual notifications~~ (**implemented 2026-09-18, migration
+not yet run, not yet tested — jumped ahead of the signup-email item to fill
+EAS build queue time**), unread badge on Messages, auth basics
 (show-password/confirm-password/change-password), tap-to-view job photos.
 
 There's also an open bug report (date-proposal identity mixup, awaiting a
@@ -403,12 +405,75 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
        copy, looks broken to a real user. Needs to be branded HandymanPR,
        Spanish by default. This is a dashboard change (Auth → Email
        Templates), not app code — hand the client exact steps/copy.
-3. [ ] **Per-user language + bilingual notifications** — see "Queued next"
-       below for the existing detail on this; now next in line after #1-2.
+3. [x] **Per-user language + bilingual notifications — implemented
+       2026-09-18, migration not yet run, not yet tested on-device.**
+       Two bugs: language was device-wide (a single AsyncStorage key), so
+       changing it on one account changed it for every other account signed
+       into the same device too; and every push notification was hardcoded
+       English regardless of the recipient's language, since nothing
+       persisted a user's language server-side.
+       Added a `language` column to `client_profiles`/`handyman_profiles`
+       (`20260928000000_per_user_language.sql`, not yet run). App side:
+       `LanguageProvider` now sits inside `SessionProvider` (needs the
+       resolved session/role) and reads/writes the signed-in user's own
+       profile row instead of one global key — AsyncStorage stays as the
+       source for the pre-login screens and an offline fallback.
+       `send_push_to_users()` now takes an `_es`/`_en` pair for every
+       title/body and picks per-recipient via a new `get_user_language()`
+       lookup (checks `client_profiles`, falls back to `handyman_profiles`,
+       defaults `'es'`). All 15 notification call sites translated: new bid,
+       bid accepted/rejected, new message, new job (immediate + free-tier +
+       renewed), job expired, job cancelled, date proposed/confirmed,
+       completion pending/confirmed/disputed/undone/auto-confirmed. Two of
+       those (new message, new/renewed job) carry user-generated text — a
+       message body, a job title — which stays as typed rather than being
+       "translated"; only the fixed copy around it (e.g. "New job near you")
+       is localized. Spanish dates render via a manual day/month-name/year
+       build rather than `to_char`'s locale-dependent month names, since a
+       Spanish locale isn't guaranteed to be installed on Supabase's
+       Postgres image. `npx tsc --noEmit` and `eslint` both clean.
+       **Resume here**: run the migration in the SQL Editor, then test —
+       switch language on one account, confirm the other account on the
+       same device isn't affected and correctly shows its own; trigger a
+       few notification types and confirm the recipient gets the copy
+       matching their own stored language, not the sender's or the device's.
 4. [ ] **Unread badge count on the Messages tab.**
 5. [ ] **Auth basics** — show-password toggle on login, confirm-password
        field on signup, change-password screen in Settings.
 6. [ ] **Tap a job photo to view it full-size**, swipe between multiple.
+
+## Photo bugs fixed 2026-09-18 (client-reported, outside the numbered list above)
+
+- [x] **No cap on job photos** — client posted a job with 50 photos to
+      confirm there was no limit. Capped posting and editing at 10
+      (`MAX_JOB_PHOTOS` in `src/lib/job-photos.ts`, shared by both screens),
+      with a clear alert at the limit and a live "N/10" counter.
+- [x] **Data-loss bug on job edit** — deleting a photo on the edit screen
+      applied immediately (Storage delete + DB delete), so backing out
+      without saving did NOT undo it, unlike every other field on that
+      screen. Now save-gated: removals and additions are queued in local
+      state and only applied inside Save Changes, after the core fields
+      succeed. Also added a whole-screen unsaved-changes prompt
+      (`usePreventRemove`) covering header back, hardware back, and
+      swipe-back.
+- [x] **Compression** — added `expo-image-manipulator`: every upload
+      (posting and editing) is resized to at most 1600px on the long edge
+      and re-encoded as JPEG at 0.7 quality, so a 3-5MB camera photo lands
+      in the low hundreds of KB before it reaches Storage.
+      **New native dependency — needs a rebuild.** `package-lock.json`
+      regenerated from scratch with npm 10 (matching the EAS build
+      environment) and `npm ci` verified clean under npm 10 before
+      triggering the build, per the standing lockfile rule in CLAUDE.md.
+      Build queued 2026-09-18 (`eas build --platform android --profile
+      development`, id `fa022c5f-cec6-419b-8a08-6fbfb4edd50a`) — resume by
+      checking its result; the photo-cap and save-gating fixes above are
+      JS-only and already confirmed working on-device via a plain reload,
+      only compression needs the new build installed before it can be
+      tested.
+      All three commits pushed (`4bcaaa1` photo cap/save-gating/
+      compression, `b174958` per-user language) without waiting for the
+      build or on-device testing, per the client's call this session:
+      prioritize a pushed restore point over a perfectly-timed commit.
 
 ## Known bug — under investigation, awaiting fresh repro
 
@@ -433,22 +498,6 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
   Client's test data has since changed (created/deleted jobs while
   waiting on a session limit reset) — **waiting on a fresh repro + the
   query result before touching any code here.**
-
-## Queued next
-
-- **Per-user language + bilingual notifications** (item #3 in "Next up"
-  above): every push notification body across all the migrations (new bid,
-  bid status, new message, new job, job expired, job renewed, job
-  cancelled, date proposed/confirmed, completion pending/confirmed/
-  disputed/undone/auto-confirmed, review-related) is hardcoded English.
-  The app itself is bilingual (`src/i18n/locales/en.json`/`es.json`,
-  `language-provider`), but that's a client-side-only preference right
-  now — nothing persists a user's language server-side, so
-  `send_push_to_users()` has no way to pick a language when composing a
-  push. Needs: a language column on `client_profiles`/`handyman_profiles`
-  (or wherever), the app syncing the provider's current language to it,
-  and every notification-sending function rewritten to pick body text
-  per-recipient instead of one hardcoded English string. Not started.
 
 ## Then: scheduling
 
