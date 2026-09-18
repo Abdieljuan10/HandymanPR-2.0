@@ -308,7 +308,7 @@
     "deleteButton": "Eliminar Trabajo",
     "cancelButton": "Cancelar Trabajo",
     "confirmDeleteTitle": "¿Eliminar este trabajo?",
-    "confirmDeleteMessage": "Este trabajo todavía no tiene una oferta aceptada, así que se puede eliminar permanentemente. Esto no se puede deshacer.",
+    "confirmDeleteMessage": "Este trabajo y sus fotos se eliminarán permanentemente. Esto no se puede deshacer.",
     "confirmCancelTitle": "¿Cancelar este trabajo?",
     "confirmCancelMessage": "Ya contrataste a un técnico para este trabajo. Cancelarlo terminará el contrato y reabrirá el trabajo para que recibas nuevas ofertas.",
     "confirm": "Confirmar",

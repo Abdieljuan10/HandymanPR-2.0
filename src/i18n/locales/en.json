@@ -308,7 +308,7 @@
     "deleteButton": "Delete Job",
     "cancelButton": "Cancel Job",
     "confirmDeleteTitle": "Delete this job?",
-    "confirmDeleteMessage": "This job has no accepted bid yet, so it can be deleted permanently. This can't be undone.",
+    "confirmDeleteMessage": "This job and its photos will be deleted permanently. This can't be undone.",
     "confirmCancelTitle": "Cancel this job?",
     "confirmCancelMessage": "You've already hired a handyman for this job. Cancelling will end the hire and reopen the job so you can get new bids.",
     "confirm": "Confirm",

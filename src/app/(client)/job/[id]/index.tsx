@@ -135,7 +135,7 @@ export default function JobDetailScreen() {
   }
 
   function confirmRemoveJob() {
-    if (job?.status === 'open') {
+    if (job?.status === 'open' || job?.status === 'cancelled' || job?.status === 'expired') {
       Alert.alert(t('jobDelete.confirmDeleteTitle'), t('jobDelete.confirmDeleteMessage'), [
         { text: t('jobDelete.cancelDialog'), style: 'cancel' },
         { text: t('jobDelete.confirm'), style: 'destructive', onPress: handleDelete },
@@ -152,6 +152,27 @@ export default function JobDetailScreen() {
     if (!id) return;
     setRemoving(true);
     setRemoveError(null);
+
+    // Photos live at job-photos/<job-id>/... in Storage. jobs.id's on-delete
+    // cascade only clears the job_photos DB rows, not the actual files, so
+    // this has to run BEFORE the job row is gone -- the bucket's own delete
+    // policy checks that a jobs row with this id still exists.
+    const { data: files, error: listStorageError } = await supabase.storage.from('job-photos').list(id);
+    if (listStorageError) {
+      setRemoving(false);
+      setRemoveError(`${t('jobDelete.error')} (${listStorageError.message})`);
+      return;
+    }
+    if (files.length > 0) {
+      const { error: removeStorageError } = await supabase.storage
+        .from('job-photos')
+        .remove(files.map((file) => `${id}/${file.name}`));
+      if (removeStorageError) {
+        setRemoving(false);
+        setRemoveError(`${t('jobDelete.error')} (${removeStorageError.message})`);
+        return;
+      }
+    }
 
     const { error } = await supabase.from('jobs').delete().eq('id', id);
     setRemoving(false);
@@ -284,9 +305,12 @@ export default function JobDetailScreen() {
             </ThemedText>
           )}
 
-          {(job.status === 'open' || job.status === 'hired') && (
+          {(job.status === 'open' ||
+            job.status === 'cancelled' ||
+            job.status === 'expired' ||
+            job.status === 'hired') && (
             <PrimaryButton
-              label={job.status === 'open' ? t('jobDelete.deleteButton') : t('jobDelete.cancelButton')}
+              label={job.status === 'hired' ? t('jobDelete.cancelButton') : t('jobDelete.deleteButton')}
               variant="secondary"
               loading={removing}
               onPress={confirmRemoveJob}
