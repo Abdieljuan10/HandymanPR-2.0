@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { JobPhoto } from '@/components/job-photo';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -23,6 +24,8 @@ type HandymanProfileRow = {
 
 type TradeRow = { trades: { name_es: string; name_en: string } | null };
 type PuebloRow = { pueblos: { name: string } | null };
+type PortfolioPhotoRow = { id: string; photo_url: string };
+type CertificationRow = { id: string; title: string; issuing_org: string | null; is_verified: boolean };
 
 export default function PublicHandymanProfileScreen() {
   const { t } = useTranslation();
@@ -33,6 +36,8 @@ export default function PublicHandymanProfileScreen() {
   const [profile, setProfile] = useState<HandymanProfileRow | null | undefined>(undefined);
   const [trades, setTrades] = useState<TradeRow[]>([]);
   const [pueblos, setPueblos] = useState<PuebloRow[]>([]);
+  const [portfolioPhotos, setPortfolioPhotos] = useState<PortfolioPhotoRow[]>([]);
+  const [certifications, setCertifications] = useState<CertificationRow[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -61,6 +66,27 @@ export default function PublicHandymanProfileScreen() {
       .eq('handyman_id', id)
       .then(({ data }) => {
         if (isMounted) setPueblos((data as PuebloRow[] | null) ?? []);
+      });
+
+    supabase
+      .from('handyman_portfolio_photos')
+      .select('id, photo_url')
+      .eq('handyman_id', id)
+      .order('sort_order')
+      .then(({ data }) => {
+        if (isMounted) setPortfolioPhotos(data ?? []);
+      });
+
+    // Row metadata is public (title/org/verified) even though the
+    // certifications Storage bucket itself is owner-only private -- the
+    // underlying file is never shown here, only the claim and its badge.
+    supabase
+      .from('handyman_certifications')
+      .select('id, title, issuing_org, is_verified')
+      .eq('handyman_id', id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (isMounted) setCertifications(data ?? []);
       });
 
     return () => {
@@ -143,6 +169,38 @@ export default function PublicHandymanProfileScreen() {
               </ThemedText>
             </View>
           )}
+
+          {portfolioPhotos.length > 0 && (
+            <View style={styles.section}>
+              <ThemedText type="smallBold">{t('handymanPublicProfile.portfolioTitle')}</ThemedText>
+              <View style={styles.photoGrid}>
+                {portfolioPhotos.map((photo) => (
+                  <JobPhoto key={photo.id} uri={photo.photo_url} style={styles.photoThumb} />
+                ))}
+              </View>
+            </View>
+          )}
+
+          {certifications.length > 0 && (
+            <View style={styles.section}>
+              <ThemedText type="smallBold">{t('handymanPublicProfile.certificationsTitle')}</ThemedText>
+              {certifications.map((certification) => (
+                <View key={certification.id} style={styles.certRow}>
+                  <ThemedText type="default">{certification.title}</ThemedText>
+                  {certification.issuing_org && (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {certification.issuing_org}
+                    </ThemedText>
+                  )}
+                  {certification.is_verified && (
+                    <ThemedText type="small" themeColor="tint">
+                      {t('handymanPublicProfile.verified')}
+                    </ThemedText>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -180,5 +238,19 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: Spacing.one,
+  },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  photoThumb: {
+    width: 104,
+    height: 104,
+    borderRadius: Spacing.two,
+  },
+  certRow: {
+    gap: Spacing.half,
+    marginBottom: Spacing.two,
   },
 });

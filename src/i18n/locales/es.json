@@ -170,7 +170,46 @@
     "noBio": "Añade una biografía para que los clientes te conozcan.",
     "editProfile": "Editar Perfil",
     "editTrades": "Editar Oficios",
-    "editPueblos": "Editar Pueblos"
+    "editPueblos": "Editar Pueblos",
+    "portfolio": "Fotos de Portafolio",
+    "certifications": "Certificaciones"
+  },
+  "portfolio": {
+    "title": "Fotos de Portafolio",
+    "intro": "Muéstrales a los clientes ejemplos de tus trabajos anteriores.",
+    "addPhotos": "Añadir Fotos",
+    "photoCount": "{{count}}/{{max}} fotos",
+    "photoLimitTitle": "Límite de fotos alcanzado",
+    "photoLimit": "Puedes añadir hasta {{max}} fotos de portafolio.",
+    "removeConfirmTitle": "¿Eliminar esta foto?",
+    "removeConfirmMessage": "Esto la eliminará de tu perfil público.",
+    "cancel": "Cancelar",
+    "remove": "Eliminar",
+    "empty": "Todavía no has añadido fotos de portafolio.",
+    "uploading": "Subiendo..."
+  },
+  "certifications": {
+    "title": "Certificaciones",
+    "intro": "Añade tus licencias y certificaciones. Un administrador revisa cada una antes de que aparezca como Verificada.",
+    "pending": "En Revisión",
+    "empty": "Todavía no has añadido certificaciones.",
+    "addTitle": "Añadir una Certificación",
+    "titleLabel": "Título",
+    "titlePlaceholder": "ej. Electricista Licenciado",
+    "orgLabel": "Organización Emisora (opcional)",
+    "photoLabel": "Foto",
+    "choosePhoto": "Elegir Foto",
+    "changePhoto": "Cambiar Foto",
+    "add": "Añadir Certificación",
+    "adding": "Añadiendo...",
+    "removeConfirmTitle": "¿Eliminar esta certificación?",
+    "removeConfirmMessage": "Esto la eliminará de tu perfil público.",
+    "cancel": "Cancelar",
+    "remove": "Eliminar",
+    "errors": {
+      "title": "Ingresa un título",
+      "photo": "Elige una foto de tu certificación"
+    }
   },
   "profileEdit": {
     "title": "Editar Perfil",
@@ -300,7 +339,9 @@
     "yearsExperience_one": "{{count}} año de experiencia",
     "yearsExperience_other": "{{count}} años de experiencia",
     "tradesTitle": "Oficios",
-    "pueblosTitle": "Trabaja En"
+    "pueblosTitle": "Trabaja En",
+    "portfolioTitle": "Portafolio",
+    "certificationsTitle": "Certificaciones"
   },
   "handymanPueblos": {
     "intro": "Toca cada pueblo donde trabajas. Te notificaremos sobre trabajos publicados allí.",
@@ -327,6 +368,8 @@
     "jobDetails": "Detalles del Trabajo",
     "handymanProfile": "Perfil del Técnico",
     "editProfile": "Editar Perfil",
+    "portfolio": "Fotos de Portafolio",
+    "certifications": "Certificaciones",
     "settings": "Configuración",
     "yourTrades": "Tus Oficios",
     "yourPueblos": "Tus Pueblos",

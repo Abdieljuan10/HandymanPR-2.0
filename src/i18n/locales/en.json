@@ -170,7 +170,46 @@
     "noBio": "Add a bio so clients know more about you.",
     "editProfile": "Edit Profile",
     "editTrades": "Edit Trades",
-    "editPueblos": "Edit Pueblos"
+    "editPueblos": "Edit Pueblos",
+    "portfolio": "Portfolio Photos",
+    "certifications": "Certifications"
+  },
+  "portfolio": {
+    "title": "Portfolio Photos",
+    "intro": "Show clients examples of your past work.",
+    "addPhotos": "Add Photos",
+    "photoCount": "{{count}}/{{max}} photos",
+    "photoLimitTitle": "Photo limit reached",
+    "photoLimit": "You can add up to {{max}} portfolio photos.",
+    "removeConfirmTitle": "Remove this photo?",
+    "removeConfirmMessage": "This removes it from your public profile.",
+    "cancel": "Cancel",
+    "remove": "Remove",
+    "empty": "No portfolio photos yet.",
+    "uploading": "Uploading..."
+  },
+  "certifications": {
+    "title": "Certifications",
+    "intro": "Add your licenses and certifications. An admin reviews each one before it shows as Verified.",
+    "pending": "Pending Review",
+    "empty": "No certifications added yet.",
+    "addTitle": "Add a Certification",
+    "titleLabel": "Title",
+    "titlePlaceholder": "e.g. Licensed Electrician",
+    "orgLabel": "Issuing Organization (optional)",
+    "photoLabel": "Photo",
+    "choosePhoto": "Choose Photo",
+    "changePhoto": "Change Photo",
+    "add": "Add Certification",
+    "adding": "Adding...",
+    "removeConfirmTitle": "Remove this certification?",
+    "removeConfirmMessage": "This removes it from your public profile.",
+    "cancel": "Cancel",
+    "remove": "Remove",
+    "errors": {
+      "title": "Enter a title",
+      "photo": "Choose a photo of your certification"
+    }
   },
   "profileEdit": {
     "title": "Edit Profile",
@@ -300,7 +339,9 @@
     "yearsExperience_one": "{{count}} year of experience",
     "yearsExperience_other": "{{count}} years of experience",
     "tradesTitle": "Trades",
-    "pueblosTitle": "Works In"
+    "pueblosTitle": "Works In",
+    "portfolioTitle": "Portfolio",
+    "certificationsTitle": "Certifications"
   },
   "handymanPueblos": {
     "intro": "Tap every pueblo you work in. You'll be notified about jobs posted there.",
@@ -327,6 +368,8 @@
     "jobDetails": "Job Details",
     "handymanProfile": "Handyman Profile",
     "editProfile": "Edit Profile",
+    "portfolio": "Portfolio Photos",
+    "certifications": "Certifications",
     "settings": "Settings",
     "yourTrades": "Your Trades",
     "yourPueblos": "Your Pueblos",

@@ -87,6 +87,12 @@ export default function HandymanProfileScreen() {
             <Link href="/profile-edit" asChild>
               <PrimaryButton label={t('handymanProfile.editProfile')} />
             </Link>
+            <Link href="/portfolio" asChild>
+              <PrimaryButton label={t('handymanProfile.portfolio')} variant="secondary" />
+            </Link>
+            <Link href="/certifications" asChild>
+              <PrimaryButton label={t('handymanProfile.certifications')} variant="secondary" />
+            </Link>
             <Link href="/trades" asChild>
               <PrimaryButton label={t('handymanProfile.editTrades')} variant="secondary" />
             </Link>

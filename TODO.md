@@ -48,15 +48,53 @@ Rico (not a store launch). Working through this list, in order:
    text to the new brand tint color so it reads as a real trust signal.
    `npx tsc --noEmit` and `expo lint` both clean. **Not yet tested
    on-device.**
-4. [ ] **Portfolio photos + certifications** — client's call 2026-09-18:
-   build these before showing the app to anyone (reversing the earlier plan
-   to defer them past the pilot), since alongside the profile these are
-   "the rest of what a client judges a handyman on." Schema/Storage already
-   exist for both (`handyman_portfolio_photos` table + public
-   `portfolio-photos` bucket; `handyman_certifications` table + **private**
-   `certifications` bucket, `is_verified` already admin-only via trigger) —
-   pure UI work, no migration needed. See "Then: portfolio / certs /
-   subscriptions" below for the existing schema notes.
+4. [x] **Portfolio photos + certifications — built 2026-09-18.** Client's
+   call: build these before showing the app to anyone (reversing the
+   earlier plan to defer them past the pilot), since alongside the profile
+   these are "the rest of what a client judges a handyman on." No migration
+   needed — every column, table, and Storage bucket+policy already existed.
+   - New `(handyman)/portfolio.tsx`: grid of portfolio photos (immediate
+     add/remove, not save-gated — each is a standalone dedicated screen, not
+     a field bundled into a larger form the way job photos were when that
+     class of bug bit before, and every remove now requires an Alert
+     confirm first specifically to guard against that same silent-loss
+     pattern). Reuses `compressJobPhoto`/`MAX_DIMENSION` from
+     `lib/job-photos.ts` as-is (1600px/JPEG 0.7 is exactly as appropriate
+     for portfolio photos as job photos) and the `JobPhoto` component's
+     built-in "failed to load" fallback. Capped at 12 photos
+     (`MAX_PORTFOLIO_PHOTOS`). No caption field — the DB column exists but
+     nobody asked for it, easy to add later.
+   - New `(handyman)/certifications.tsx`: list of existing certifications
+     (title, issuing org, Verified/Pending Review badge, remove with
+     confirm) plus an inline add form (title required, org optional, photo
+     required in the UI even though the DB column is nullable — an
+     unverifiable claim isn't useful). Uploads to the **private**
+     `certifications` bucket store the bare Storage **path** in
+     `file_url`, not a public URL (there isn't one for a private bucket,
+     and a signed URL would go stale if persisted) — this screen never
+     redisplays the uploaded file, only the row metadata, so no signed-URL
+     generation was needed at all.
+   - `(handyman)/(tabs)/profile.tsx`: added Portfolio/Certifications
+     buttons alongside the existing ones.
+   - **Public profile** (`(client)/handyman/[id].tsx`): added a Portfolio
+     section (photo grid, same `JobPhoto` component) and a Certifications
+     section (title/org/Verified badge — no image, since the certifications
+     bucket's storage-level RLS is owner-only-read by design, confirmed by
+     re-reading the original migration comment; only an unverified cert's
+     "Pending Review" state is deliberately hidden from clients, that badge
+     is handyman-facing-only, shown on the management screen instead).
+     Both sections only render when there's at least one row.
+   - Found and killed a real leftover process while regenerating Expo
+     Router's typed routes for the new screens: an earlier `npx expo start`
+     I'd stopped via the harness's task-stop had left its underlying Metro
+     process (a separate PID) still bound to port 8081 in the background.
+     Harmless here since nothing else needed that port, but worth knowing
+     `TaskStop`/background-task-stop doesn't always kill the whole child
+     process tree for `expo start` specifically.
+   `npx tsc --noEmit` and `expo lint` both clean. **Not yet tested
+   on-device.** See "Then: portfolio / certs / subscriptions" below — the
+   subscriptions item there is still not built (out of pilot scope, no
+   payment flow exists at all), only portfolio/certs from that section.
 
 Order set by the client (2026-09-15): **push notifications → chat → job
 completion + reviews → scheduling → portfolio/certs/subscriptions → visual
@@ -642,16 +680,15 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
 
 ## Then: portfolio / certs / subscriptions
 
-- [ ] Portfolio photos: `handyman_portfolio_photos` table and the
-      `portfolio-photos` Storage bucket both already exist (bucket +
-      policies added 2026-09-18) — no upload screen, no display on the
-      public profile yet.
-- [ ] Certifications with admin-verified badge: `handyman_certifications`
-      table and the `certifications` Storage bucket both exist (bucket is
-      **private** — fetch with `createSignedUrl`, not a public URL) — no
-      upload screen, no display anywhere yet. `is_verified` is already
-      locked to admin-only edits (Table Editor), matching the existing
-      verification pattern on `handyman_profiles.is_verified`.
+- [x] Portfolio photos — **built 2026-09-18**, see the pilot-scope list at
+      the top of this file for detail. Upload screen and public-profile
+      display both done.
+- [x] Certifications with admin-verified badge — **built 2026-09-18**, see
+      the pilot-scope list at the top of this file for detail. Add/remove
+      screen and public-profile display (title/org/Verified badge, no
+      image) both done. `is_verified` stays locked to admin-only edits
+      (Table Editor), matching the existing verification pattern on
+      `handyman_profiles.is_verified`.
 - [ ] Subscription status on Settings: `handyman_profiles.is_subscribed` /
       `subscription_expires_at` / `is_promoted` / `promotion_expires_at`
       exist and are already admin-only-writable and already enforced by the

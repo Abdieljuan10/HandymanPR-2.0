@@ -12,6 +12,8 @@ export default function HandymanLayout() {
       <Stack.Screen name="trades" options={{ title: t('headers.yourTrades') }} />
       <Stack.Screen name="pueblos" options={{ title: t('headers.yourPueblos') }} />
       <Stack.Screen name="profile-edit" options={{ title: t('headers.editProfile') }} />
+      <Stack.Screen name="portfolio" options={{ title: t('headers.portfolio') }} />
+      <Stack.Screen name="certifications" options={{ title: t('headers.certifications') }} />
       <Stack.Screen name="profile-settings" options={{ title: t('headers.settings') }} />
     </Stack>
   );
