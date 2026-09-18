@@ -75,8 +75,14 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
         if (isMounted) setMessages(data ?? []);
       });
 
+    // Unique per effect run (not just per conversationId): the Supabase realtime client
+    // reuses the same channel object for a repeated topic name rather than creating a new
+    // one, so if this screen ever mounts twice for the same conversation (deep-linking hit
+    // this via a duplicate notification-response event — see _layout.tsx), a shared topic
+    // means the second mount's `.on(...)` lands on a channel the first already `.subscribe()`d
+    // to, which throws. A unique topic per mount makes that whole class of collision impossible.
     const channel = supabase
-      .channel(`conversation-${conversationId}`)
+      .channel(`conversation-${conversationId}-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {

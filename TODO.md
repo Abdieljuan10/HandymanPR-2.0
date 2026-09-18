@@ -17,15 +17,22 @@ then completion + blind reviews. Working through it in four phases:
 3. Mutual agreed date — **DONE, confirmed end-to-end on 2026-09-16**
    (propose, confirm, counter-propose, notifications both directions,
    proposer correctly can't confirm their own date) — see below.
-4. Job completion + blind reviews — **migration split and run, schema
-   confirmed (6 enum values, 6 columns); full end-to-end flow not yet
-   tested — resume here.** Revised 2026-09-17 so completion is mutual
-   (confirm/dispute/auto-confirm-after-7-days/undo), like the agreed
-   date — see below.
+4. Job completion + blind reviews — **DONE, confirmed end-to-end on
+   2026-09-17** (mark complete, confirm, dispute, undo all correct; blind
+   reviews confirmed — client sees their own review, "esperando a la otra
+   parte," not the other side's). Only the 7-day one-sided review
+   force-publish (`publish_expired_review_windows()`) is still untested —
+   client testing that themselves directly in Supabase — see below.
+
+**Next, in priority order (set by the client 2026-09-17)** — see
+"## Next up" below: ~~notification deep-linking~~ (**DONE, confirmed
+end-to-end 2026-09-17**), branded Supabase signup email, per-user language
++ bilingual notifications, unread badge on Messages, auth basics
+(show-password/confirm-password/change-password), tap-to-view job photos.
 
 There's also an open bug report (date-proposal identity mixup, awaiting a
-fresh repro from the client) and a queued item (per-user language +
-bilingual notifications) — both detailed further down.
+fresh repro from the client) and a parked audit item (every Supabase query
+for swallowed errors) — both detailed further down.
 
 Whoever picks up a session on this repo: read this file first, and update it
 — move finished items to "Done", adjust anything that changed shape — before
@@ -265,9 +272,12 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       only while `status === 'hired'`. Can upgrade to a native picker later
       during the UI redesign pass if a rebuild is happening anyway — the DB
       side doesn't care how the date was collected.
-- [x] **Job completion is mutual, like the agreed date — migration split
-      and run, schema confirmed; full end-to-end flow not yet tested.**
-      Original version (below) let
+- [x] **Job completion is mutual, like the agreed date — DONE, confirmed
+      end-to-end on 2026-09-17** (mark complete, confirm, dispute, undo all
+      correct; blind reviews confirmed — client sees their own review,
+      "esperando a la otra parte," not the other side's). Only the 7-day
+      one-sided force-publish is still untested (client testing it
+      themselves in Supabase). Original version (below) let
       either side mark a job complete alone, which started the review
       window and locked the job with no undo — flagged by the client as a
       real risk (a handyman marking a job done that wasn't, or a client
@@ -315,26 +325,22 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
          cron) — run after file 1 commits.
       **Both files run 2026-09-17, schema confirmed**: 6 `job_status` enum
       values, 6 new columns present. Standing rule for migrations like this
-      now documented in `CLAUDE.md`. Full functional testing (see "Resume
-      here" below) still outstanding.
+      now documented in `CLAUDE.md`.
       **Also fixed while debugging**: both job-detail screens' job-fetch
       queries only checked `.data`, never `.error` — a real Postgres/
       PostgREST error rendered identically to a genuinely-missing job,
       hiding the cause. Same silent-failure pattern as the cancellation
       bug earlier. Now surfaces the real error text.
-      **Resume here**: all three migrations run
-      (`20260926000000_job_completion_reviews.sql`, then the two split
-      files above), schema confirmed. Still need to test the full loop:
-      mark complete as
-      one side, confirm the OTHER side sees confirm/dispute (not the
-      marker), confirm undo works for the marker while pending, confirm
-      dispute reopens to hired, then do a real confirm and check reviews
-      unlock — submit a review as each side, confirm neither sees the
-      other's until both are in. Separately test the 7-day auto-confirm by
-      backdating a test job's `completion_marked_at` in Table Editor and
-      running `select auto_confirm_stale_completions();` directly, and the
-      review-window force-publish the same way with `completed_at` and
-      `select publish_expired_review_windows();`.
+      **Full loop tested on-device 2026-09-17**: mark complete as one side,
+      confirmed the OTHER side sees confirm/dispute (not the marker), undo
+      works for the marker while pending, dispute reopens to hired, a real
+      confirm unlocks reviews — each side submitted a review, neither saw
+      the other's until both were in ("esperando a la otra parte" shown
+      correctly). Still outstanding: the 7-day auto-confirm
+      (`auto_confirm_stale_completions()`) and the review-window
+      force-publish (`publish_expired_review_windows()`) — client is
+      testing both themselves by backdating `completion_marked_at`/
+      `completed_at` in Table Editor and calling the functions directly.
       ~~Original one-sided version~~: after the agreed date, either side
       marks complete via `mark_job_complete()`, unlocking reviews
       immediately. Reviews (blind, like Trusted Housesitters): both sides
@@ -352,6 +358,57 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       (`src/components/reviews-card.tsx`), review-submission screens
       (`src/app/(client)/job/[id]/review.tsx` and the handyman equivalent),
       and a shared `StarRating` component (`src/components/star-rating.tsx`).
+
+## Next up (priority order set by client 2026-09-17)
+
+1. [x] **Notification deep-linking — DONE, confirmed end-to-end on
+       2026-09-17** (cold start, backgrounded, and foreground all open the
+       right screen, for both job and message notifications). Every
+       notification payload already carried `type` plus either `job_id` or
+       `conversation_id` (message notifications) — added
+       `getNotificationDeepLink()` in `src/lib/push-notifications.ts`,
+       mapping generically on whichever id key is present (`conversation_id`
+       → `/conversation/{id}`, else `job_id` → `/job/{id}`) rather than
+       switching on `type`, so a new notification type deep-links for free
+       as long as it reuses one of those two keys. Wired into
+       `src/app/_layout.tsx` via `useNotificationDeepLinking()`, following
+       Expo's documented SDK 57 pattern: `getLastNotificationResponseAsync()`
+       for cold start + `addNotificationResponseReceivedListener()` for a tap
+       while running/backgrounded, enabled only once session+language are
+       resolved and a session exists (the target screen isn't mounted before
+       that). No new EAS build needed — pure JS/TS, picked up by the
+       already-installed dev client.
+       **Real bug found and fixed during testing**: tapping a message
+       notification from cold start crashed with `"cannot add
+       postgres_changes callbacks for realtime:conversation-... after
+       subscribe()"`, confirmed to reproduce independent of which account was
+       logged in. Root cause: `getLastNotificationResponseAsync()` and
+       `addNotificationResponseReceivedListener()` both fired for the same
+       cold-start tap (a known Android/Expo behavior), so `router.push()` ran
+       twice for one tap, stacking two `ConversationScreen` instances for the
+       same conversation. Both instances built a realtime channel with the
+       identical topic `conversation-${conversationId}`, and
+       `RealtimeClient.channel()` (confirmed by reading
+       `node_modules/@supabase/realtime-js`) returns the *same* channel
+       object for a repeated topic rather than a new one — so the second
+       instance's `.on(...)` landed on a channel the first had already
+       `.subscribe()`d to. Fixed two ways: (1) dedupe in
+       `useNotificationDeepLinking()` by `notification.request.identifier` so
+       a single tap can never fire `router.push()` twice; (2) defense in
+       depth in `conversation-screen.tsx` — the channel topic now includes a
+       random suffix per mount, so even a legitimate double-mount (e.g. a
+       fast double-tap on a conversation row) can't collide on the same
+       channel object again. `npx tsc --noEmit` and `eslint` both clean.
+2. [ ] **Customize the Supabase signup email** — currently default Supabase
+       copy, looks broken to a real user. Needs to be branded HandymanPR,
+       Spanish by default. This is a dashboard change (Auth → Email
+       Templates), not app code — hand the client exact steps/copy.
+3. [ ] **Per-user language + bilingual notifications** — see "Queued next"
+       below for the existing detail on this; now next in line after #1-2.
+4. [ ] **Unread badge count on the Messages tab.**
+5. [ ] **Auth basics** — show-password toggle on login, confirm-password
+       field on signup, change-password screen in Settings.
+6. [ ] **Tap a job photo to view it full-size**, swipe between multiple.
 
 ## Known bug — under investigation, awaiting fresh repro
 
@@ -379,20 +436,19 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
 
 ## Queued next
 
-- **Per-user language + bilingual notifications**: every push notification
-  body across all the migrations (new bid, bid status, new message, new
-  job, job expired, job renewed, job cancelled, date proposed/confirmed,
-  completion pending/confirmed/disputed/undone/auto-confirmed, review-
-  related) is hardcoded English. The app itself is bilingual
-  (`src/i18n/locales/en.json`/`es.json`, `language-provider`), but that's
-  a client-side-only preference right now — nothing persists a user's
-  language server-side, so `send_push_to_users()` has no way to pick a
-  language when composing a push. Needs: a language column on
-  `client_profiles`/`handyman_profiles` (or wherever), the app syncing the
-  provider's current language to it, and every notification-sending
-  function rewritten to pick body text per-recipient instead of one
-  hardcoded English string. Not started — flagged by the client as
-  pending, to pick up after the completion-mutuality work above ships.
+- **Per-user language + bilingual notifications** (item #3 in "Next up"
+  above): every push notification body across all the migrations (new bid,
+  bid status, new message, new job, job expired, job renewed, job
+  cancelled, date proposed/confirmed, completion pending/confirmed/
+  disputed/undone/auto-confirmed, review-related) is hardcoded English.
+  The app itself is bilingual (`src/i18n/locales/en.json`/`es.json`,
+  `language-provider`), but that's a client-side-only preference right
+  now — nothing persists a user's language server-side, so
+  `send_push_to_users()` has no way to pick a language when composing a
+  push. Needs: a language column on `client_profiles`/`handyman_profiles`
+  (or wherever), the app syncing the provider's current language to it,
+  and every notification-sending function rewritten to pick body text
+  per-recipient instead of one hardcoded English string. Not started.
 
 ## Then: scheduling
 
@@ -448,6 +504,13 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
   view," not a real delete, since bids stay tied to job history.
 - Sorting/filtering on the handyman job feed beyond pueblo/trade (added
   2026-09-19) — e.g. sort by price/date.
+- **Audit of every Supabase query for swallowed errors.** The completion
+  migration bug and the earlier cancellation-guard bug (both above) were
+  caused by the same pattern — a query result's `.error` field never
+  checked, so a real Postgres/PostgREST failure rendered identically to
+  "not found" or silently did nothing. Both known instances are fixed, but
+  the codebase hasn't been swept for the same pattern elsewhere. Flagged
+  by the client, not yet scheduled against the priority list above.
 
 ## Done (for context, not a task list)
 

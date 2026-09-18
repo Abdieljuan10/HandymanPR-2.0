@@ -75,3 +75,24 @@ export async function registerForPushNotifications(userId: string): Promise<void
     console.error('Failed to save push token:', error.message);
   }
 }
+
+// Every notification payload (see 20260922000000_push_notifications_send.sql
+// and later migrations) carries either a conversation_id (new_message) or a
+// job_id (every other type) — mapping generically on whichever key is
+// present, rather than switching on `type`, means a new notification type
+// added server-side deep-links correctly without an app change as long as
+// it reuses one of these two keys.
+export function getNotificationDeepLink(
+  data: unknown
+): `/job/${string}` | `/conversation/${string}` | null {
+  if (!data || typeof data !== 'object') return null;
+  const record = data as Record<string, unknown>;
+
+  if (typeof record.conversation_id === 'string') {
+    return `/conversation/${record.conversation_id}`;
+  }
+  if (typeof record.job_id === 'string') {
+    return `/job/${record.job_id}`;
+  }
+  return null;
+}
