@@ -472,33 +472,60 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       waiting for the build or on-device testing, per the client's call
       this session: prioritize a pushed restore point over a
       perfectly-timed commit.
-- [x] **Orphaned Storage photos on job delete — implemented 2026-09-18,
-      migration not yet run, not yet tested.** Deleting a job only ever
-      removed its `job_photos` DB rows (via the FK's on-delete cascade) —
-      the actual files stayed in Storage forever, silently eating free-tier
-      quota with files nobody can reach. `handleDelete()` in
-      `job/[id]/index.tsx` now lists and removes the job's Storage folder
-      *before* deleting the row (order matters — the bucket's delete policy
-      requires the `jobs` row to still exist). Added
-      `scripts/cleanup-orphaned-job-photos.js`, a one-time Node script
-      (needs the Supabase **service role** key, passed inline, never
-      committed) that lists every top-level folder in the `job-photos`
-      bucket, diffs against existing job ids, and removes whatever's
-      orphaned — run with `--dry-run` first to see what it would delete.
-      **Resume here**: run `--dry-run` to see how much test-data cruft is
-      actually sitting there, then run it for real; separately confirm a
-      fresh job delete no longer leaves its folder behind.
-- [x] **Couldn't delete cancelled/expired jobs — implemented 2026-09-18,
-      migration not yet run, not yet tested.** `jobs_delete`'s RLS policy
-      only allowed deleting an `'open'` job — a dead cancelled or expired
-      job (nobody hired, no reviews coming) couldn't be removed at all,
-      just clutter. Widened (`20260929000000_job_deletion.sql`) to also
-      allow `'cancelled'` and `'expired'`. Deliberately **not** widened to
-      `'completed'` (or `'hired'`/`'pending_completion'`, unchanged) — the
-      client's own call: a completed job's reviews belong to whoever
-      received them, and letting either side delete the job to erase an
-      unwanted review would defeat the point of the review system, even
-      after the 7-day review window closes.
+- [x] **Couldn't delete cancelled/expired jobs — DONE, confirmed on-device
+      2026-09-19.** `jobs_delete`'s RLS policy only allowed deleting an
+      `'open'` job — a dead cancelled or expired job (nobody hired, no
+      reviews coming) couldn't be removed at all, just clutter. Widened
+      (`20260929000000_job_deletion.sql`) to also allow `'cancelled'` and
+      `'expired'`. Deliberately **not** widened to `'completed'` (or
+      `'hired'`/`'pending_completion'`, unchanged) — the client's own call:
+      a completed job's reviews belong to whoever received them, and
+      letting either side delete the job to erase an unwanted review would
+      defeat the point of the review system, even after the 7-day review
+      window closes. See the archive feature below for the alternative on
+      completed jobs.
+- [x] **Orphaned Storage photos on job delete — real root cause found and
+      fixed 2026-09-19, migration not yet run, not yet tested.** First pass
+      (`0df7567`, 2026-09-18) added a Storage list+remove step to
+      `handleDelete()` before deleting the job row. Client tested it: still
+      broken — deleted all but 3 jobs, Storage still showed 5 folders,
+      meaning *fresh* deletions were still leaving orphans. Root cause: the
+      `job-photos` bucket only ever had INSERT and DELETE policies on
+      `storage.objects` — no SELECT. A bucket's `public: true` flag only
+      exempts unauthenticated GET-by-URL from RLS; it does **not** exempt
+      `list()`, which is a query against `storage.objects` gated by RLS like
+      any other table read (the `certifications` bucket already needed
+      exactly this same select policy, for its own private-bucket reason).
+      Without it, `handleDelete()`'s `list(id)` call silently returned an
+      empty array — RLS filters rows, it doesn't error — so `remove()` was
+      never invoked, and the job still deleted successfully with **no error
+      shown**, while its photos stayed behind. Fixed in
+      `20260930000000_job_photos_storage_select.sql`, scoped the same as
+      the existing insert/delete policies (job's owning client only).
+      `scripts/cleanup-orphaned-job-photos.js` (needs the Supabase
+      **service role** key, passed inline, never committed) remains for
+      sweeping up everything orphaned before this fix — already run once by
+      the client for the original backlog; the 5-folders-for-3-jobs leftover
+      is what's still there because *this* fix wasn't live yet.
+      **Resume here**: run the new migration, then delete a fresh job with
+      photos and confirm its Storage folder is actually gone this time.
+- [x] **Archive completed jobs — implemented 2026-09-19, migration not yet
+      run, not yet tested.** Client's follow-up to completed jobs staying
+      undeletable: Outlook-style archive instead — hides a completed job
+      from Your Jobs without touching the job or its reviews. Per-user via
+      a new `job_archives` join table (`20260930010000_job_archives.sql`,
+      generic on `job_id`+`user_id`, not client-specific, even though only
+      the client's Your Jobs screen uses it today), so archiving on one side
+      never affects what the other party sees. Swipe-to-archive on completed
+      job rows in Your Jobs, plus a "Show Archived (N)" toggle revealing an
+      Archived section with swipe-to-unarchive. Needed
+      `GestureHandlerRootView` wrapping the app root in `_layout.tsx` —
+      `react-native-gesture-handler`/`react-native-reanimated` were already
+      dependencies (expo-router's own native-stack needs them) but were
+      never explicitly wired up for use inside a screen; uses the
+      non-deprecated `ReanimatedSwipeable` import rather than the classic
+      `Swipeable`. No new native dependency, so no rebuild needed — this is
+      testable via a plain reload once the migration's run.
 
 ## Known bug — under investigation, awaiting fresh repro
 
