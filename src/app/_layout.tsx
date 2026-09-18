@@ -93,11 +93,11 @@ function useNotificationDeepLinking(enabled: boolean) {
 
 export default function RootLayout() {
   return (
-    <LanguageProvider>
-      <SessionProvider>
+    <SessionProvider>
+      <LanguageProvider>
         <RootNavigator />
-      </SessionProvider>
-    </LanguageProvider>
+      </LanguageProvider>
+    </SessionProvider>
   );
 }
 
