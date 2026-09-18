@@ -1,13 +1,22 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, RefreshControl, SectionList, StyleSheet } from 'react-native';
+import { Pressable, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
+// The root-export Swipeable is deprecated in favor of this Reanimated-backed
+// one (react-native-reanimated is already a dependency here).
+import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PrimaryButton } from '@/components/primary-button';
+import { PuebloPicker } from '@/components/pueblo-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { TradePicker } from '@/components/trade-picker';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { usePueblos } from '@/hooks/use-pueblos';
 import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/providers/language-provider';
 import { useSession } from '@/providers/session-provider';
 import { formatRelativeTime } from '@/utils/relative-time';
 
@@ -20,18 +29,52 @@ type MyBidRow = {
     id: string;
     title: string;
     status: 'open' | 'hired' | 'pending_completion' | 'completed' | 'cancelled' | 'expired';
+    trade_id: number;
+    pueblo_id: number;
     pueblos: { name: string } | null;
+    trades: { name_es: string; name_en: string } | null;
   } | null;
 };
 
-type Section = { key: string; titleKey: string; data: MyBidRow[] };
+// 'archived' isn't a real bid/job state -- it's a synthetic section built
+// from whatever's currently hidden out of the archivable categories below.
+type SectionKey = 'accepted' | 'completed' | 'pending' | 'jobCancelled' | 'closed' | 'archived';
+type Section = { key: SectionKey; titleKey: string; data: MyBidRow[] };
+
+// Only categories that represent "done, no longer actionable" state can be
+// archived -- an active hire or a bid still awaiting a decision shouldn't be
+// hideable, the same reasoning as the client side only allowing archive on
+// completed jobs.
+const ARCHIVABLE_KEYS: SectionKey[] = ['completed', 'jobCancelled', 'closed'];
+
+const SECTION_DEFS: { key: Exclude<SectionKey, 'archived'>; titleKey: string }[] = [
+  { key: 'accepted', titleKey: 'myBids.sections.accepted' },
+  { key: 'completed', titleKey: 'myBids.sections.completed' },
+  { key: 'pending', titleKey: 'myBids.sections.pending' },
+  { key: 'jobCancelled', titleKey: 'myBids.sections.jobCancelled' },
+  { key: 'closed', titleKey: 'myBids.sections.closed' },
+];
+
+const BIDS_SELECT =
+  'id, price, status, created_at, jobs!job_id(id, title, status, trade_id, pueblo_id, pueblos(name), trades(name_es, name_en))';
 
 export default function MyBidsScreen() {
   const { t } = useTranslation();
+  const { language } = useLanguage();
+  const theme = useTheme();
   const { session } = useSession();
+  const { pueblos } = usePueblos();
   const [bids, setBids] = useState<MyBidRow[] | null>(null);
+  const [archivedJobIds, setArchivedJobIds] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterTradeIds, setFilterTradeIds] = useState<number[]>([]);
+  const [filterPuebloSlugs, setFilterPuebloSlugs] = useState<string[]>([]);
+  const [filterStatusKeys, setFilterStatusKeys] = useState<SectionKey[]>([]);
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -40,11 +83,12 @@ export default function MyBidsScreen() {
     // without the hint, PostgREST can't tell which relationship to embed and
     // errors out, which silently produced an empty list here (the error was
     // never checked, so it looked like "no bids").
-    const { data, error } = await supabase
-      .from('bids')
-      .select('id, price, status, created_at, jobs!job_id(id, title, status, pueblos(name))')
-      .eq('handyman_id', session.user.id)
-      .order('created_at', { ascending: false });
+    const [{ data, error }, { data: archivesData }] = await Promise.all([
+      supabase.from('bids').select(BIDS_SELECT).eq('handyman_id', session.user.id).order('created_at', {
+        ascending: false,
+      }),
+      supabase.from('job_archives').select('job_id').eq('user_id', session.user.id),
+    ]);
 
     if (error) {
       setLoadError(error.message);
@@ -52,6 +96,7 @@ export default function MyBidsScreen() {
     }
     setLoadError(null);
     setBids((data as unknown as MyBidRow[] | null) ?? []);
+    setArchivedJobIds(new Set((archivesData ?? []).map((row) => row.job_id as string)));
   }, [session]);
 
   useFocusEffect(
@@ -72,36 +117,177 @@ export default function MyBidsScreen() {
     setRefreshing(false);
   }
 
-  const sections = useMemo<Section[]>(() => {
-    if (!bids) return [];
+  async function handleArchive(jobId: string) {
+    if (!session) return;
+    setArchivedJobIds((prev) => new Set(prev).add(jobId));
+    const { error } = await supabase.from('job_archives').insert({ job_id: jobId, user_id: session.user.id });
+    if (error) {
+      console.error('Failed to archive job:', error.message);
+      setArchivedJobIds((prev) => {
+        const next = new Set(prev);
+        next.delete(jobId);
+        return next;
+      });
+    }
+  }
+
+  async function handleUnarchive(jobId: string) {
+    if (!session) return;
+    setArchivedJobIds((prev) => {
+      const next = new Set(prev);
+      next.delete(jobId);
+      return next;
+    });
+    const { error } = await supabase
+      .from('job_archives')
+      .delete()
+      .eq('job_id', jobId)
+      .eq('user_id', session.user.id);
+    if (error) {
+      console.error('Failed to unarchive job:', error.message);
+      setArchivedJobIds((prev) => new Set(prev).add(jobId));
+    }
+  }
+
+  const filterPuebloIds = useMemo(() => {
+    if (!pueblos || filterPuebloSlugs.length === 0) return null;
+    const slugSet = new Set(filterPuebloSlugs);
+    return new Set(pueblos.filter((p) => slugSet.has(p.slug)).map((p) => p.id));
+  }, [pueblos, filterPuebloSlugs]);
+
+  const hasActiveFilters = filterTradeIds.length > 0 || filterPuebloSlugs.length > 0 || filterStatusKeys.length > 0;
+
+  const { sections, archivedCount } = useMemo<{ sections: Section[]; archivedCount: number }>(() => {
+    if (!bids) return { sections: [], archivedCount: 0 };
+
+    const filtered = bids.filter((bid) => {
+      if (!bid.jobs) return false;
+      if (filterTradeIds.length > 0 && !filterTradeIds.includes(bid.jobs.trade_id)) return false;
+      if (filterPuebloIds && !filterPuebloIds.has(bid.jobs.pueblo_id)) return false;
+      return true;
+    });
+
+    const sorted = [...filtered].sort((a, b) =>
+      sortOrder === 'newest' ? b.created_at.localeCompare(a.created_at) : a.created_at.localeCompare(b.created_at)
+    );
+
     // A bid whose job was cancelled after being hired isn't "still accepted"
-    // from the handyman's point of view — it needs its own section rather
+    // from the handyman's point of view — it needs its own category rather
     // than sitting under "Accepted" looking like an active hire. bid.status
     // = 'cancelled' is the ground-truth marker going forward (the job
     // itself reopens to 'open', it doesn't stay 'cancelled'); the job-status
     // check alongside it only still matters for jobs cancelled before this
     // distinction existed, which are stuck at status = 'cancelled' for good.
-    const jobCancelled = bids.filter(
-      (b) => b.status === 'cancelled' || (b.status === 'accepted' && b.jobs?.status === 'cancelled')
-    );
-    const accepted = bids.filter((b) => b.status === 'accepted' && b.jobs?.status !== 'cancelled');
-    const pending = bids.filter((b) => b.status === 'pending');
-    const closed = bids.filter((b) => b.status === 'rejected' || b.status === 'withdrawn');
+    const grouped: Record<Exclude<SectionKey, 'archived'>, MyBidRow[]> = {
+      jobCancelled: sorted.filter(
+        (b) => b.status === 'cancelled' || (b.status === 'accepted' && b.jobs?.status === 'cancelled')
+      ),
+      completed: sorted.filter((b) => b.status === 'accepted' && b.jobs?.status === 'completed'),
+      accepted: sorted.filter(
+        (b) => b.status === 'accepted' && b.jobs?.status !== 'cancelled' && b.jobs?.status !== 'completed'
+      ),
+      pending: sorted.filter((b) => b.status === 'pending'),
+      closed: sorted.filter((b) => b.status === 'rejected' || b.status === 'withdrawn'),
+    };
 
-    return [
-      { key: 'accepted', titleKey: 'myBids.sections.accepted', data: accepted },
-      { key: 'pending', titleKey: 'myBids.sections.pending', data: pending },
-      { key: 'jobCancelled', titleKey: 'myBids.sections.jobCancelled', data: jobCancelled },
-      { key: 'closed', titleKey: 'myBids.sections.closed', data: closed },
-    ].filter((section) => section.data.length > 0);
-  }, [bids]);
+    const activeDefs = SECTION_DEFS.filter((def) => filterStatusKeys.length === 0 || filterStatusKeys.includes(def.key));
+
+    const visible: Section[] = [];
+    const archivedRows: MyBidRow[] = [];
+
+    for (const def of activeDefs) {
+      const rows = grouped[def.key];
+      if (!ARCHIVABLE_KEYS.includes(def.key)) {
+        if (rows.length > 0) visible.push({ key: def.key, titleKey: def.titleKey, data: rows });
+        continue;
+      }
+      const notArchived = rows.filter((b) => !b.jobs || !archivedJobIds.has(b.jobs.id));
+      const archived = rows.filter((b) => b.jobs && archivedJobIds.has(b.jobs.id));
+      archivedRows.push(...archived);
+      if (notArchived.length > 0) visible.push({ key: def.key, titleKey: def.titleKey, data: notArchived });
+    }
+
+    if (showArchived && archivedRows.length > 0) {
+      visible.push({ key: 'archived', titleKey: 'myBids.sections.archived', data: archivedRows });
+    }
+
+    return { sections: visible, archivedCount: archivedRows.length };
+  }, [bids, archivedJobIds, showArchived, filterTradeIds, filterPuebloIds, filterStatusKeys, sortOrder]);
+
+  function toggleStatusFilter(key: SectionKey) {
+    setFilterStatusKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="subtitle" style={styles.title}>
-          {t('tabs.myBids')}
-        </ThemedText>
+        <View style={styles.titleRow}>
+          <ThemedText type="subtitle">{t('tabs.myBids')}</ThemedText>
+          {archivedCount > 0 && (
+            <Pressable onPress={() => setShowArchived((prev) => !prev)}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {showArchived ? t('myBids.hideArchived') : t('myBids.showArchived', { count: archivedCount })}
+              </ThemedText>
+            </Pressable>
+          )}
+        </View>
+
+        <View style={styles.controlsRow}>
+          <PrimaryButton
+            label={
+              hasActiveFilters
+                ? t('myBids.filtersActive')
+                : filtersOpen
+                  ? t('myBids.hideFilters')
+                  : t('myBids.showFilters')
+            }
+            variant="secondary"
+            style={styles.controlButton}
+            onPress={() => setFiltersOpen((prev) => !prev)}
+          />
+          <PrimaryButton
+            label={sortOrder === 'newest' ? t('myBids.sortNewest') : t('myBids.sortOldest')}
+            variant="secondary"
+            style={styles.controlButton}
+            onPress={() => setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))}
+          />
+        </View>
+
+        {filtersOpen && (
+          <ThemedView type="backgroundElement" style={styles.filterPanel}>
+            <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
+            <TradePicker mode="multi" selected={filterTradeIds} onChange={setFilterTradeIds} />
+
+            <ThemedText type="smallBold">{t('postJob.puebloLabel')}</ThemedText>
+            <PuebloPicker mode="multi" selected={filterPuebloSlugs} onChange={setFilterPuebloSlugs} />
+
+            <ThemedText type="smallBold">{t('myBids.statusLabel')}</ThemedText>
+            {SECTION_DEFS.map((def) => {
+              const isSelected = filterStatusKeys.includes(def.key);
+              return (
+                <Pressable
+                  key={def.key}
+                  onPress={() => toggleStatusFilter(def.key)}
+                  style={[styles.statusRow, { backgroundColor: isSelected ? theme.backgroundSelected : 'transparent' }]}>
+                  <ThemedText type="default">{t(def.titleKey)}</ThemedText>
+                  {isSelected && <ThemedText type="smallBold">✓</ThemedText>}
+                </Pressable>
+              );
+            })}
+
+            {hasActiveFilters && (
+              <PrimaryButton
+                label={t('myBids.clearFilters')}
+                variant="secondary"
+                onPress={() => {
+                  setFilterTradeIds([]);
+                  setFilterPuebloSlugs([]);
+                  setFilterStatusKeys([]);
+                }}
+              />
+            )}
+          </ThemedView>
+        )}
 
         {loadError ? (
           <ThemedText type="small" style={styles.error}>
@@ -111,7 +297,7 @@ export default function MyBidsScreen() {
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         ) : sections.length === 0 ? (
           <ThemedText type="default" themeColor="textSecondary">
-            {t('myBids.empty')}
+            {hasActiveFilters ? t('myBids.emptyFiltered') : t('myBids.empty')}
           </ThemedText>
         ) : (
           <SectionList
@@ -125,21 +311,55 @@ export default function MyBidsScreen() {
                 {t(section.titleKey)}
               </ThemedText>
             )}
-            renderItem={({ item }) =>
-              item.jobs ? (
+            renderItem={({ item, section }) => {
+              if (!item.jobs) return null;
+              const tradeName = item.jobs.trades
+                ? language === 'en'
+                  ? item.jobs.trades.name_en
+                  : item.jobs.trades.name_es
+                : '';
+              const row = (
                 <Link href={`/job/${item.jobs.id}`} asChild>
                   <Pressable>
                     <ThemedView type="backgroundElement" style={styles.card}>
                       <ThemedText type="default">{item.jobs.title}</ThemedText>
                       <ThemedText type="small" themeColor="textSecondary">
-                        {item.jobs.pueblos?.name} · ${item.price.toFixed(2)} ·{' '}
+                        {item.jobs.pueblos?.name} · {tradeName} · ${item.price.toFixed(2)} ·{' '}
                         {formatRelativeTime(item.created_at, t)}
                       </ThemedText>
                     </ThemedView>
                   </Pressable>
                 </Link>
-              ) : null
-            }
+              );
+
+              if (!ARCHIVABLE_KEYS.includes(section.key) && section.key !== 'archived') {
+                return row;
+              }
+
+              const jobId = item.jobs.id;
+              const isArchived = section.key === 'archived';
+              return (
+                <Swipeable
+                  renderRightActions={(_progress, _drag, swipeable) => (
+                    <Pressable
+                      style={[styles.swipeAction, isArchived ? styles.unarchiveAction : styles.archiveAction]}
+                      onPress={() => {
+                        swipeable.close();
+                        if (isArchived) {
+                          handleUnarchive(jobId);
+                        } else {
+                          handleArchive(jobId);
+                        }
+                      }}>
+                      <ThemedText type="smallBold" style={styles.swipeActionText}>
+                        {t(isArchived ? 'myBids.unarchive' : 'myBids.archive')}
+                      </ThemedText>
+                    </Pressable>
+                  )}>
+                  {row}
+                </Swipeable>
+              );
+            }}
           />
         )}
       </SafeAreaView>
@@ -156,8 +376,30 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.three,
   },
-  title: {
-    marginBottom: Spacing.two,
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  controlButton: {
+    flex: 1,
+  },
+  filterPanel: {
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
+    gap: Spacing.two,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+    borderRadius: Spacing.two,
   },
   list: {
     gap: Spacing.two,
@@ -171,6 +413,22 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     gap: Spacing.one,
     marginBottom: Spacing.two,
+  },
+  swipeAction: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 88,
+    marginBottom: Spacing.two,
+    borderRadius: Spacing.two,
+  },
+  archiveAction: {
+    backgroundColor: '#3c87f7',
+  },
+  unarchiveAction: {
+    backgroundColor: '#6b7280',
+  },
+  swipeActionText: {
+    color: '#ffffff',
   },
   error: {
     color: '#d64545',

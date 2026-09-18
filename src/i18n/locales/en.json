@@ -103,12 +103,27 @@
   },
   "myBids": {
     "empty": "You haven't submitted any bids yet.",
+    "emptyFiltered": "No bids match your filters.",
     "sections": {
       "accepted": "Accepted",
+      "completed": "Completed",
       "pending": "Pending",
       "closed": "Rejected / Withdrawn",
-      "jobCancelled": "Job Cancelled"
-    }
+      "jobCancelled": "Job Cancelled",
+      "archived": "Archived"
+    },
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "showArchived": "Show Archived ({{count}})",
+    "hideArchived": "Hide Archived",
+    "showFilters": "Filters",
+    "hideFilters": "Hide Filters",
+    "filtersActive": "Filters (active)",
+    "clearFilters": "Clear Filters",
+    "statusLabel": "Status",
+    "sortLabel": "Sort",
+    "sortNewest": "Newest First",
+    "sortOldest": "Oldest First"
   },
   "postJob": {
     "title": "Post a Job",

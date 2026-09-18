@@ -103,12 +103,27 @@
   },
   "myBids": {
     "empty": "Todavía no has enviado ninguna oferta.",
+    "emptyFiltered": "Ninguna oferta coincide con tus filtros.",
     "sections": {
       "accepted": "Aceptadas",
+      "completed": "Completadas",
       "pending": "Pendientes",
       "closed": "Rechazadas / Retiradas",
-      "jobCancelled": "Trabajo Cancelado"
-    }
+      "jobCancelled": "Trabajo Cancelado",
+      "archived": "Archivadas"
+    },
+    "archive": "Archivar",
+    "unarchive": "Desarchivar",
+    "showArchived": "Mostrar Archivadas ({{count}})",
+    "hideArchived": "Ocultar Archivadas",
+    "showFilters": "Filtros",
+    "hideFilters": "Ocultar Filtros",
+    "filtersActive": "Filtros (activos)",
+    "clearFilters": "Quitar Filtros",
+    "statusLabel": "Estado",
+    "sortLabel": "Ordenar",
+    "sortNewest": "Más Recientes Primero",
+    "sortOldest": "Más Antiguos Primero"
   },
   "postJob": {
     "title": "Publicar un Trabajo",
