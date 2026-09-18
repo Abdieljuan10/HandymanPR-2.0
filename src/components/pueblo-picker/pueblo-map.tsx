@@ -26,7 +26,7 @@ export function PuebloMap({ selected, onToggle }: PuebloMapProps) {
           <Path
             key={shape.slug}
             d={shape.path}
-            fill={selected.has(shape.slug) ? '#3c87f7' : theme.backgroundElement}
+            fill={selected.has(shape.slug) ? theme.tint : theme.backgroundElement}
             stroke={theme.background}
             strokeWidth={1}
             onPress={() => onToggle(shape.slug)}

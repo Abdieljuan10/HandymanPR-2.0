@@ -2,6 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, type PressableProps } from 'r
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 type PrimaryButtonProps = PressableProps & {
   label: string;
@@ -17,22 +18,24 @@ export function PrimaryButton({
   disabled,
   ...rest
 }: PrimaryButtonProps) {
+  const theme = useTheme();
+
   return (
     <Pressable
       disabled={disabled || loading}
       style={({ pressed }) => [
         styles.button,
-        variant === 'primary' ? styles.primary : styles.secondary,
+        variant === 'primary' ? { backgroundColor: theme.tint } : styles.secondary,
         (pressed || disabled || loading) && styles.pressed,
         style as object,
       ]}
       {...rest}>
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#ffffff' : '#3c87f7'} />
+        <ActivityIndicator color={variant === 'primary' ? '#ffffff' : theme.tint} />
       ) : (
         <ThemedText
           type="smallBold"
-          style={variant === 'primary' ? styles.primaryLabel : styles.secondaryLabel}>
+          style={variant === 'primary' ? styles.primaryLabel : { color: theme.tint }}>
           {label}
         </ThemedText>
       )}
@@ -48,9 +51,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: Spacing.two,
   },
-  primary: {
-    backgroundColor: '#3c87f7',
-  },
   secondary: {
     backgroundColor: 'transparent',
   },
@@ -59,8 +59,5 @@ const styles = StyleSheet.create({
   },
   primaryLabel: {
     color: '#ffffff',
-  },
-  secondaryLabel: {
-    color: '#3c87f7',
   },
 });

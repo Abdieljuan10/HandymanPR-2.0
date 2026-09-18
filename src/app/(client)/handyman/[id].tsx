@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
 
@@ -26,6 +27,7 @@ type PuebloRow = { pueblos: { name: string } | null };
 export default function PublicHandymanProfileScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
+  const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [profile, setProfile] = useState<HandymanProfileRow | null | undefined>(undefined);
@@ -98,13 +100,19 @@ export default function PublicHandymanProfileScreen() {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.headerRow}>
-            {profile.avatar_url && (
+            {profile.avatar_url ? (
               <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.backgroundElement }]}>
+                <ThemedText type="subtitle" themeColor="textSecondary">
+                  {profile.full_name.trim().charAt(0).toUpperCase() || '?'}
+                </ThemedText>
+              </View>
             )}
             <View style={styles.headerText}>
               <ThemedText type="subtitle">{profile.full_name}</ThemedText>
               {profile.is_verified && (
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="tint">
                   {t('handymanPublicProfile.verified')}
                 </ThemedText>
               )}
@@ -162,6 +170,10 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
+  },
+  avatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerText: {
     gap: Spacing.half,

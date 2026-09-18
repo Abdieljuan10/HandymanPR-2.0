@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
@@ -31,7 +31,7 @@ type Section = { key: SectionKey; titleKey: string; data: ClientJobRow[] };
 const STATUS_COLORS: Record<Exclude<JobStatus, 'open'>, string> = {
   hired: '#2e9e5b',
   pending_completion: '#e0a72e',
-  completed: '#3c87f7',
+  completed: Colors.light.tint,
   cancelled: '#d64545',
   expired: '#9a9a9a',
 };
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
   },
   archiveAction: {
-    backgroundColor: '#3c87f7',
+    backgroundColor: Colors.light.tint,
   },
   unarchiveAction: {
     backgroundColor: '#6b7280',

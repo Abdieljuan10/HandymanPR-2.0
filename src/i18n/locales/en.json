@@ -167,9 +167,30 @@
   },
   "handymanProfile": {
     "title": "Your Profile",
-    "description": "Logged in as {{email}}. Bio, certifications, and portfolio editing come later.",
+    "noBio": "Add a bio so clients know more about you.",
+    "editProfile": "Edit Profile",
     "editTrades": "Edit Trades",
     "editPueblos": "Edit Pueblos"
+  },
+  "profileEdit": {
+    "title": "Edit Profile",
+    "addPhoto": "Add Photo",
+    "changePhoto": "Change Photo",
+    "nameLabel": "Full Name",
+    "bioLabel": "Bio",
+    "bioPlaceholder": "Tell clients about your experience...",
+    "yearsLabel": "Years of Experience",
+    "save": "Save Changes",
+    "saving": "Saving...",
+    "notAllowed": "Couldn't save — please try again.",
+    "unsavedTitle": "Discard changes?",
+    "unsavedMessage": "You have unsaved changes. Leaving now will discard them.",
+    "keepEditing": "Keep Editing",
+    "discard": "Discard",
+    "errors": {
+      "name": "Enter your name",
+      "years": "Enter a valid number of years"
+    }
   },
   "jobDetail": {
     "notFound": "Job not found.",
@@ -305,6 +326,7 @@
   "headers": {
     "jobDetails": "Job Details",
     "handymanProfile": "Handyman Profile",
+    "editProfile": "Edit Profile",
     "settings": "Settings",
     "yourTrades": "Your Trades",
     "yourPueblos": "Your Pueblos",

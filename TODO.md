@@ -2,23 +2,61 @@
 
 **Pilot-scope override, set 2026-09-18**: before anything else below, the
 goal is the minimum to put this in front of one real handyman in Puerto
-Rico (not a store launch). Working through exactly three items, in this
-order, and nothing else until they're done:
-1. Branded Supabase signup email — see "Next up" item 2 below.
-2. Real app icon/splash/brand colors — current icon is the literal unedited
-   Expo template default, current theme colors are pure black/white. Folded
-   into "Then: visual polish" below, but pulled forward ahead of
-   scheduling/portfolio/subscriptions for pilot purposes.
-3. Basic handyman profile editing (name/bio/years/avatar) — the public
-   profile screen already renders these fields if present, but there is no
-   edit form anywhere; `(handyman)/(tabs)/profile.tsx` is still a bare
-   `PlaceholderScreen`. Uses existing columns and the existing `avatars`
-   bucket, no migration needed. Deliberately scoped down from full
-   portfolio-photos/certifications (client's call — those wait until a real
-   handyman asks for them, see "Then: portfolio / certs / subscriptions").
-   Settings screens (`profile-settings.tsx`, both sides) already exist and
-   work (language + logout) and are NOT part of this list — profile editing
-   belongs on the Profile tab instead.
+Rico (not a store launch). Working through this list, in order:
+1. [x] Branded Supabase signup email — see "Next up" item 2 below. Template
+   committed, still needs the client to apply it in the dashboard.
+2. [x] **Brand direction chosen: "Isla" (teal + coral)** — presented 4
+   palette/icon directions as an artifact, client picked Isla. Colors wired
+   into `theme.ts` (`tint`/`accent`, both light/dark) and every hardcoded
+   `#3c87f7` accent blue in app code (`primary-button.tsx`, `themed-text.tsx`
+   linkPrimary, `pueblo-map.tsx` selection fill, the archive-swipe-action
+   background on both Your Jobs and My Bids, the `completed` status dot) —
+   `npx tsc --noEmit` and `expo lint` both clean. Also wired
+   `expo-notifications`' Android notification-icon `color` in `app.json` to
+   the new teal, since that one has no image-asset dependency.
+   **Deliberately NOT touched, by client request** (holding icon/splash
+   assets until a features-first pass is done and a real build is imminent):
+   the actual `icon.png`/`splash-icon.png`/`android-icon-*.png` files (still
+   the literal default Expo template graphics), `app.json`'s
+   `expo-splash-screen` plugin `backgroundColor` and
+   `android.adaptiveIcon.backgroundColor` (both tightly coupled to those
+   still-default images — recoloring just the background without new
+   artwork would look more broken, not less), and `animated-icon.tsx` (the
+   in-app splash-transition component, which renders that same still-default
+   icon graphic). **Resume here**: build real icon/splash images in the
+   chosen Isla palette, then wire those three remaining spots together in
+   one pass so the whole splash sequence stays visually consistent.
+3. [x] **Basic handyman profile editing (name/bio/years/avatar) — built
+   2026-09-18.** New `(handyman)/profile-edit.tsx` screen (avatar picker +
+   compress-to-640px-JPEG + upload to the existing `avatars` bucket at a
+   fixed `{userId}/avatar.jpg` path with `upsert: true` so re-uploading
+   replaces in place instead of orphaning old files, `?v=` cache-busting
+   query param on the saved URL, name/bio/years fields, unsaved-changes
+   guard, same `.select().maybeSingle()` RLS-silent-failure check pattern as
+   job edit). `(handyman)/(tabs)/profile.tsx` — previously a bare
+   `PlaceholderScreen` with no display of any actual profile data — now
+   shows the real avatar/name/verified badge/years/bio (or a "no bio yet"
+   prompt) and links to Edit Profile alongside the existing Edit
+   Trades/Edit Pueblos/Settings buttons. No migration needed, every column
+   and the Storage bucket+policies already existed.
+   Also touched the **public** profile screen (`(client)/handyman/[id].tsx`)
+   while verifying it displays all this correctly: it already rendered
+   bio/years/avatar/verified correctly when present, but had no
+   avatar-placeholder for a handyman with no photo yet (would've shown just
+   floating text) — added the same initials-circle placeholder as the new
+   edit screen, and switched the "Verified" badge from plain secondary-gray
+   text to the new brand tint color so it reads as a real trust signal.
+   `npx tsc --noEmit` and `expo lint` both clean. **Not yet tested
+   on-device.**
+4. [ ] **Portfolio photos + certifications** — client's call 2026-09-18:
+   build these before showing the app to anyone (reversing the earlier plan
+   to defer them past the pilot), since alongside the profile these are
+   "the rest of what a client judges a handyman on." Schema/Storage already
+   exist for both (`handyman_portfolio_photos` table + public
+   `portfolio-photos` bucket; `handyman_certifications` table + **private**
+   `certifications` bucket, `is_verified` already admin-only via trigger) —
+   pure UI work, no migration needed. See "Then: portfolio / certs /
+   subscriptions" below for the existing schema notes.
 
 Order set by the client (2026-09-15): **push notifications → chat → job
 completion + reviews → scheduling → portfolio/certs/subscriptions → visual

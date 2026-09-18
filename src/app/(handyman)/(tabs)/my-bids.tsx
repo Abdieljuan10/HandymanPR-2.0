@@ -12,7 +12,7 @@ import { PuebloPicker } from '@/components/pueblo-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TradePicker } from '@/components/trade-picker';
-import { Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePueblos } from '@/hooks/use-pueblos';
 import { supabase } from '@/lib/supabase';
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
   },
   archiveAction: {
-    backgroundColor: '#3c87f7',
+    backgroundColor: Colors.light.tint,
   },
   unarchiveAction: {
     backgroundColor: '#6b7280',
