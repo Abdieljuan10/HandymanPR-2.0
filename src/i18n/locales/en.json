@@ -63,8 +63,13 @@
       "open": "Open",
       "completed": "Completed",
       "expired": "Expired",
-      "cancelled": "Cancelled"
-    }
+      "cancelled": "Cancelled",
+      "archived": "Archived"
+    },
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "showArchived": "Show Archived ({{count}})",
+    "hideArchived": "Hide Archived"
   },
   "time": {
     "justNow": "Just now",

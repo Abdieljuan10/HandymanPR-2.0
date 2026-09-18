@@ -2,6 +2,9 @@ import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
+// The root-export Swipeable is deprecated in favor of this Reanimated-backed
+// one (react-native-reanimated is already a dependency here).
+import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -22,7 +25,8 @@ type ClientJobRow = {
   pueblos: { name: string } | null;
 };
 
-type Section = { key: string; titleKey: string; data: ClientJobRow[] };
+type SectionKey = 'pendingCompletion' | 'hired' | 'open' | 'completed' | 'expired' | 'cancelled' | 'archived';
+type Section = { key: SectionKey; titleKey: string; data: ClientJobRow[] };
 
 const STATUS_COLORS: Record<Exclude<JobStatus, 'open'>, string> = {
   hired: '#2e9e5b',
@@ -40,19 +44,28 @@ export default function ClientHomeScreen() {
   const { session } = useSession();
   const [jobs, setJobs] = useState<ClientJobRow[] | null>(null);
   const [bidCounts, setBidCounts] = useState<Record<string, number>>({});
+  // Archiving only ever applies to completed jobs here (see
+  // 20260930010000_job_archives.sql) -- cancelled/expired jobs already have
+  // a real delete option, and the client's own call was that completed jobs
+  // stay permanently undeletable (their reviews belong to whoever received
+  // them), so archive is the "get it out of my list" option for those.
+  const [archivedJobIds, setArchivedJobIds] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!session) return;
 
-    const { data } = await supabase
-      .from('jobs')
-      .select(JOBS_SELECT)
-      .eq('client_id', session.user.id)
-      .order('created_at', { ascending: false });
+    const [{ data }, { data: archivesData }] = await Promise.all([
+      supabase.from('jobs').select(JOBS_SELECT).eq('client_id', session.user.id).order('created_at', {
+        ascending: false,
+      }),
+      supabase.from('job_archives').select('job_id').eq('user_id', session.user.id),
+    ]);
 
     const jobsData = (data as ClientJobRow[] | null) ?? [];
     setJobs(jobsData);
+    setArchivedJobIds(new Set((archivesData ?? []).map((row) => row.job_id as string)));
 
     const openJobIds = jobsData.filter((job) => job.status === 'open').map((job) => job.id);
     if (openJobIds.length === 0) {
@@ -91,31 +104,78 @@ export default function ClientHomeScreen() {
     setRefreshing(false);
   }
 
-  const sections = useMemo<Section[]>(() => {
-    if (!jobs) return [];
+  async function handleArchive(jobId: string) {
+    if (!session) return;
+    setArchivedJobIds((prev) => new Set(prev).add(jobId));
+    const { error } = await supabase.from('job_archives').insert({ job_id: jobId, user_id: session.user.id });
+    if (error) {
+      console.error('Failed to archive job:', error.message);
+      setArchivedJobIds((prev) => {
+        const next = new Set(prev);
+        next.delete(jobId);
+        return next;
+      });
+    }
+  }
+
+  async function handleUnarchive(jobId: string) {
+    if (!session) return;
+    setArchivedJobIds((prev) => {
+      const next = new Set(prev);
+      next.delete(jobId);
+      return next;
+    });
+    const { error } = await supabase
+      .from('job_archives')
+      .delete()
+      .eq('job_id', jobId)
+      .eq('user_id', session.user.id);
+    if (error) {
+      console.error('Failed to unarchive job:', error.message);
+      setArchivedJobIds((prev) => new Set(prev).add(jobId));
+    }
+  }
+
+  const { sections, archivedCount } = useMemo<{ sections: Section[]; archivedCount: number }>(() => {
+    if (!jobs) return { sections: [], archivedCount: 0 };
     const hired = jobs.filter((job) => job.status === 'hired');
     const pendingCompletion = jobs.filter((job) => job.status === 'pending_completion');
     const open = jobs.filter((job) => job.status === 'open');
-    const completed = jobs.filter((job) => job.status === 'completed');
+    const completed = jobs.filter((job) => job.status === 'completed' && !archivedJobIds.has(job.id));
+    const archived = jobs.filter((job) => job.status === 'completed' && archivedJobIds.has(job.id));
     const cancelled = jobs.filter((job) => job.status === 'cancelled');
     const expired = jobs.filter((job) => job.status === 'expired');
 
-    return [
+    const allSections: Section[] = [
       { key: 'pendingCompletion', titleKey: 'clientHome.sections.pendingCompletion', data: pendingCompletion },
       { key: 'hired', titleKey: 'clientHome.sections.hired', data: hired },
       { key: 'open', titleKey: 'clientHome.sections.open', data: open },
       { key: 'completed', titleKey: 'clientHome.sections.completed', data: completed },
       { key: 'expired', titleKey: 'clientHome.sections.expired', data: expired },
       { key: 'cancelled', titleKey: 'clientHome.sections.cancelled', data: cancelled },
-    ].filter((section) => section.data.length > 0);
-  }, [jobs]);
+    ];
+    const list = allSections.filter((section) => section.data.length > 0);
+
+    if (showArchived && archived.length > 0) {
+      list.push({ key: 'archived', titleKey: 'clientHome.sections.archived', data: archived });
+    }
+
+    return { sections: list, archivedCount: archived.length };
+  }, [jobs, archivedJobIds, showArchived]);
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="subtitle" style={styles.title}>
-          {t('clientHome.title')}
-        </ThemedText>
+        <View style={styles.titleRow}>
+          <ThemedText type="subtitle">{t('clientHome.title')}</ThemedText>
+          {archivedCount > 0 && (
+            <Pressable onPress={() => setShowArchived((prev) => !prev)}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {showArchived ? t('clientHome.hideArchived') : t('clientHome.showArchived', { count: archivedCount })}
+              </ThemedText>
+            </Pressable>
+          )}
+        </View>
 
         {jobs === null ? (
           <ThemedText type="default">{t('common.loading')}</ThemedText>
@@ -135,13 +195,13 @@ export default function ClientHomeScreen() {
                 {t(section.titleKey)}
               </ThemedText>
             )}
-            renderItem={({ item }) => {
+            renderItem={({ item, section }) => {
               const dotColor = item.status === 'open' ? theme.textSecondary : STATUS_COLORS[item.status];
-              return (
+              const row = (
                 <Link href={`/job/${item.id}`} asChild>
                   <Pressable>
                     <ThemedView type="backgroundElement" style={styles.card}>
-                      <View style={styles.titleRow}>
+                      <View style={styles.itemTitleRow}>
                         <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
                         <ThemedText type="default">{item.title}</ThemedText>
                       </View>
@@ -155,6 +215,33 @@ export default function ClientHomeScreen() {
                     </ThemedView>
                   </Pressable>
                 </Link>
+              );
+
+              if (section.key !== 'completed' && section.key !== 'archived') {
+                return row;
+              }
+
+              const isArchived = section.key === 'archived';
+              return (
+                <Swipeable
+                  renderRightActions={(_progress, _drag, swipeable) => (
+                    <Pressable
+                      style={[styles.swipeAction, isArchived ? styles.unarchiveAction : styles.archiveAction]}
+                      onPress={() => {
+                        swipeable.close();
+                        if (isArchived) {
+                          handleUnarchive(item.id);
+                        } else {
+                          handleArchive(item.id);
+                        }
+                      }}>
+                      <ThemedText type="smallBold" style={styles.swipeActionText}>
+                        {t(isArchived ? 'clientHome.unarchive' : 'clientHome.archive')}
+                      </ThemedText>
+                    </Pressable>
+                  )}>
+                  {row}
+                </Swipeable>
               );
             }}
           />
@@ -173,7 +260,10 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.three,
   },
-  title: {
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: Spacing.two,
   },
   list: {
@@ -189,7 +279,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     marginBottom: Spacing.two,
   },
-  titleRow: {
+  itemTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
@@ -198,5 +288,21 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  swipeAction: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 88,
+    marginBottom: Spacing.two,
+    borderRadius: Spacing.two,
+  },
+  archiveAction: {
+    backgroundColor: '#3c87f7',
+  },
+  unarchiveAction: {
+    backgroundColor: '#6b7280',
+  },
+  swipeActionText: {
+    color: '#ffffff',
   },
 });
