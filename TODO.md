@@ -27,9 +27,10 @@ then completion + blind reviews. Working through it in four phases:
 **Next, in priority order (set by the client 2026-09-17)** — see
 "## Next up" below: ~~notification deep-linking~~ (**DONE, confirmed
 end-to-end 2026-09-17**), branded Supabase signup email, ~~per-user
-language + bilingual notifications~~ (**implemented 2026-09-18, migration
-not yet run, not yet tested — jumped ahead of the signup-email item to fill
-EAS build queue time**), unread badge on Messages, auth basics
+language + bilingual notifications~~ (**per-account persistence confirmed
+on-device 2026-09-18, bilingual push copy not separately confirmed yet —
+jumped ahead of the signup-email item to fill EAS build queue time**),
+unread badge on Messages, auth basics
 (show-password/confirm-password/change-password), tap-to-view job photos.
 
 There's also an open bug report (date-proposal identity mixup, awaiting a
@@ -405,8 +406,12 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
        copy, looks broken to a real user. Needs to be branded HandymanPR,
        Spanish by default. This is a dashboard change (Auth → Email
        Templates), not app code — hand the client exact steps/copy.
-3. [x] **Per-user language + bilingual notifications — implemented
-       2026-09-18, migration not yet run, not yet tested on-device.**
+3. [x] **Per-user language + bilingual notifications — migration run,
+       per-account persistence confirmed on-device 2026-09-18** (each
+       account keeps its own language setting now). Bilingual push copy
+       itself (a recipient getting a notification in their own stored
+       language, not the sender's/device's) not yet separately confirmed —
+       resume there if it hasn't been checked.
        Two bugs: language was device-wide (a single AsyncStorage key), so
        changing it on one account changed it for every other account signed
        into the same device too; and every push notification was hardcoded
@@ -432,17 +437,12 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
        build rather than `to_char`'s locale-dependent month names, since a
        Spanish locale isn't guaranteed to be installed on Supabase's
        Postgres image. `npx tsc --noEmit` and `eslint` both clean.
-       **Resume here**: run the migration in the SQL Editor, then test —
-       switch language on one account, confirm the other account on the
-       same device isn't affected and correctly shows its own; trigger a
-       few notification types and confirm the recipient gets the copy
-       matching their own stored language, not the sender's or the device's.
 4. [ ] **Unread badge count on the Messages tab.**
 5. [ ] **Auth basics** — show-password toggle on login, confirm-password
        field on signup, change-password screen in Settings.
 6. [ ] **Tap a job photo to view it full-size**, swipe between multiple.
 
-## Photo bugs fixed 2026-09-18 (client-reported, outside the numbered list above)
+## Client-reported bugs fixed 2026-09-18 (outside the numbered list above)
 
 - [x] **No cap on job photos** — client posted a job with 50 photos to
       confirm there was no limit. Capped posting and editing at 10
@@ -456,24 +456,49 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       succeed. Also added a whole-screen unsaved-changes prompt
       (`usePreventRemove`) covering header back, hardware back, and
       swipe-back.
-- [x] **Compression** — added `expo-image-manipulator`: every upload
-      (posting and editing) is resized to at most 1600px on the long edge
-      and re-encoded as JPEG at 0.7 quality, so a 3-5MB camera photo lands
-      in the low hundreds of KB before it reaches Storage.
-      **New native dependency — needs a rebuild.** `package-lock.json`
-      regenerated from scratch with npm 10 (matching the EAS build
-      environment) and `npm ci` verified clean under npm 10 before
-      triggering the build, per the standing lockfile rule in CLAUDE.md.
-      Build queued 2026-09-18 (`eas build --platform android --profile
-      development`, id `fa022c5f-cec6-419b-8a08-6fbfb4edd50a`) — resume by
-      checking its result; the photo-cap and save-gating fixes above are
-      JS-only and already confirmed working on-device via a plain reload,
-      only compression needs the new build installed before it can be
-      tested.
-      All three commits pushed (`4bcaaa1` photo cap/save-gating/
-      compression, `b174958` per-user language) without waiting for the
-      build or on-device testing, per the client's call this session:
-      prioritize a pushed restore point over a perfectly-timed commit.
+- [x] **Compression — DONE, confirmed end-to-end on 2026-09-18.** Added
+      `expo-image-manipulator`: every upload (posting and editing) is
+      resized to at most 1600px on the long edge and re-encoded as JPEG at
+      0.7 quality. New native dependency, needed a rebuild —
+      `package-lock.json` regenerated from scratch with npm 10 (matching
+      the EAS build environment) and `npm ci` verified clean under npm 10
+      before triggering the build, per the standing lockfile rule in
+      CLAUDE.md. Build `fa022c5f-cec6-419b-8a08-6fbfb4edd50a` finished
+      clean, installed, and a test photo landed at 57 KB in Storage versus
+      several MB before.
+      All commits this session pushed immediately (`4bcaaa1` photo
+      cap/save-gating/compression, `b174958` per-user language, `c8c9317`
+      TODO update, `0df7567` job-deletion Storage cleanup below) without
+      waiting for the build or on-device testing, per the client's call
+      this session: prioritize a pushed restore point over a
+      perfectly-timed commit.
+- [x] **Orphaned Storage photos on job delete — implemented 2026-09-18,
+      migration not yet run, not yet tested.** Deleting a job only ever
+      removed its `job_photos` DB rows (via the FK's on-delete cascade) —
+      the actual files stayed in Storage forever, silently eating free-tier
+      quota with files nobody can reach. `handleDelete()` in
+      `job/[id]/index.tsx` now lists and removes the job's Storage folder
+      *before* deleting the row (order matters — the bucket's delete policy
+      requires the `jobs` row to still exist). Added
+      `scripts/cleanup-orphaned-job-photos.js`, a one-time Node script
+      (needs the Supabase **service role** key, passed inline, never
+      committed) that lists every top-level folder in the `job-photos`
+      bucket, diffs against existing job ids, and removes whatever's
+      orphaned — run with `--dry-run` first to see what it would delete.
+      **Resume here**: run `--dry-run` to see how much test-data cruft is
+      actually sitting there, then run it for real; separately confirm a
+      fresh job delete no longer leaves its folder behind.
+- [x] **Couldn't delete cancelled/expired jobs — implemented 2026-09-18,
+      migration not yet run, not yet tested.** `jobs_delete`'s RLS policy
+      only allowed deleting an `'open'` job — a dead cancelled or expired
+      job (nobody hired, no reviews coming) couldn't be removed at all,
+      just clutter. Widened (`20260929000000_job_deletion.sql`) to also
+      allow `'cancelled'` and `'expired'`. Deliberately **not** widened to
+      `'completed'` (or `'hired'`/`'pending_completion'`, unchanged) — the
+      client's own call: a completed job's reviews belong to whoever
+      received them, and letting either side delete the job to erase an
+      unwanted review would defeat the point of the review system, even
+      after the 7-day review window closes.
 
 ## Known bug — under investigation, awaiting fresh repro
 
