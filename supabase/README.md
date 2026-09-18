@@ -43,6 +43,46 @@ Nothing here needs a manual toggle in the dashboard beyond running the file —
 Storage buckets and their policies are just rows in `storage.buckets` /
 `storage.objects`, same mechanism as the tables above.
 
+## Branded signup email (dashboard change, run once)
+
+The default Supabase confirmation email is unbranded and looks broken/phishy
+to a real user. A replacement template lives in this repo at
+`email-templates/confirm-signup.html` — Spanish by default (matching the
+app's default language), same "Técnico"/"Cliente" wording as the app itself.
+
+1. In the Supabase dashboard, go to **Authentication → Email Templates →
+   Confirm signup**.
+2. Set the **Subject heading** to: `Confirma tu cuenta — HandymanPR`
+3. Open `email-templates/confirm-signup.html` in this repo, copy the entire
+   contents, and paste it into the **Message body (HTML)** field, replacing
+   what's there. Leave the `{{ .ConfirmationURL }}` placeholders exactly as
+   they are — Supabase fills those in per email.
+4. Click **Save**.
+5. Test it: sign up a throwaway account from the app and check the email
+   that arrives.
+
+**While you're on that Authentication page, also check the Site URL**
+(**Authentication → URL Configuration → Site URL**). If it's still the
+default `http://localhost:3000`, tapping the confirmation link on a phone
+will land on a broken page after confirming (the account still gets
+confirmed either way, but it looks broken). Point it at something real —
+even a plain "you're confirmed, go back to the app" static page is fine,
+since the app doesn't deep-link the confirmation itself (the in-app copy
+already tells the user to confirm the email, then manually return and log
+in).
+
+**Note on brand colors**: the button/header colors in the template
+(`#1C64F2` blue, `#F97316` orange) are a provisional placeholder pair, not
+final brand colors — swap the two hex values in the file (and re-paste) once
+the app's real color scheme is picked.
+
+**Known limitation, not fixed here**: Supabase's built-in email sending is
+rate-limited (a handful of emails per hour) and can land in spam, since it
+sends from a shared Supabase domain rather than one you control. Fine for a
+one-person pilot; if this becomes real friction, the fix is wiring up a
+custom SMTP provider (Auth → Settings → SMTP Settings) — bigger task, not
+attempted here.
+
 ## Not done yet
 
 - **Certification upload UI** — the `certifications` bucket and its RLS policies

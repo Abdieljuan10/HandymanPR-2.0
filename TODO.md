@@ -1,5 +1,25 @@
 # Roadmap
 
+**Pilot-scope override, set 2026-09-18**: before anything else below, the
+goal is the minimum to put this in front of one real handyman in Puerto
+Rico (not a store launch). Working through exactly three items, in this
+order, and nothing else until they're done:
+1. Branded Supabase signup email — see "Next up" item 2 below.
+2. Real app icon/splash/brand colors — current icon is the literal unedited
+   Expo template default, current theme colors are pure black/white. Folded
+   into "Then: visual polish" below, but pulled forward ahead of
+   scheduling/portfolio/subscriptions for pilot purposes.
+3. Basic handyman profile editing (name/bio/years/avatar) — the public
+   profile screen already renders these fields if present, but there is no
+   edit form anywhere; `(handyman)/(tabs)/profile.tsx` is still a bare
+   `PlaceholderScreen`. Uses existing columns and the existing `avatars`
+   bucket, no migration needed. Deliberately scoped down from full
+   portfolio-photos/certifications (client's call — those wait until a real
+   handyman asks for them, see "Then: portfolio / certs / subscriptions").
+   Settings screens (`profile-settings.tsx`, both sides) already exist and
+   work (language + logout) and are NOT part of this list — profile editing
+   belongs on the Profile tab instead.
+
 Order set by the client (2026-09-15): **push notifications → chat → job
 completion + reviews → scheduling → portfolio/certs/subscriptions → visual
 polish.** Chat and push notifications are both done now (see below).
@@ -402,10 +422,16 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
        random suffix per mount, so even a legitimate double-mount (e.g. a
        fast double-tap on a conversation row) can't collide on the same
        channel object again. `npx tsc --noEmit` and `eslint` both clean.
-2. [ ] **Customize the Supabase signup email** — currently default Supabase
-       copy, looks broken to a real user. Needs to be branded HandymanPR,
-       Spanish by default. This is a dashboard change (Auth → Email
-       Templates), not app code — hand the client exact steps/copy.
+2. [ ] **Customize the Supabase signup email** — template ready, not yet
+       applied. Branded HTML template committed at
+       `supabase/email-templates/confirm-signup.html`, Spanish by default
+       (matches the app's default language and "Técnico"/"Cliente" wording).
+       Exact dashboard steps (Auth → Email Templates → Confirm signup, plus a
+       Site URL check on the same page) are in `supabase/README.md`. Colors
+       used (`#1C64F2` / `#F97316`) are a placeholder pair — swap once real
+       brand colors are picked in the visual-polish item below. **Client
+       needs to apply it in the dashboard and confirm a test signup email
+       looks right.**
 3. [x] **Per-user language + bilingual notifications — migration run,
        per-account persistence confirmed on-device 2026-09-18** (each
        account keeps its own language setting now). Bilingual push copy
@@ -484,8 +510,9 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       defeat the point of the review system, even after the 7-day review
       window closes. See the archive feature below for the alternative on
       completed jobs.
-- [x] **Orphaned Storage photos on job delete — real root cause found and
-      fixed 2026-09-19, migration not yet run, not yet tested.** First pass
+- [x] **Orphaned Storage photos on job delete — DONE, confirmed on-device
+      2026-09-19** (a fresh job delete now actually removes its Storage
+      folder). First pass
       (`0df7567`, 2026-09-18) added a Storage list+remove step to
       `handleDelete()` before deleting the job row. Client tested it: still
       broken — deleted all but 3 jobs, Storage still showed 5 folders,
@@ -506,26 +533,43 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
       **service role** key, passed inline, never committed) remains for
       sweeping up everything orphaned before this fix — already run once by
       the client for the original backlog; the 5-folders-for-3-jobs leftover
-      is what's still there because *this* fix wasn't live yet.
-      **Resume here**: run the new migration, then delete a fresh job with
-      photos and confirm its Storage folder is actually gone this time.
-- [x] **Archive completed jobs — implemented 2026-09-19, migration not yet
-      run, not yet tested.** Client's follow-up to completed jobs staying
-      undeletable: Outlook-style archive instead — hides a completed job
-      from Your Jobs without touching the job or its reviews. Per-user via
-      a new `job_archives` join table (`20260930010000_job_archives.sql`,
-      generic on `job_id`+`user_id`, not client-specific, even though only
-      the client's Your Jobs screen uses it today), so archiving on one side
-      never affects what the other party sees. Swipe-to-archive on completed
-      job rows in Your Jobs, plus a "Show Archived (N)" toggle revealing an
-      Archived section with swipe-to-unarchive. Needed
+      was what was still there because *this* fix wasn't live yet.
+- [x] **Archive completed jobs (client side) — DONE, confirmed on-device
+      2026-09-19** (archiving on the client's side correctly left the job
+      visible on the handyman's side — per-user scoping confirmed working).
+      Client's follow-up to completed jobs staying undeletable: Outlook-style
+      archive instead — hides a completed job from Your Jobs without
+      touching the job or its reviews. Per-user via a new `job_archives`
+      join table (`20260930010000_job_archives.sql`, generic on
+      `job_id`+`user_id`, not client-specific — see below, the handyman side
+      reuses this same table with zero schema changes), so archiving on one
+      side never affects what the other party sees. Swipe-to-archive on
+      completed job rows in Your Jobs, plus a "Show Archived (N)" toggle
+      revealing an Archived section with swipe-to-unarchive. Needed
       `GestureHandlerRootView` wrapping the app root in `_layout.tsx` —
       `react-native-gesture-handler`/`react-native-reanimated` were already
       dependencies (expo-router's own native-stack needs them) but were
       never explicitly wired up for use inside a screen; uses the
       non-deprecated `ReanimatedSwipeable` import rather than the classic
-      `Swipeable`. No new native dependency, so no rebuild needed — this is
-      testable via a plain reload once the migration's run.
+      `Swipeable`.
+- [x] **Archive + filter/sort on My Bids (handyman side) — implemented
+      2026-09-19, not yet tested.** Client's follow-up: archive matters more
+      here than on the client side, since a working handyman's My Bids list
+      only grows (hundreds of bids and completed jobs over time). Same
+      `job_archives` table, no schema change — reused as-is. Archivable
+      scope widened past just "completed" to also cover `jobCancelled` and
+      `closed` (rejected/withdrawn) — this doubles as the parked "swipe to
+      dismiss rejected bids" item from below, now built. Needed a dedicated
+      "Completed" section first (previously lumped into "Accepted" alongside
+      still-active hired/pending_completion bids, which made it impossible
+      to scope archiving correctly). Also added the trade/pueblo/status
+      filter panel (mirroring the handyman job feed's existing filter UI)
+      and a newest/oldest sort toggle — needed adding `trade_id`/
+      `pueblo_id`/`trades` to the bids query, which wasn't previously
+      selected. No new native dependency, no new migration — testable via a
+      plain reload.
+      **Resume here**: test archive/unarchive on My Bids, and the
+      trade/pueblo/status filters + sort toggle.
 
 ## Known bug — under investigation, awaiting fresh repro
 
