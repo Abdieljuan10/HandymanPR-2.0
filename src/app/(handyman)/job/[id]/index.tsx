@@ -1,13 +1,14 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CompletionCard } from '@/components/completion-card';
 import { FormField } from '@/components/form-field';
 import { JobDateCard } from '@/components/job-date-card';
 import { JobPhoto } from '@/components/job-photo';
+import { PhotoViewer } from '@/components/photo-viewer';
 import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
 import { PrimaryButton } from '@/components/primary-button';
 import { ReviewsCard } from '@/components/reviews-card';
@@ -64,6 +65,7 @@ export default function HandymanJobDetailScreen() {
 
   const [job, setJob] = useState<JobDetailRow | null | undefined>(undefined);
   const [photos, setPhotos] = useState<{ photo_url: string }[]>([]);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [myBid, setMyBid] = useState<MyBidRow | null | undefined>(undefined);
 
@@ -290,11 +292,20 @@ export default function HandymanJobDetailScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {photos.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
-              {photos.map((photo) => (
-                <JobPhoto key={photo.photo_url} uri={photo.photo_url} style={styles.photo} />
+              {photos.map((photo, index) => (
+                <Pressable key={photo.photo_url} onPress={() => setViewerIndex(index)}>
+                  <JobPhoto uri={photo.photo_url} style={styles.photo} />
+                </Pressable>
               ))}
             </ScrollView>
           )}
+
+          <PhotoViewer
+            photos={photos.map((photo) => photo.photo_url)}
+            initialIndex={viewerIndex ?? 0}
+            visible={viewerIndex !== null}
+            onClose={() => setViewerIndex(null)}
+          />
 
           <ThemedText type="subtitle">{job.title}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">

@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FormField } from '@/components/form-field';
 import { JobPhoto } from '@/components/job-photo';
 import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
+import { PhotoViewer } from '@/components/photo-viewer';
 import { PrimaryButton } from '@/components/primary-button';
 import { PuebloPicker } from '@/components/pueblo-picker';
 import { ThemedText } from '@/components/themed-text';
@@ -57,6 +58,7 @@ export default function EditPortfolioProjectScreen() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   const visibleExistingPhotos = existingPhotos.filter((p) => !removedPhotoIds.has(p.id));
   const totalPhotoCount = visibleExistingPhotos.length + newPhotos.length;
@@ -337,9 +339,11 @@ export default function EditPortfolioProjectScreen() {
               </ThemedText>
             </View>
             <View style={styles.photoGrid}>
-              {visibleExistingPhotos.map((photo) => (
+              {visibleExistingPhotos.map((photo, index) => (
                 <View key={photo.id} style={styles.photoThumbWrapper}>
-                  <JobPhoto uri={photo.photo_url} style={styles.photoThumb} />
+                  <Pressable onPress={() => setViewerIndex(index)}>
+                    <JobPhoto uri={photo.photo_url} style={styles.photoThumb} />
+                  </Pressable>
                   <Pressable
                     style={styles.removeBadge}
                     onPress={() => handleRemoveExistingPhoto(photo.id)}>
@@ -351,7 +355,9 @@ export default function EditPortfolioProjectScreen() {
               ))}
               {newPhotos.map((asset, index) => (
                 <View key={asset.uri} style={styles.photoThumbWrapper}>
-                  <Image source={{ uri: asset.uri }} style={styles.photoThumb} />
+                  <Pressable onPress={() => setViewerIndex(visibleExistingPhotos.length + index)}>
+                    <Image source={{ uri: asset.uri }} style={styles.photoThumb} />
+                  </Pressable>
                   <Pressable style={styles.removeBadge} onPress={() => handleRemoveNewPhoto(index)}>
                     <ThemedText type="smallBold" style={styles.removeBadgeText}>
                       ×
@@ -361,6 +367,13 @@ export default function EditPortfolioProjectScreen() {
               ))}
             </View>
             <PrimaryButton label={t('portfolio.addPhotos')} variant="secondary" onPress={handlePickPhotos} />
+
+            <PhotoViewer
+              photos={[...visibleExistingPhotos.map((p) => p.photo_url), ...newPhotos.map((p) => p.uri)]}
+              initialIndex={viewerIndex ?? 0}
+              visible={viewerIndex !== null}
+              onClose={() => setViewerIndex(null)}
+            />
 
             {submitError && (
               <ThemedText type="small" style={styles.error}>

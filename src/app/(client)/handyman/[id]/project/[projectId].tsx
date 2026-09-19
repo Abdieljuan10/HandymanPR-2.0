@@ -1,10 +1,11 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { JobPhoto } from '@/components/job-photo';
+import { PhotoViewer } from '@/components/photo-viewer';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -27,6 +28,7 @@ export default function PortfolioProjectDetailScreen() {
 
   const [project, setProject] = useState<ProjectDetail | null | undefined>(undefined);
   const [photos, setPhotos] = useState<ProjectPhoto[]>([]);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
@@ -91,10 +93,19 @@ export default function PortfolioProjectDetailScreen() {
           {project.description && <ThemedText type="default">{project.description}</ThemedText>}
 
           <View style={styles.photoGrid}>
-            {photos.map((photo) => (
-              <JobPhoto key={photo.id} uri={photo.photo_url} style={styles.photoThumb} />
+            {photos.map((photo, index) => (
+              <Pressable key={photo.id} onPress={() => setViewerIndex(index)}>
+                <JobPhoto uri={photo.photo_url} style={styles.photoThumb} />
+              </Pressable>
             ))}
           </View>
+
+          <PhotoViewer
+            photos={photos.map((photo) => photo.photo_url)}
+            initialIndex={viewerIndex ?? 0}
+            visible={viewerIndex !== null}
+            onClose={() => setViewerIndex(null)}
+          />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>

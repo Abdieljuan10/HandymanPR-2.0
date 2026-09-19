@@ -2,9 +2,10 @@ import { Image } from 'expo-image';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PhotoViewer } from '@/components/photo-viewer';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -26,6 +27,7 @@ export default function HandymanProfileScreen() {
   const theme = useTheme();
   const { session } = useSession();
   const [profile, setProfile] = useState<OwnProfile | null>(null);
+  const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
 
   // Refetch on focus (not just mount) so coming back from Edit Profile shows
   // the change immediately, without needing a whole list/pull-to-refresh setup.
@@ -55,7 +57,9 @@ export default function HandymanProfileScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.headerRow}>
             {profile?.avatar_url ? (
-              <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+              <Pressable onPress={() => setAvatarViewerOpen(true)}>
+                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+              </Pressable>
             ) : (
               <View
                 style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.backgroundElement }]}>
@@ -105,6 +109,15 @@ export default function HandymanProfileScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      {profile?.avatar_url && (
+        <PhotoViewer
+          photos={[profile.avatar_url]}
+          initialIndex={0}
+          visible={avatarViewerOpen}
+          onClose={() => setAvatarViewerOpen(false)}
+        />
+      )}
     </ThemedView>
   );
 }

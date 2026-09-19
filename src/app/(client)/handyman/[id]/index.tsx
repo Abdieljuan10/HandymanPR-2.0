@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PhotoViewer } from '@/components/photo-viewer';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -46,6 +47,7 @@ export default function PublicHandymanProfileScreen() {
   const [pueblos, setPueblos] = useState<PuebloRow[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [certifications, setCertifications] = useState<CertificationRow[]>([]);
+  const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -142,7 +144,9 @@ export default function PublicHandymanProfileScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.headerRow}>
             {profile.avatar_url ? (
-              <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+              <Pressable onPress={() => setAvatarViewerOpen(true)}>
+                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+              </Pressable>
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.backgroundElement }]}>
                 <ThemedText type="subtitle" themeColor="textSecondary">
@@ -217,7 +221,8 @@ export default function PublicHandymanProfileScreen() {
 
                 return (
                   <Link key={project.id} href={`/handyman/${id}/project/${project.id}`} asChild>
-                    <Pressable style={[styles.projectCard, { borderColor: theme.backgroundElement }]}>
+                    <Pressable
+                      style={StyleSheet.flatten([styles.projectCard, { borderColor: theme.backgroundElement }])}>
                       {cover ? (
                         <Image source={{ uri: cover.photo_url }} style={styles.projectCover} />
                       ) : (
@@ -266,6 +271,15 @@ export default function PublicHandymanProfileScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
+
+      {profile.avatar_url && (
+        <PhotoViewer
+          photos={[profile.avatar_url]}
+          initialIndex={0}
+          visible={avatarViewerOpen}
+          onClose={() => setAvatarViewerOpen(false)}
+        />
+      )}
     </ThemedView>
   );
 }
