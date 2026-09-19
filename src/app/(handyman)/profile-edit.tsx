@@ -163,12 +163,24 @@ export default function HandymanProfileEditScreen() {
     return errors;
   }
 
-  // Fixed filename per user (upsert) rather than a timestamped one like job
-  // photos -- there's only ever one current avatar, so re-uploading replaces
-  // it in place instead of leaving the old file orphaned in Storage (the same
-  // class of bug job-photos hit before its own select policy was added). The
-  // `?v=` query string on the saved URL busts any client-side image cache
-  // that would otherwise keep showing the old file at that same path.
+  // Fixed filename per user rather than a timestamped one like job photos --
+  // there's only ever one current avatar, so re-uploading replaces it in
+  // place instead of leaving the old file orphaned in Storage. The `?v=`
+  // query string on the saved URL busts any client-side image cache that
+  // would otherwise keep showing the old file at that same path.
+  //
+  // Deliberately NOT `upsert: true` here (was, until this caused a real
+  // "new row violates row-level security policy" error that portfolio
+  // photos and certifications -- which never use upsert -- don't hit with
+  // the exact same folder-ownership policy shape). Confirmed it isn't a
+  // path/policy mismatch: portfolio-photos and certifications come from the
+  // same migration file as avatars and are proven working, so avatars'
+  // insert/update/delete policies did apply. `upsert: true` is the one real
+  // difference between avatar's upload call and the two that work, so this
+  // sidesteps whatever Supabase Storage does differently for an upsert
+  // under RLS by using the same plain-insert path already proven to work:
+  // delete any existing file first (a no-op if there isn't one), then a
+  // normal insert-only upload.
   async function uploadAvatarIfNeeded(userId: string): Promise<string | null> {
     if (!newAvatar) return avatarUrl;
 
@@ -191,10 +203,19 @@ export default function HandymanProfileEditScreen() {
     const arrayBuffer = await response.arrayBuffer();
     const path = `${userId}/avatar.jpg`;
 
+    await supabase.storage.from('avatars').remove([path]);
+
     const { error: uploadError } = await supabase.storage
       .from('avatars')
-      .upload(path, arrayBuffer, { contentType: 'image/jpeg', upsert: true });
-    if (uploadError) throw new Error(uploadError.message);
+      .upload(path, arrayBuffer, { contentType: 'image/jpeg' });
+    if (uploadError) {
+      // Surface everything the error carries, not just `.message` -- a
+      // StorageApiError also carries `status`/`statusCode` that `.message`
+      // alone drops, and if this fix doesn't fully resolve it, the next
+      // report needs that detail rather than another generic string.
+      const extra = JSON.stringify(uploadError, Object.getOwnPropertyNames(uploadError));
+      throw new Error(`Avatar upload failed: ${uploadError.message} | ${extra}`);
+    }
 
     const { data: publicUrl } = supabase.storage.from('avatars').getPublicUrl(path);
     return `${publicUrl.publicUrl}?v=${Date.now()}`;

@@ -53,6 +53,9 @@ Rico (not a store launch). Working through this list, in order:
    earlier plan to defer them past the pilot), since alongside the profile
    these are "the rest of what a client judges a handyman on." No migration
    needed — every column, table, and Storage bucket+policy already existed.
+   **Superseded 2026-09-19**: the flat photo-grid portfolio described below
+   was reworked into projects — see item 6 further down. Left as-is here
+   for history; certifications are unaffected by that rework.
    - New `(handyman)/portfolio.tsx`: grid of portfolio photos (immediate
      add/remove, not save-gated — each is a standalone dedicated screen, not
      a field bundled into a larger form the way job photos were when that
@@ -102,33 +105,44 @@ Rico (not a store launch). Working through this list, in order:
    on-device.** See "Then: portfolio / certs / subscriptions" below — the
    subscriptions item there is still not built (out of pilot scope, no
    payment flow exists at all), only portfolio/certs from that section.
-5. [ ] **Client feedback on items 3/4, 2026-09-19** — fixes written, none
-   yet confirmed on-device (client hasn't been able to test since the RLS
-   bug below blocked avatar upload specifically):
-   - [ ] **Bug: avatar upload failed with "new row violates row-level
-     security policy."** Reviewed the upload path and the `avatars` bucket
-     policy against every other bucket in the schema (job-photos,
-     portfolio-photos, certifications) — all four use the identical
-     `(storage.foldername(name))[1] = <owner id>` pattern, and both the
-     code's path (`{userId}/avatar.jpg`) and the policy's logic match it
-     correctly. No path-mismatch bug found in the code. Most likely cause,
-     matching exactly what happened with job-photos before (see
+5. [x] **Client feedback on items 3/4, 2026-09-19**:
+   - [x] **Bug: avatar upload failed with "new row violates row-level
+     security policy," round 2.** First fix (below) turned out incomplete —
+     client ran the migration, portfolio and certification uploads started
+     working, but avatar upload still failed with the identical error. That
+     actually pinned down the real cause: since portfolio-photos and
+     certifications come from the exact same migration transaction as
+     avatars and now provably work, avatars' policies must have applied
+     too — ruling out "policy never ran" for avatars specifically. The one
+     remaining difference between avatar's upload call and the two that
+     work: avatar used `upsert: true`, the other two don't. Removed it —
+     `uploadAvatarIfNeeded()` in `profile-edit.tsx` now deletes any existing
+     file first (a no-op on first upload) and does a plain insert-only
+     upload, the same call shape already proven to work. Also improved
+     error surfacing: the thrown error now includes the full
+     `JSON.stringify` of the Storage error object (name/status/etc.), not
+     just `.message`, so a future report carries full diagnostic detail
+     instead of another generic string.
+     Original (first) fix, kept since it likely mattered for
+     portfolio/certifications even if not for avatars: reviewed the upload
+     path and the `avatars` bucket policy against every other bucket in the
+     schema — all four use the identical
+     `(storage.foldername(name))[1] = <owner id>` pattern, and the code's
+     path (`{userId}/avatar.jpg`) matches it correctly, so there was never
+     a path-mismatch bug in the code. Most likely cause, matching exactly
+     what happened with job-photos before (see
      `20260919000000_fix_job_photos_bucket.sql`'s own comment): the bucket
-     + policy migration was written but never actually run against the live
-     project. Wrote `20261001000000_fix_avatar_portfolio_cert_storage.sql`
-     — safe to run blind (drop-if-exists / on-conflict-do-update
-     throughout) — re-asserts the bucket + policies for **all three** of
-     avatars/portfolio-photos/certifications, not just avatars, since
-     they're defined in the same original file and portfolio/certs haven't
-     been exercised yet either. Includes a diagnostic query in the comment
-     if the client wants to confirm the cause before running it.
-     **Client needs to run this migration, then retry avatar upload and
-     confirm portfolio/certification upload too** (neither has been
-     confirmed working end-to-end yet).
-   - [x] Portfolio cap raised 12 → 30 (`MAX_PORTFOLIO_PHOTOS` in
-     `portfolio.tsx`) — client's math: ~57KB/photo compressed means 30
-     photos is under 2MB, not a storage concern, and 12 was only 3-4 jobs'
-     worth for a handyman with years of work to show.
+     + policy migration was written but never actually run against the
+     live project.
+     `20261001000000_fix_avatar_portfolio_cert_storage.sql` (run) —
+     re-asserted the bucket + policies for avatars/portfolio-photos/
+     certifications, safe to run blind.
+     **Client needs to retry avatar upload with this second fix and
+     confirm.**
+   - [x] Portfolio cap raised 12 → 30, then the whole flat-photo model was
+     reworked into projects the same session — see item 6 below.
+     `MAX_PORTFOLIO_PHOTOS` no longer exists; superseded by
+     `MAX_PROJECT_PHOTOS = 15` (per project, not total).
    - [x] **Optional Instagram/Facebook links on the handyman profile** —
      many PR handymen already have a business page with years of work on
      it; linking it is far cheaper than re-uploading a portfolio.
@@ -151,6 +165,70 @@ Rico (not a store launch). Working through this list, in order:
      been. Fine for a one-handyman pilot; worth a real admin screen once
      there's more than one handyman to review by hand.
    `npx tsc --noEmit` and `expo lint` both clean.
+6. [x] **Portfolio reworked from flat photos into projects — built
+   2026-09-19.** Client's reasoning: "30 loose photos tell a client
+   nothing... 'I built this house, here are 30 photos' is evidence they can
+   judge," plus it gives a handyman a reason to describe their work, which
+   helps them win bids. Real schema change, done deliberately now rather
+   than after anyone had uploaded loose photos (nobody had, on this
+   pre-pilot project, but the migration handles it correctly either way —
+   see below).
+   - **Migration** (`20261002000000_portfolio_projects.sql`, must run
+     **after** item 5's storage-policy fix migration): new
+     `handyman_portfolio_projects` table (title required, description/
+     trade_id/pueblo_id all optional, public select + own-row write RLS,
+     same pattern as the profile itself). `handyman_portfolio_photos` gets
+     a new `project_id` column; `handyman_id` and the never-used `caption`
+     column are dropped (ownership now flows through the parent project,
+     same shape as `job_photos_write`'s ownership-via-parent-job pattern).
+     **Migrating existing loose photos**: before dropping `handyman_id`,
+     the migration creates one default project titled "Portafolio" per
+     distinct `handyman_id` found in the photos table, then points every
+     existing photo at its handyman's new default project — so if anyone
+     already had loose photos, they surface as a single pre-existing
+     project instead of being silently orphaned or deleted. On this project
+     specifically this almost certainly affects zero rows (pre-pilot), but
+     it's correct either way. Storage itself is untouched — photos still
+     live at `portfolio-photos/{handyman_id}/{filename}`, same bucket, same
+     just-fixed policies; project grouping is DB-only, the object path
+     doesn't need to know about it.
+   - **Handyman side**: `portfolio.tsx` (flat photo grid) removed, replaced
+     with a directory — `portfolio/index.tsx` (project list, cover photo +
+     trade/pueblo + photo count per card, delete-with-confirm, matches the
+     Your-Jobs-list style of immediate destructive action since there's no
+     bundle of other fields here), `portfolio/new.tsx` (create: title
+     required, description/trade/pueblo optional via the existing
+     `TradePicker`/`PuebloPicker` in `mode="single"`, up to
+     `MAX_PROJECT_PHOTOS = 15`, photos held locally until Create like
+     `post-job.tsx`), `portfolio/[id]/index.tsx` (edit: unlike the flat
+     photo screen before it, this bundles fields *and* photos in one
+     screen, so it follows `job/[id]/edit.tsx`'s save-gated convention
+     instead — every change, including photo add/remove, is queued and
+     only applied on Save Changes, with the same unsaved-changes guard;
+     whole-project delete is a separate, immediate, always-available action
+     since it isn't a "queued field," it's the same kind of action as the
+     list screen's delete).
+   - **Client side**: `(client)/handyman/[id].tsx` restructured into
+     `handyman/[id]/index.tsx` (to make room for a nested route) plus a new
+     `handyman/[id]/project/[projectId].tsx` detail screen. The public
+     profile's Portfolio section now shows project cards (title ·
+     trade/pueblo · photo count) instead of a flat photo grid; tapping one
+     opens the detail screen (title, description, trade/pueblo, full photo
+     grid).
+   - **Real Expo Router typed-routes quirk hit and worked around**: a
+     template-literal href like `` `/portfolio/${id}` `` only type-checks
+     for a dynamic segment that's the *only* thing in its directory (like
+     `job/[id]/`) — once a dynamic folder has static siblings in the same
+     directory (`portfolio/index.tsx` and `portfolio/new.tsx` next to
+     `portfolio/[id]/`), Expo Router's typegen doesn't emit the permissive
+     template-literal type for it at all, only the exact-object form.
+     Fixed by using `href={{ pathname: '/portfolio/[id]/index', params: {
+     id } }}` there instead of a template string. (The client-side
+     `handyman/[id]/project/[projectId]` link didn't hit this — `project/`
+     has no static siblings, so the plain template-literal href works
+     there.)
+   `npx tsc --noEmit`, `expo lint`, and a full `npx expo export -p android`
+   production bundle export all clean. **Not yet tested on-device.**
 
 Order set by the client (2026-09-15): **push notifications → chat → job
 completion + reviews → scheduling → portfolio/certs/subscriptions → visual
@@ -736,9 +814,10 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
 
 ## Then: portfolio / certs / subscriptions
 
-- [x] Portfolio photos — **built 2026-09-18**, see the pilot-scope list at
-      the top of this file for detail. Upload screen and public-profile
-      display both done.
+- [x] Portfolio photos — **built 2026-09-18, reworked into projects
+      2026-09-19**, see the pilot-scope list at the top of this file for
+      detail. Management screens and public-profile display both done for
+      the project-based version.
 - [x] Certifications with admin-verified badge — **built 2026-09-18**, see
       the pilot-scope list at the top of this file for detail. Add/remove
       screen and public-profile display (title/org/Verified badge, no

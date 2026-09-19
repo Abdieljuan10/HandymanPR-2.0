@@ -1,11 +1,10 @@
 import { Image } from 'expo-image';
-import { useLocalSearchParams } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { JobPhoto } from '@/components/job-photo';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -26,7 +25,14 @@ type HandymanProfileRow = {
 
 type TradeRow = { trades: { name_es: string; name_en: string } | null };
 type PuebloRow = { pueblos: { name: string } | null };
-type PortfolioPhotoRow = { id: string; photo_url: string };
+type ProjectPhoto = { photo_url: string; sort_order: number };
+type ProjectRow = {
+  id: string;
+  title: string;
+  trades: { name_es: string; name_en: string } | null;
+  pueblos: { name: string } | null;
+  handyman_portfolio_photos: ProjectPhoto[];
+};
 type CertificationRow = { id: string; title: string; issuing_org: string | null };
 
 export default function PublicHandymanProfileScreen() {
@@ -38,7 +44,7 @@ export default function PublicHandymanProfileScreen() {
   const [profile, setProfile] = useState<HandymanProfileRow | null | undefined>(undefined);
   const [trades, setTrades] = useState<TradeRow[]>([]);
   const [pueblos, setPueblos] = useState<PuebloRow[]>([]);
-  const [portfolioPhotos, setPortfolioPhotos] = useState<PortfolioPhotoRow[]>([]);
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [certifications, setCertifications] = useState<CertificationRow[]>([]);
 
   useEffect(() => {
@@ -71,12 +77,14 @@ export default function PublicHandymanProfileScreen() {
       });
 
     supabase
-      .from('handyman_portfolio_photos')
-      .select('id, photo_url')
+      .from('handyman_portfolio_projects')
+      .select(
+        'id, title, trades(name_es, name_en), pueblos(name), handyman_portfolio_photos(photo_url, sort_order)'
+      )
       .eq('handyman_id', id)
-      .order('sort_order')
+      .order('created_at', { ascending: false })
       .then(({ data }) => {
-        if (isMounted) setPortfolioPhotos(data ?? []);
+        if (isMounted) setProjects((data as ProjectRow[] | null) ?? []);
       });
 
     // Row metadata is public (title/org/verified) even though the
@@ -192,14 +200,49 @@ export default function PublicHandymanProfileScreen() {
             </View>
           )}
 
-          {portfolioPhotos.length > 0 && (
+          {projects.length > 0 && (
             <View style={styles.section}>
               <ThemedText type="smallBold">{t('handymanPublicProfile.portfolioTitle')}</ThemedText>
-              <View style={styles.photoGrid}>
-                {portfolioPhotos.map((photo) => (
-                  <JobPhoto key={photo.id} uri={photo.photo_url} style={styles.photoThumb} />
-                ))}
-              </View>
+              {projects.map((project) => {
+                const sortedPhotos = [...project.handyman_portfolio_photos].sort(
+                  (a, b) => a.sort_order - b.sort_order
+                );
+                const cover = sortedPhotos[0];
+                const tradeName = project.trades
+                  ? language === 'en'
+                    ? project.trades.name_en
+                    : project.trades.name_es
+                  : null;
+                const subtitle = [tradeName, project.pueblos?.name].filter(Boolean).join(' · ');
+
+                return (
+                  <Link key={project.id} href={`/handyman/${id}/project/${project.id}`} asChild>
+                    <Pressable style={[styles.projectCard, { borderColor: theme.backgroundElement }]}>
+                      {cover ? (
+                        <Image source={{ uri: cover.photo_url }} style={styles.projectCover} />
+                      ) : (
+                        <View
+                          style={[
+                            styles.projectCover,
+                            { backgroundColor: theme.backgroundElement },
+                          ]}
+                        />
+                      )}
+                      <View style={styles.cardText}>
+                        <ThemedText type="smallBold">{project.title}</ThemedText>
+                        {subtitle.length > 0 && (
+                          <ThemedText type="small" themeColor="textSecondary">
+                            {subtitle}
+                          </ThemedText>
+                        )}
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {t('portfolio.photoCount', { count: project.handyman_portfolio_photos.length })}
+                        </ThemedText>
+                      </View>
+                    </Pressable>
+                  </Link>
+                );
+              })}
             </View>
           )}
 
@@ -263,15 +306,23 @@ const styles = StyleSheet.create({
   section: {
     gap: Spacing.one,
   },
-  photoGrid: {
+  projectCard: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  photoThumb: {
-    width: 104,
-    height: 104,
+    alignItems: 'center',
+    gap: Spacing.three,
+    padding: Spacing.two,
+    borderWidth: 1,
     borderRadius: Spacing.two,
+    marginBottom: Spacing.two,
+  },
+  projectCover: {
+    width: 64,
+    height: 64,
+    borderRadius: Spacing.two,
+  },
+  cardText: {
+    flex: 1,
+    gap: Spacing.half,
   },
   certRow: {
     gap: Spacing.half,
