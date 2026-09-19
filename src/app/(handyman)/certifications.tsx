@@ -1,8 +1,9 @@
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import { Link } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
@@ -128,20 +129,6 @@ export default function CertificationsScreen() {
     }
   }
 
-  function handleRemove(certification: Certification) {
-    Alert.alert(t('certifications.removeConfirmTitle'), t('certifications.removeConfirmMessage'), [
-      { text: t('certifications.cancel'), style: 'cancel' },
-      {
-        text: t('certifications.remove'),
-        style: 'destructive',
-        onPress: async () => {
-          await supabase.from('handyman_certifications').delete().eq('id', certification.id);
-          setCertifications((prev) => prev.filter((c) => c.id !== certification.id));
-        },
-      },
-    ]);
-  }
-
   if (loading) {
     return (
       <ThemedView style={styles.container}>
@@ -167,26 +154,29 @@ export default function CertificationsScreen() {
               </ThemedText>
             ) : (
               certifications.map((certification) => (
-                <View key={certification.id} style={styles.card}>
-                  <View style={styles.cardText}>
-                    <ThemedText type="smallBold">{certification.title}</ThemedText>
-                    {certification.issuing_org && (
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {certification.issuing_org}
+                <Link
+                  key={certification.id}
+                  href={{ pathname: '/certifications/[id]', params: { id: certification.id } }}
+                  asChild>
+                  <Pressable style={styles.card}>
+                    <View style={styles.cardText}>
+                      <ThemedText type="smallBold">{certification.title}</ThemedText>
+                      {certification.issuing_org && (
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {certification.issuing_org}
+                        </ThemedText>
+                      )}
+                      <ThemedText type="small" themeColor={certification.is_verified ? 'tint' : 'textSecondary'}>
+                        {certification.is_verified
+                          ? t('handymanPublicProfile.verified')
+                          : t('certifications.pending')}
                       </ThemedText>
-                    )}
-                    <ThemedText type="small" themeColor={certification.is_verified ? 'tint' : 'textSecondary'}>
-                      {certification.is_verified
-                        ? t('handymanPublicProfile.verified')
-                        : t('certifications.pending')}
-                    </ThemedText>
-                  </View>
-                  <Pressable onPress={() => handleRemove(certification)}>
-                    <ThemedText type="smallBold" style={styles.removeText}>
-                      {t('certifications.remove')}
+                    </View>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {t('certifications.edit')}
                     </ThemedText>
                   </Pressable>
-                </View>
+                </Link>
               ))
             )}
 
@@ -262,9 +252,6 @@ const styles = StyleSheet.create({
   },
   cardText: {
     gap: Spacing.half,
-  },
-  removeText: {
-    color: '#d64545',
   },
   divider: {
     height: 1,
