@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { JobPhoto } from '@/components/job-photo';
@@ -20,12 +20,14 @@ type HandymanProfileRow = {
   years_experience: number | null;
   avatar_url: string | null;
   is_verified: boolean;
+  instagram_url: string | null;
+  facebook_url: string | null;
 };
 
 type TradeRow = { trades: { name_es: string; name_en: string } | null };
 type PuebloRow = { pueblos: { name: string } | null };
 type PortfolioPhotoRow = { id: string; photo_url: string };
-type CertificationRow = { id: string; title: string; issuing_org: string | null; is_verified: boolean };
+type CertificationRow = { id: string; title: string; issuing_org: string | null };
 
 export default function PublicHandymanProfileScreen() {
   const { t } = useTranslation();
@@ -45,7 +47,7 @@ export default function PublicHandymanProfileScreen() {
 
     supabase
       .from('handyman_profiles')
-      .select('id, full_name, bio, years_experience, avatar_url, is_verified')
+      .select('id, full_name, bio, years_experience, avatar_url, is_verified, instagram_url, facebook_url')
       .eq('id', id)
       .maybeSingle()
       .then(({ data }) => {
@@ -80,10 +82,15 @@ export default function PublicHandymanProfileScreen() {
     // Row metadata is public (title/org/verified) even though the
     // certifications Storage bucket itself is owner-only private -- the
     // underlying file is never shown here, only the claim and its badge.
+    // Only verified ones are fetched at all -- an unverified certification
+    // is just an unverified claim, and listing it (even without a badge)
+    // would make the Verified badge meaningless. Pending review is a
+    // handyman-facing concept only, shown on the management screen instead.
     supabase
       .from('handyman_certifications')
-      .select('id, title, issuing_org, is_verified')
+      .select('id, title, issuing_org')
       .eq('handyman_id', id)
+      .eq('is_verified', true)
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         if (isMounted) setCertifications(data ?? []);
@@ -152,6 +159,21 @@ export default function PublicHandymanProfileScreen() {
 
           {profile.bio && <ThemedText type="default">{profile.bio}</ThemedText>}
 
+          {(profile.instagram_url || profile.facebook_url) && (
+            <View style={styles.socialRow}>
+              {profile.instagram_url && (
+                <Pressable onPress={() => Linking.openURL(profile.instagram_url!)}>
+                  <ThemedText type="linkPrimary">{t('handymanPublicProfile.instagram')}</ThemedText>
+                </Pressable>
+              )}
+              {profile.facebook_url && (
+                <Pressable onPress={() => Linking.openURL(profile.facebook_url!)}>
+                  <ThemedText type="linkPrimary">{t('handymanPublicProfile.facebook')}</ThemedText>
+                </Pressable>
+              )}
+            </View>
+          )}
+
           {tradeNames.length > 0 && (
             <View style={styles.section}>
               <ThemedText type="smallBold">{t('handymanPublicProfile.tradesTitle')}</ThemedText>
@@ -192,11 +214,9 @@ export default function PublicHandymanProfileScreen() {
                       {certification.issuing_org}
                     </ThemedText>
                   )}
-                  {certification.is_verified && (
-                    <ThemedText type="small" themeColor="tint">
-                      {t('handymanPublicProfile.verified')}
-                    </ThemedText>
-                  )}
+                  <ThemedText type="small" themeColor="tint">
+                    {t('handymanPublicProfile.verified')}
+                  </ThemedText>
                 </View>
               ))}
             </View>
@@ -235,6 +255,10 @@ const styles = StyleSheet.create({
   },
   headerText: {
     gap: Spacing.half,
+  },
+  socialRow: {
+    flexDirection: 'row',
+    gap: Spacing.four,
   },
   section: {
     gap: Spacing.one,

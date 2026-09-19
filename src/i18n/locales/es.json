@@ -219,6 +219,10 @@
     "bioLabel": "Biografía",
     "bioPlaceholder": "Cuéntales a los clientes sobre tu experiencia...",
     "yearsLabel": "Años de Experiencia",
+    "instagramLabel": "Instagram (opcional)",
+    "instagramPlaceholder": "instagram.com/tunegocio",
+    "facebookLabel": "Facebook (opcional)",
+    "facebookPlaceholder": "facebook.com/tunegocio",
     "save": "Guardar Cambios",
     "saving": "Guardando...",
     "notAllowed": "No se pudo guardar. Intenta de nuevo.",
@@ -228,7 +232,8 @@
     "discard": "Descartar",
     "errors": {
       "name": "Ingresa tu nombre",
-      "years": "Ingresa un número válido de años"
+      "years": "Ingresa un número válido de años",
+      "url": "Eso no parece ser un enlace"
     }
   },
   "jobDetail": {
@@ -341,7 +346,9 @@
     "tradesTitle": "Oficios",
     "pueblosTitle": "Trabaja En",
     "portfolioTitle": "Portafolio",
-    "certificationsTitle": "Certificaciones"
+    "certificationsTitle": "Certificaciones",
+    "instagram": "Instagram",
+    "facebook": "Facebook"
   },
   "handymanPueblos": {
     "intro": "Toca cada pueblo donde trabajas. Te notificaremos sobre trabajos publicados allí.",

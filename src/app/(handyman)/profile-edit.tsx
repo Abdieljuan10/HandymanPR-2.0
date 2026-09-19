@@ -26,13 +26,26 @@ const AVATAR_COMPRESS_QUALITY = 0.8;
 type FieldErrors = {
   fullName?: string;
   years?: string;
+  instagram?: string;
+  facebook?: string;
 };
 
 type InitialSnapshot = {
   fullName: string;
   bio: string;
   years: string;
+  instagram: string;
+  facebook: string;
 };
+
+// Accepts "instagram.com/x" as readily as "https://instagram.com/x" -- most
+// people won't type the scheme -- and stores a URL Linking.openURL can
+// actually open either way.
+function normalizeSocialUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
 
 export default function HandymanProfileEditScreen() {
   const { t } = useTranslation();
@@ -49,6 +62,8 @@ export default function HandymanProfileEditScreen() {
   const [fullName, setFullName] = useState('');
   const [bio, setBio] = useState('');
   const [years, setYears] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [facebook, setFacebook] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [newAvatar, setNewAvatar] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [initial, setInitial] = useState<InitialSnapshot | null>(null);
@@ -58,7 +73,12 @@ export default function HandymanProfileEditScreen() {
 
   const hasUnsavedChanges =
     initial !== null &&
-    (fullName !== initial.fullName || bio !== initial.bio || years !== initial.years || newAvatar !== null);
+    (fullName !== initial.fullName ||
+      bio !== initial.bio ||
+      years !== initial.years ||
+      instagram !== initial.instagram ||
+      facebook !== initial.facebook ||
+      newAvatar !== null);
 
   usePreventRemove(hasUnsavedChanges, ({ data }) => {
     if (justSavedRef.current) {
@@ -77,7 +97,7 @@ export default function HandymanProfileEditScreen() {
 
     supabase
       .from('handyman_profiles')
-      .select('full_name, bio, years_experience, avatar_url')
+      .select('full_name, bio, years_experience, avatar_url, instagram_url, facebook_url')
       .eq('id', session.user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -90,12 +110,22 @@ export default function HandymanProfileEditScreen() {
         const loadedName = data?.full_name ?? '';
         const loadedBio = data?.bio ?? '';
         const loadedYears = data?.years_experience != null ? String(data.years_experience) : '';
+        const loadedInstagram = data?.instagram_url ?? '';
+        const loadedFacebook = data?.facebook_url ?? '';
 
         setFullName(loadedName);
         setBio(loadedBio);
         setYears(loadedYears);
+        setInstagram(loadedInstagram);
+        setFacebook(loadedFacebook);
         setAvatarUrl(data?.avatar_url ?? null);
-        setInitial({ fullName: loadedName, bio: loadedBio, years: loadedYears });
+        setInitial({
+          fullName: loadedName,
+          bio: loadedBio,
+          years: loadedYears,
+          instagram: loadedInstagram,
+          facebook: loadedFacebook,
+        });
         setLoading(false);
       });
 
@@ -126,6 +156,10 @@ export default function HandymanProfileEditScreen() {
     if (trimmedYears && (!/^\d+$/.test(trimmedYears) || Number(trimmedYears) > 100)) {
       errors.years = t('profileEdit.errors.years');
     }
+    // Light sanity check only -- not full URL validation -- just enough to
+    // catch "Juan's Electric" typed into the wrong field.
+    if (instagram.trim() && !instagram.trim().includes('.')) errors.instagram = t('profileEdit.errors.url');
+    if (facebook.trim() && !facebook.trim().includes('.')) errors.facebook = t('profileEdit.errors.url');
     return errors;
   }
 
@@ -191,6 +225,8 @@ export default function HandymanProfileEditScreen() {
         bio: bio.trim() || null,
         years_experience: years.trim() ? Number(years.trim()) : null,
         avatar_url: nextAvatarUrl,
+        instagram_url: normalizeSocialUrl(instagram),
+        facebook_url: normalizeSocialUrl(facebook),
       })
       .eq('id', session.user.id)
       .select('id')
@@ -276,6 +312,34 @@ export default function HandymanProfileEditScreen() {
               }}
               keyboardType="number-pad"
               error={fieldErrors.years}
+            />
+
+            <FormField
+              label={t('profileEdit.instagramLabel')}
+              value={instagram}
+              onChangeText={(value) => {
+                setInstagram(value);
+                if (fieldErrors.instagram) setFieldErrors((prev) => ({ ...prev, instagram: undefined }));
+              }}
+              placeholder={t('profileEdit.instagramPlaceholder')}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              error={fieldErrors.instagram}
+            />
+
+            <FormField
+              label={t('profileEdit.facebookLabel')}
+              value={facebook}
+              onChangeText={(value) => {
+                setFacebook(value);
+                if (fieldErrors.facebook) setFieldErrors((prev) => ({ ...prev, facebook: undefined }));
+              }}
+              placeholder={t('profileEdit.facebookPlaceholder')}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              error={fieldErrors.facebook}
             />
 
             {submitError && (

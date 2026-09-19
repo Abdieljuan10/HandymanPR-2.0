@@ -13,7 +13,11 @@ import { compressJobPhoto } from '@/lib/job-photos';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
 
-const MAX_PORTFOLIO_PHOTOS = 12;
+// Compressed portfolio photos land around ~57KB each (see job-photos'
+// compression), so even at the cap this is comfortably under 2MB total --
+// not a storage concern. 12 was too tight (3-4 jobs' worth of photos) for
+// a handyman with years of work to show.
+const MAX_PORTFOLIO_PHOTOS = 30;
 
 type PortfolioPhoto = {
   id: string;

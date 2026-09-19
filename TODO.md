@@ -61,9 +61,10 @@ Rico (not a store launch). Working through this list, in order:
      pattern). Reuses `compressJobPhoto`/`MAX_DIMENSION` from
      `lib/job-photos.ts` as-is (1600px/JPEG 0.7 is exactly as appropriate
      for portfolio photos as job photos) and the `JobPhoto` component's
-     built-in "failed to load" fallback. Capped at 12 photos
-     (`MAX_PORTFOLIO_PHOTOS`). No caption field — the DB column exists but
-     nobody asked for it, easy to add later.
+     built-in "failed to load" fallback. Capped at 30 photos
+     (`MAX_PORTFOLIO_PHOTOS`, raised from an initial 12 on 2026-09-19 — see
+     below). No caption field — the DB column exists but nobody asked for
+     it, easy to add later.
    - New `(handyman)/certifications.tsx`: list of existing certifications
      (title, issuing org, Verified/Pending Review badge, remove with
      confirm) plus an inline add form (title required, org optional, photo
@@ -80,10 +81,16 @@ Rico (not a store launch). Working through this list, in order:
      section (photo grid, same `JobPhoto` component) and a Certifications
      section (title/org/Verified badge — no image, since the certifications
      bucket's storage-level RLS is owner-only-read by design, confirmed by
-     re-reading the original migration comment; only an unverified cert's
-     "Pending Review" state is deliberately hidden from clients, that badge
-     is handyman-facing-only, shown on the management screen instead).
-     Both sections only render when there's at least one row.
+     re-reading the original migration comment). **Revised 2026-09-19**:
+     first version still listed an unverified cert's title/org, just without
+     the badge — client's call (confirmed correct on review) was that this
+     is wrong: an unverified certification is just an unverified claim, and
+     listing it at all (even unbadged) would make the Verified badge
+     meaningless. Query now filters `is_verified = true` server-side, so an
+     unverified cert is invisible to clients entirely, not just unbadged.
+     "Pending Review" stays a handyman-facing-only concept, shown only on
+     the management screen. Both sections only render when there's at least
+     one (verified, for certs) row.
    - Found and killed a real leftover process while regenerating Expo
      Router's typed routes for the new screens: an earlier `npx expo start`
      I'd stopped via the harness's task-stop had left its underlying Metro
@@ -95,6 +102,55 @@ Rico (not a store launch). Working through this list, in order:
    on-device.** See "Then: portfolio / certs / subscriptions" below — the
    subscriptions item there is still not built (out of pilot scope, no
    payment flow exists at all), only portfolio/certs from that section.
+5. [ ] **Client feedback on items 3/4, 2026-09-19** — fixes written, none
+   yet confirmed on-device (client hasn't been able to test since the RLS
+   bug below blocked avatar upload specifically):
+   - [ ] **Bug: avatar upload failed with "new row violates row-level
+     security policy."** Reviewed the upload path and the `avatars` bucket
+     policy against every other bucket in the schema (job-photos,
+     portfolio-photos, certifications) — all four use the identical
+     `(storage.foldername(name))[1] = <owner id>` pattern, and both the
+     code's path (`{userId}/avatar.jpg`) and the policy's logic match it
+     correctly. No path-mismatch bug found in the code. Most likely cause,
+     matching exactly what happened with job-photos before (see
+     `20260919000000_fix_job_photos_bucket.sql`'s own comment): the bucket
+     + policy migration was written but never actually run against the live
+     project. Wrote `20261001000000_fix_avatar_portfolio_cert_storage.sql`
+     — safe to run blind (drop-if-exists / on-conflict-do-update
+     throughout) — re-asserts the bucket + policies for **all three** of
+     avatars/portfolio-photos/certifications, not just avatars, since
+     they're defined in the same original file and portfolio/certs haven't
+     been exercised yet either. Includes a diagnostic query in the comment
+     if the client wants to confirm the cause before running it.
+     **Client needs to run this migration, then retry avatar upload and
+     confirm portfolio/certification upload too** (neither has been
+     confirmed working end-to-end yet).
+   - [x] Portfolio cap raised 12 → 30 (`MAX_PORTFOLIO_PHOTOS` in
+     `portfolio.tsx`) — client's math: ~57KB/photo compressed means 30
+     photos is under 2MB, not a storage concern, and 12 was only 3-4 jobs'
+     worth for a handyman with years of work to show.
+   - [x] **Optional Instagram/Facebook links on the handyman profile** —
+     many PR handymen already have a business page with years of work on
+     it; linking it is far cheaper than re-uploading a portfolio.
+     `20261001010000_handyman_social_links.sql` adds
+     `instagram_url`/`facebook_url` to `handyman_profiles` (no RLS change
+     needed, the existing update policy already covers any column on your
+     own row). Two optional fields on `profile-edit.tsx`
+     (`normalizeSocialUrl()` prepends `https://` if the client typed a bare
+     domain, light `.includes('.')` sanity check rather than full URL
+     validation). Public profile shows them as tappable
+     `Linking.openURL()` links, right under the bio.
+   - [x] Certifications public-visibility question, answered and fixed —
+     see the "Revised 2026-09-19" note on item 4 above: confirmed it was a
+     real design gap (title/org showed even unverified), not intentional,
+     and fixed to hide unverified certs entirely rather than just hiding
+     their badge.
+   - [x] **Flagged, not built**: no admin screen exists to verify a
+     certification — `is_verified` is still Table-Editor-only (flip the
+     column by hand), same as `handyman_profiles.is_verified` always has
+     been. Fine for a one-handyman pilot; worth a real admin screen once
+     there's more than one handyman to review by hand.
+   `npx tsc --noEmit` and `expo lint` both clean.
 
 Order set by the client (2026-09-15): **push notifications → chat → job
 completion + reviews → scheduling → portfolio/certs/subscriptions → visual

@@ -219,6 +219,10 @@
     "bioLabel": "Bio",
     "bioPlaceholder": "Tell clients about your experience...",
     "yearsLabel": "Years of Experience",
+    "instagramLabel": "Instagram (optional)",
+    "instagramPlaceholder": "instagram.com/yourbusiness",
+    "facebookLabel": "Facebook (optional)",
+    "facebookPlaceholder": "facebook.com/yourbusiness",
     "save": "Save Changes",
     "saving": "Saving...",
     "notAllowed": "Couldn't save — please try again.",
@@ -228,7 +232,8 @@
     "discard": "Discard",
     "errors": {
       "name": "Enter your name",
-      "years": "Enter a valid number of years"
+      "years": "Enter a valid number of years",
+      "url": "That doesn't look like a link"
     }
   },
   "jobDetail": {
@@ -341,7 +346,9 @@
     "tradesTitle": "Trades",
     "pueblosTitle": "Works In",
     "portfolioTitle": "Portfolio",
-    "certificationsTitle": "Certifications"
+    "certificationsTitle": "Certifications",
+    "instagram": "Instagram",
+    "facebook": "Facebook"
   },
   "handymanPueblos": {
     "intro": "Tap every pueblo you work in. You'll be notified about jobs posted there.",
