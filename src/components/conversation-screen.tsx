@@ -1,10 +1,20 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { Link } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, TextInput, View, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  TextInput,
+  View,
+  StyleSheet,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
-import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -14,8 +24,12 @@ import { useSession } from '@/providers/session-provider';
 import { formatRelativeTime } from '@/utils/relative-time';
 
 type ConversationHeader = {
+  jobId: string;
   jobTitle: string;
+  otherPartyId: string;
   otherPartyName: string;
+  otherPartyAvatarUrl: string | null;
+  otherPartyHref: `/handyman/${string}` | `/client/${string}`;
 };
 
 type MessageRow = {
@@ -27,15 +41,17 @@ type MessageRow = {
 
 type ConversationRow = {
   client_id: string;
+  job_id: string;
   jobs: { title: string } | null;
-  client_profiles: { full_name: string } | null;
-  handyman_profiles: { full_name: string } | null;
+  client_profiles: { id: string; full_name: string; avatar_url: string | null } | null;
+  handyman_profiles: { id: string; full_name: string; avatar_url: string | null } | null;
 };
 
 export function ConversationScreen({ conversationId }: { conversationId: string }) {
   const { t } = useTranslation();
   const theme = useTheme();
   const { session } = useSession();
+  const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<MessageRow>>(null);
 
   const [header, setHeader] = useState<ConversationHeader | null | undefined>(undefined);
@@ -49,7 +65,9 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
 
     supabase
       .from('job_conversations')
-      .select('client_id, jobs(title), client_profiles(full_name), handyman_profiles(full_name)')
+      .select(
+        'client_id, job_id, jobs(title), client_profiles(id, full_name, avatar_url), handyman_profiles(id, full_name, avatar_url)'
+      )
       .eq('id', conversationId)
       .maybeSingle()
       .then(({ data }) => {
@@ -60,9 +78,14 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
           return;
         }
         const isClient = row.client_id === session.user.id;
+        const other = isClient ? row.handyman_profiles : row.client_profiles;
         setHeader({
+          jobId: row.job_id,
           jobTitle: row.jobs?.title ?? '',
-          otherPartyName: (isClient ? row.handyman_profiles?.full_name : row.client_profiles?.full_name) ?? '',
+          otherPartyId: other?.id ?? '',
+          otherPartyName: other?.full_name ?? '',
+          otherPartyAvatarUrl: other?.avatar_url ?? null,
+          otherPartyHref: isClient ? `/handyman/${other?.id ?? ''}` : `/client/${other?.id ?? ''}`,
         });
       });
 
@@ -138,10 +161,34 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingScreen>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.headerText}>
-            {header.jobTitle} · {header.otherPartyName}
-          </ThemedText>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}>
+          <View style={styles.headerRow}>
+            <Link href={header.otherPartyHref} asChild>
+              <Pressable style={styles.headerIdentity}>
+                {header.otherPartyAvatarUrl ? (
+                  <Image source={{ uri: header.otherPartyAvatarUrl }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.backgroundElement }]}>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {header.otherPartyName.trim().charAt(0).toUpperCase() || '?'}
+                    </ThemedText>
+                  </View>
+                )}
+                <ThemedText type="smallBold">{header.otherPartyName}</ThemedText>
+              </Pressable>
+            </Link>
+
+            <Link href={`/job/${header.jobId}`} asChild>
+              <Pressable>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {header.jobTitle}
+                </ThemedText>
+              </Pressable>
+            </Link>
+          </View>
 
           <FlatList
             ref={listRef}
@@ -181,14 +228,19 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
               style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
               multiline
             />
-            <PrimaryButton
-              label={t('conversation.send')}
+            <Pressable
               onPress={handleSend}
-              loading={sending}
-              style={styles.sendButton}
-            />
+              disabled={sending}
+              accessibilityLabel={t('conversation.send')}
+              style={[styles.sendButton, { backgroundColor: theme.tint }, sending && styles.sendButtonDisabled]}>
+              {sending ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Ionicons name="arrow-up" size={20} color="#ffffff" />
+              )}
+            </Pressable>
           </View>
-        </KeyboardAvoidingScreen>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -205,8 +257,27 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: Spacing.four,
   },
-  headerText: {
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: Spacing.two,
+    gap: Spacing.two,
+  },
+  headerIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    flexShrink: 1,
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  avatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   messagesList: {
     gap: Spacing.two,
@@ -239,6 +310,13 @@ const styles = StyleSheet.create({
     maxHeight: 100,
   },
   sendButton: {
-    marginTop: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendButtonDisabled: {
+    opacity: 0.7,
   },
 });

@@ -163,7 +163,8 @@
   },
   "clientProfile": {
     "title": "Tu Perfil",
-    "description": "Sesión iniciada como {{email}}. Podrás editar tu nombre, teléfono y foto más adelante."
+    "description": "Sesión iniciada como {{email}}. Podrás editar tu nombre, teléfono y foto más adelante.",
+    "notFound": "Cliente no encontrado."
   },
   "handymanProfile": {
     "title": "Tu Perfil",
@@ -225,6 +226,11 @@
     "removeConfirmMessage": "Esto la eliminará de tu perfil público.",
     "cancel": "Cancelar",
     "remove": "Eliminar",
+    "edit": "Editar",
+    "save": "Guardar Cambios",
+    "saving": "Guardando...",
+    "notAllowed": "No se pudo guardar — intenta de nuevo.",
+    "verifiedEditNotice": "Esta certificación está verificada. Guardar cambios la enviará de nuevo a revisión.",
     "errors": {
       "title": "Ingresa un título",
       "photo": "Elige una foto de tu certificación"
@@ -297,8 +303,8 @@
     "submit": "Enviar Reseña",
     "leaveButton": "Dejar una Reseña",
     "pending": "Tu reseña fue enviada — esperando a la otra parte.",
-    "yourReview": "Tu reseña: {{stars}}",
-    "theirReview": "Reseña de {{party}}: {{stars}}",
+    "yourReview": "Tu reseña:",
+    "theirReview": "Reseña de {{party}}:",
     "noOtherReview": "La otra parte no envió una reseña a tiempo.",
     "errors": {
       "rating": "Elige una calificación de estrellas."
@@ -398,6 +404,8 @@
     "newProject": "Nuevo Proyecto",
     "editProject": "Editar Proyecto",
     "certifications": "Certificaciones",
+    "editCertification": "Editar Certificación",
+    "clientProfile": "Perfil del Cliente",
     "settings": "Configuración",
     "yourTrades": "Tus Oficios",
     "yourPueblos": "Tus Pueblos",

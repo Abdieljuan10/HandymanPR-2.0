@@ -163,7 +163,8 @@
   },
   "clientProfile": {
     "title": "Your Profile",
-    "description": "Logged in as {{email}}. Editing your name/phone/photo comes later."
+    "description": "Logged in as {{email}}. Editing your name/phone/photo comes later.",
+    "notFound": "Client not found."
   },
   "handymanProfile": {
     "title": "Your Profile",
@@ -225,6 +226,11 @@
     "removeConfirmMessage": "This removes it from your public profile.",
     "cancel": "Cancel",
     "remove": "Remove",
+    "edit": "Edit",
+    "save": "Save Changes",
+    "saving": "Saving...",
+    "notAllowed": "Couldn't save — please try again.",
+    "verifiedEditNotice": "This certification is verified. Saving changes will send it back for review.",
     "errors": {
       "title": "Enter a title",
       "photo": "Choose a photo of your certification"
@@ -297,8 +303,8 @@
     "submit": "Submit Review",
     "leaveButton": "Leave a Review",
     "pending": "Your review is submitted — waiting on the other side.",
-    "yourReview": "Your review: {{stars}}",
-    "theirReview": "{{party}}'s review: {{stars}}",
+    "yourReview": "Your review:",
+    "theirReview": "{{party}}'s review:",
     "noOtherReview": "The other side didn't submit a review in time.",
     "errors": {
       "rating": "Pick a star rating."
@@ -398,6 +404,8 @@
     "newProject": "New Project",
     "editProject": "Edit Project",
     "certifications": "Certifications",
+    "editCertification": "Edit Certification",
+    "clientProfile": "Client Profile",
     "settings": "Settings",
     "yourTrades": "Your Trades",
     "yourPueblos": "Your Pueblos",
