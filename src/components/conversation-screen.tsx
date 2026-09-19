@@ -163,8 +163,8 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}>
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={insets.top + 44}>
           <View style={styles.headerRow}>
             <Link href={header.otherPartyHref} asChild>
               <Pressable style={styles.headerIdentity}>
