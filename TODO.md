@@ -229,6 +229,104 @@ Rico (not a store launch). Working through this list, in order:
      there.)
    `npx tsc --noEmit`, `expo lint`, and a full `npx expo export -p android`
    production bundle export all clean. **Not yet tested on-device.**
+7. [x] **Visual/structural bug batch — built 2026-09-19.** Client tested the
+   portfolio-projects rework and reported five things; four built now, chip
+   spacing (fifth) explicitly deferred into the still-open Oficio-picker
+   layout conversation (trade/pueblo pickers are vertical checklists, not
+   chips — there was no chip UI to fix).
+   - **Certifications: real critical-rule bug found and fixed.**
+     `protect_certification_verified()` (the trigger stopping handymen from
+     self-verifying) did `new.is_verified := old.is_verified` on every
+     authenticated update — which also meant the app could **never** reset
+     `is_verified` to false on an edit, even though nothing was asking it
+     to. A verified "Handyman" cert edited to "Licensed Electrician" would
+     have silently stayed verified. Fixed
+     (`20261003000000_certification_edit_resets_verification.sql`): now
+     unconditionally `new.is_verified := false` for any authenticated-role
+     update, so every self-service edit drops back to pending review; only
+     a service-role context (still Table-Editor-only, per the existing
+     pattern) can set it true. One-tap Delete replaced with a real edit
+     screen (`certifications/[id].tsx`) — title/org fields, the uploaded
+     photo shown via a fresh `createSignedUrl` (bucket is private,
+     owner-scoped select policy already allows it) inside the new
+     `PhotoViewer`, a verified-notice banner, and Delete moved here. Also
+     fixed a real storage leak while in there: delete never called
+     `storage.remove()` on the uploaded file, unlike every other
+     delete-with-photo flow in the app (portfolio/job photos both do) —
+     fixed alongside the row delete.
+   - **Chat screen**, all in `conversation-screen.tsx`:
+     - Keyboard covering the input: the global `KeyboardAvoidingScreen` fix
+       from `fc7f390` was already applied here, but its flat
+       `keyboardVerticalOffset={90}` (iOS) is a guess at status-bar + header
+       height that's short by ~13px on Dynamic Island devices, and unlike
+       every other screen using that wrapper, chat has no scrollable form to
+       mask an offset error (fixed input row below a `FlatList`, not a
+       field inside a `ScrollView`). Fixed by dropping to a local
+       `KeyboardAvoidingView` for this screen only (not the shared
+       wrapper — 13 other screens rely on it as-is) with a computed
+       `useSafeAreaInsets().top + 44` offset on iOS. **Client is testing on
+       Android, not iOS** — checked the specific known upstream RN bug for
+       this (facebook/react-native#49759 / #55855, Android edge-to-edge
+       `KeyboardAvoidingView`) and confirmed it's already patched in this
+       project's installed RN 0.86.3, so that's not the cause here.
+       Android behavior left as `height`/`0`, unchanged. **Still open —
+       client will confirm after testing; if still covered on Android,
+       that's a real follow-up**, root cause not yet identified (static
+       analysis alone couldn't pin it down further without a device).
+     - Send button: was the generic `PrimaryButton` (52px tall,
+       form-button padding) dropped next to a ~35px single-line `TextInput`
+       — visibly mismatched. Replaced with a 40×40 circular icon button
+       (Ionicons `arrow-up`) sized to the input's resting height.
+     - Avatar/name/job now shown and tappable: query expanded to also pull
+       `job_id`, `jobs(id)`, and both parties' `avatar_url`/`id`. Header is
+       now avatar + name (→ the other party's profile) and a separate job
+       title line (→ `/job/{id}`, already registered on both stacks).
+     - **New minimal client-profile screen**
+       (`(handyman)/client/[id].tsx`) — client's call: a handyman deciding
+       whether to bid wants to know who they'd work for, and this is also
+       where client ratings will eventually live (not built yet, just the
+       screen). Avatar + name only (`client_profiles` has no bio/trades to
+       show), mirrors the existing public-handyman-profile loading/
+       not-found pattern. `client_profiles_select` RLS is already
+       `using (true)`, no policy change needed.
+   - **New `PhotoViewer` component** (`src/components/photo-viewer.tsx`):
+     full-screen `Modal`, horizontal paging `FlatList`, close button, index
+     counter. No pinch-zoom (no new dependency for it) — full-size + swipe
+     between multiples, which is what was asked. Wired into every photo
+     surface in the app: job photos (both job-detail screens), portfolio
+     photo grids (handyman edit screen + client project-detail screen),
+     the new certification signed-URL image, and avatars (public handyman
+     profile, handyman's own profile tab). **Exception, deliberate**:
+     `profile-edit.tsx`'s avatar keeps its existing tap-to-replace
+     behavior — repurposing that tap for viewing would remove the
+     "change my photo" affordance. Portfolio *list* cover photos
+     (`portfolio/index.tsx`) also left alone — that tap already navigates
+     to the project, which is correct as-is.
+   - **New `StarDisplay` component** (`src/components/star-display.tsx`):
+     read-only, 5 Ionicons stars, half-star support via rounding to the
+     nearest 0.5, gold (`RatingColor` in `theme.ts`, a new shared constant
+     both this and the existing input `star-rating.tsx` now import instead
+     of each hardcoding the same hex). Replaces `formatStars()` (deleted,
+     `src/utils/format-rating.ts`) in `reviews-card.tsx`, the only place a
+     rating actually renders anywhere in the app today — searched the
+     whole codebase, no aggregate/average rating exists yet (including the
+     public handyman profile), so this is the only retrofit site for now;
+     it's also what the new client-profile screen will use once ratings
+     land there.
+   - **Caught before it shipped**: adding the new `clientProfile.notFound`
+     i18n key almost created a **second, duplicate** `"clientProfile"` top-
+     level key in both `en.json`/`es.json` — one already existed (the
+     client's own profile-tab placeholder title/description). JSON doesn't
+     error on a duplicate key, the parser just silently keeps the *last*
+     one, which would have quietly broken that existing placeholder screen.
+     Merged into the existing block instead.
+   - Also had to briefly boot local Metro (`npx expo start --port 8082`, no
+     tunnel, killed again immediately after) purely to get Expo Router's
+     typed-routes file to pick up the new `client/[id]` route — its
+     typegen only runs as a dev-server side effect, no standalone CLI for
+     it.
+   `npx tsc --noEmit` and `expo lint` both clean. **Not yet tested
+   on-device — resume there, Android keyboard behavior specifically.**
 
 Order set by the client (2026-09-15): **push notifications → chat → job
 completion + reviews → scheduling → portfolio/certs/subscriptions → visual
@@ -676,7 +774,10 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
 4. [ ] **Unread badge count on the Messages tab.**
 5. [ ] **Auth basics** — show-password toggle on login, confirm-password
        field on signup, change-password screen in Settings.
-6. [ ] **Tap a job photo to view it full-size**, swipe between multiple.
+6. [x] **Tap a job photo to view it full-size, swipe between multiple —
+       built 2026-09-19**, and broadened past just job photos to every
+       photo surface in the app (portfolio, certifications, avatars) —
+       see item 7 in the pilot-scope list at the top of this file.
 
 ## Client-reported bugs fixed 2026-09-18 (outside the numbered list above)
 
