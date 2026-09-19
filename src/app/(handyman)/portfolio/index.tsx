@@ -125,9 +125,9 @@ export default function PortfolioProjectsScreen() {
             return (
               <Link
                 key={project.id}
-                href={{ pathname: '/portfolio/[id]/index', params: { id: project.id } }}
+                href={{ pathname: '/portfolio/[id]', params: { id: project.id } }}
                 asChild>
-                <Pressable style={[styles.card, { borderColor: theme.backgroundElement }]}>
+                <Pressable style={StyleSheet.flatten([styles.card, { borderColor: theme.backgroundElement }])}>
                   {cover ? (
                     <Image source={{ uri: cover.photo_url }} style={styles.cover} />
                   ) : (
