@@ -255,24 +255,44 @@ Rico (not a store launch). Working through this list, in order:
      delete-with-photo flow in the app (portfolio/job photos both do) —
      fixed alongside the row delete.
    - **Chat screen**, all in `conversation-screen.tsx`:
-     - Keyboard covering the input: the global `KeyboardAvoidingScreen` fix
-       from `fc7f390` was already applied here, but its flat
-       `keyboardVerticalOffset={90}` (iOS) is a guess at status-bar + header
-       height that's short by ~13px on Dynamic Island devices, and unlike
-       every other screen using that wrapper, chat has no scrollable form to
-       mask an offset error (fixed input row below a `FlatList`, not a
-       field inside a `ScrollView`). Fixed by dropping to a local
-       `KeyboardAvoidingView` for this screen only (not the shared
-       wrapper — 13 other screens rely on it as-is) with a computed
-       `useSafeAreaInsets().top + 44` offset on iOS. **Client is testing on
-       Android, not iOS** — checked the specific known upstream RN bug for
-       this (facebook/react-native#49759 / #55855, Android edge-to-edge
-       `KeyboardAvoidingView`) and confirmed it's already patched in this
-       project's installed RN 0.86.3, so that's not the cause here.
-       Android behavior left as `height`/`0`, unchanged. **Still open —
-       client will confirm after testing; if still covered on Android,
-       that's a real follow-up**, root cause not yet identified (static
-       analysis alone couldn't pin it down further without a device).
+     - Keyboard covering the input, two passes:
+       1. First pass: the global `KeyboardAvoidingScreen` fix from
+          `fc7f390` was already applied here, but its flat
+          `keyboardVerticalOffset={90}` (iOS) is a guess at status-bar +
+          header height that's short by ~13px on Dynamic Island devices,
+          and unlike every other screen using that wrapper, chat has no
+          scrollable form to mask an offset error (fixed input row below
+          a `FlatList`, not a field inside a `ScrollView`). Fixed by
+          dropping to a local `KeyboardAvoidingView` for this screen only
+          (not the shared wrapper — 13 other screens rely on it as-is)
+          with a computed `useSafeAreaInsets().top + 44` offset on iOS,
+          Android left as `height`/`0`, unchanged. **Client confirmed
+          this didn't fix it — still covered on Android** (they're
+          testing Android, not iOS).
+       2. Second pass, real root cause: checked `app.json` against the
+          actual installed `@expo/prebuild-config` plugin logic
+          (`withEdgeToEdge.js`/`WindowSoftInputMode.js`), not just Expo's
+          blog posts about edge-to-edge becoming SDK-wide default —
+          **this app actually has edge-to-edge OFF** on Android (neither
+          `android.edgeToEdgeEnabled` nor the `react-native-edge-to-edge`
+          plugin is configured, and the package isn't even installed;
+          per that plugin's own code, that combination falls back to
+          disabled). `android.softwareKeyboardLayoutMode` is also unset,
+          which defaults to `adjustResize`. So the OS's native keyboard
+          resize was genuinely active and working the whole time — the
+          existing code comment blaming edge-to-edge
+          (`keyboard-avoiding-screen.tsx`) doesn't apply to this build.
+          Real bug: `KeyboardAvoidingView` with `behavior="height"` was
+          fighting that already-working native resize with its own
+          keyboard-event-driven height calculation (confirmed by reading
+          RN's `KeyboardAvoidingView.js` source — coordinate-space
+          fragile even on its own, on top of overriding an already-correct
+          native resize). Fixed: `behavior={Platform.OS === 'ios' ?
+          'padding' : undefined}` on Android, letting `adjustResize`
+          handle it alone. **Not yet re-confirmed on-device — resume
+          here.** If this project ever turns edge-to-edge on (Android 16/
+          targetSdk 36 will eventually force it), this exact bug will
+          come back and need the JS-side handling reinstated.
      - Send button: was the generic `PrimaryButton` (52px tall,
        form-button padding) dropped next to a ~35px single-line `TextInput`
        — visibly mismatched. Replaced with a 40×40 circular icon button
