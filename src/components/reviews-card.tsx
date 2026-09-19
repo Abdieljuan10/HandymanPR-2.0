@@ -1,12 +1,12 @@
 import { Link } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { PrimaryButton } from '@/components/primary-button';
+import { StarDisplay } from '@/components/star-display';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { formatStars } from '@/utils/format-rating';
 
 type ReviewRow = {
   id: string;
@@ -46,7 +46,10 @@ export function ReviewsCard({ jobId, myId, reviews, otherPartyLabel }: ReviewsCa
 
       {myReview && (
         <>
-          <ThemedText type="default">{t('reviews.yourReview', { stars: formatStars(myReview.rating) })}</ThemedText>
+          <View style={styles.ratingRow}>
+            <ThemedText type="default">{t('reviews.yourReview')}</ThemedText>
+            <StarDisplay rating={myReview.rating} />
+          </View>
           {myReview.comment && (
             <ThemedText type="small" themeColor="textSecondary">
               {myReview.comment}
@@ -61,9 +64,10 @@ export function ReviewsCard({ jobId, myId, reviews, otherPartyLabel }: ReviewsCa
 
           {myReview.published_at && otherReview && (
             <>
-              <ThemedText type="default">
-                {t('reviews.theirReview', { party: otherPartyLabel, stars: formatStars(otherReview.rating) })}
-              </ThemedText>
+              <View style={styles.ratingRow}>
+                <ThemedText type="default">{t('reviews.theirReview', { party: otherPartyLabel })}</ThemedText>
+                <StarDisplay rating={otherReview.rating} />
+              </View>
               {otherReview.comment && (
                 <ThemedText type="small" themeColor="textSecondary">
                   {otherReview.comment}
@@ -89,5 +93,10 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     gap: Spacing.one,
     marginTop: Spacing.two,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
   },
 });

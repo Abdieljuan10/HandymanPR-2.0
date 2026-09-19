@@ -71,3 +71,7 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+// Same gold in both themes -- a star rating reads as "rating," not
+// "themed accent," so it stays constant against light and dark backgrounds.
+export const RatingColor = '#f5a623';
