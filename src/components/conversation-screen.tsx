@@ -6,14 +6,13 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   TextInput,
   View,
   StyleSheet,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -51,7 +50,6 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
   const { t } = useTranslation();
   const theme = useTheme();
   const { session } = useSession();
-  const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<MessageRow>>(null);
 
   const [header, setHeader] = useState<ConversationHeader | null | undefined>(undefined);
@@ -163,8 +161,8 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={insets.top + 44}>
+          behavior="translate-with-padding"
+          automaticOffset>
           <View style={styles.headerRow}>
             <Link href={header.otherPartyHref} asChild>
               <Pressable style={styles.headerIdentity}>

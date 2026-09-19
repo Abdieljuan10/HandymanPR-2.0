@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { LanguageProvider, useLanguage } from '@/providers/language-provider';
@@ -118,26 +119,28 @@ function RootNavigator() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <AnimatedSplashOverlay />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Protected guard={!session}>
-            <Stack.Screen name="welcome" />
-            <Stack.Screen name="sign-in" />
-            <Stack.Screen name="forgot-password" />
-            <Stack.Screen name="client-sign-up" />
-            <Stack.Screen name="handyman-sign-up" />
-          </Stack.Protected>
+      <KeyboardProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <AnimatedSplashOverlay />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Protected guard={!session}>
+              <Stack.Screen name="welcome" />
+              <Stack.Screen name="sign-in" />
+              <Stack.Screen name="forgot-password" />
+              <Stack.Screen name="client-sign-up" />
+              <Stack.Screen name="handyman-sign-up" />
+            </Stack.Protected>
 
-          <Stack.Protected guard={!!session && role === 'client'}>
-            <Stack.Screen name="(client)" />
-          </Stack.Protected>
+            <Stack.Protected guard={!!session && role === 'client'}>
+              <Stack.Screen name="(client)" />
+            </Stack.Protected>
 
-          <Stack.Protected guard={!!session && role === 'handyman'}>
-            <Stack.Screen name="(handyman)" />
-          </Stack.Protected>
-        </Stack>
-      </ThemeProvider>
+            <Stack.Protected guard={!!session && role === 'handyman'}>
+              <Stack.Screen name="(handyman)" />
+            </Stack.Protected>
+          </Stack>
+        </ThemeProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }
