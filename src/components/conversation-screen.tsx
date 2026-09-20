@@ -299,6 +299,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: Spacing.two,
     marginTop: Spacing.two,
+    paddingBottom: Spacing.two,
   },
   input: {
     flex: 1,
