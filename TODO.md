@@ -823,6 +823,129 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
        column (schema currently has no column tracking this — `file_url`
        is just a bare storage path, so either infer from the extension at
        upload time or add a `file_type` column alongside it).
+8. [ ] **Per-user chat deletion/archiving + photo attachments — planned
+       2026-09-20, deliberately held for Monday** (client was at 92% of
+       their weekly usage limit, this is too big to start mid-session).
+       Full plan below so it can be picked up exactly where it left off —
+       don't re-derive from scratch, the design questions are already
+       answered.
+       **One piece already shipped ahead of the rest, on its own**
+       (`20261004000000_fix_job_messages_select_rls.sql`, commit
+       `d581573`): `job_messages_select`'s RLS only checked that a
+       conversation row *existed*, not that the caller was a party to it —
+       any authenticated user could read any conversation's messages.
+       Found while researching this feature; fixed standalone since it was
+       live and cheap, not worth waiting for the rest.
+       **Client's requirements, confirmed 2026-09-20**:
+       - Deleting a chat is per-user (like WhatsApp/Messenger) — never
+         affects the other person's copy. Explicit reasoning: if one side
+         could wipe a conversation for both, a handyman could erase what
+         he promised right before disputing a bad review.
+       - Per-user delete **never touches Storage on its own** — matches
+         real WhatsApp exactly. Storage/rows are only actually removed
+         once **both** parties have deleted the same conversation (nobody
+         left to see it), or by the 90-day cron backstop. (First answer to
+         this question came back garbled/nonsensical, had to re-ask before
+         getting a real one — worth noting in case something similar
+         happens again this session.)
+       - The 90-day auto-delete clock starts when the **job** ends
+         (completed/cancelled) — not conversation/message activity, since
+         a job can sit quiet for weeks mid-work (waiting on parts/permits)
+         and the whole point of keeping chats is dispute evidence once
+         work is supposedly done. A conversation whose job never got
+         hired (client picked someone else, job expired) has no
+         completion event — ties to the job's own expiry/deletion instead.
+       - Swipe to delete a chat from your own view, with an "are you
+         sure" confirm.
+       - Attachments: photos only for now (no video/arbitrary files) —
+         a client showing a problem is the main use case, and
+         compression + Storage patterns already exist to reuse. Layout:
+         attach icon left, text input middle, send button right (send
+         button/layout already fixed this session, see
+         `conversation-screen.tsx` history above).
+       **Design, worked out during planning (see the retired plan file
+       for the full version — this is the executable summary)**:
+       - Schema (one migration, no enum changes): `job_conversations`
+         gets `archived_at timestamptz null` (set once the job hits a
+         terminal status, starts the 90-day clock) and `last_message_at
+         timestamptz not null default now()` (bumped by a trigger on
+         `job_messages` insert — needed so a per-user delete correctly
+         "comes back" if a new message arrives after it was hidden, same
+         as real WhatsApp; also fixes a separate gap the research turned
+         up, that the messages list currently shows zero last-activity
+         info at all). New `job_conversation_hides(conversation_id,
+         user_id, hidden_at)` table, identical shape/RLS to the existing
+         `job_archives` table (`20260930010000_job_archives.sql`).
+       - **Auto-archive**: a single `after update on jobs` trigger, firing
+         when `status` transitions into `completed`/`cancelled`/`expired`,
+         sets `archived_at = now()` on that job's conversations. Chose a
+         trigger on the `jobs.status` column itself over patching every
+         RPC that can produce those transitions
+         (`confirm_job_completion`, `auto_confirm_stale_completions`,
+         `cancel_hired_job`, `expire_stale_jobs`, etc.) — one choke point
+         that can't be forgotten, matching the client's own framing that
+         the job ending is what matters, not which code path caused it.
+       - **Chat-photos Storage bucket**: new bucket, **private** (chat
+         photos are personal, never public), path `{conversation_id}/
+         {filename}` — same "folder = parent id, ownership via join"
+         pattern as `job-photos`
+         (`20260916000000_job_photos_storage.sql`), not the flatter
+         `{owner_id}/...` pattern avatars/portfolio/certifications use,
+         since both parties need access, not just the uploader.
+         `job_messages.photo_url` already exists as a column (added ahead
+         of time, comment literally says "photos are a later add-on") —
+         one photo per message, matches the photos-only/no-multi scope.
+       - **Cleanup, two different mechanisms depending on who's around to
+         do it**:
+         - Both-sides-deleted and job-deletion cleanup run from the
+           *acting user's own authenticated client* (same pattern as the
+           existing job/portfolio-photo delete flows —
+           `storage.remove()` before the row delete) — no elevated
+           privilege needed, the bucket's own delete policy already
+           covers a real participant. Job deletion specifically extends
+           `handleDelete()` in both job-detail screens to also sweep
+           that job's conversations' chat photos first, same precedent as
+           the existing job-photo-cleanup-on-job-delete fix.
+         - The 90-day cron is the one piece needing real service-role
+           access: raw SQL `delete from storage.objects` only removes the
+           metadata row, not the underlying file, and a `pg_cron` job has
+           no logged-in user's JWT to call the Storage REST API with.
+           Plan: store the project's service-role key in **Supabase
+           Vault** (Dashboard → Project Settings → Vault — one-time
+           manual step, never committed to git) and have the cron
+           function call Storage's bulk-delete REST endpoint via
+           `net.http_delete`, following this project's existing
+           `pg_net`-from-SQL pattern (`send_push_to_users()` in
+           `20260922000000_push_notifications_send.sql`) rather than
+           introducing an Edge Function, which this project has
+           deliberately avoided so far. **This cron will silently do
+           nothing until that vault step is done** — needs to be called
+           out loudly in the migration comment, matching this project's
+           own hard-won lesson about migrations that don't work until a
+           manual dashboard step happens (see the avatar/portfolio/cert
+           storage-policy saga above).
+       - **UI**: swipe-to-delete on both `messages.tsx` screens, reusing
+         the exact `ReanimatedSwipeable` pattern already used for
+         job/bid archiving (`(client)/(tabs)/index.tsx`,
+         `(handyman)/(tabs)/my-bids.tsx`), red instead of the archive
+         tint, `Alert.alert` confirm first. List query needs to exclude a
+         conversation the current user hid *unless* `last_message_at` has
+         moved past `hidden_at` (the "comes back on a new message" rule).
+         Attachments: attach icon added to the left of
+         `conversation-screen.tsx`'s input row, opens
+         `ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] })`
+         (single photo), small removable preview chip above the input
+         before sending, reuses `compressJobPhoto` as-is (already generic
+         despite the file name) for compression. A photo message renders
+         via a signed URL (bucket is private) inside a `Pressable` opening
+         the existing `PhotoViewer` — no changes needed to that component,
+         its API already supports this.
+       **Resume here Monday**: write the schema migration first (section
+       1 of the retired plan), then the bucket+policies, then the
+       trigger, then wire the two client-driven cleanup paths, then the
+       cron+vault piece last (it's the riskiest/most novel — fine for it
+       to land after everything else works end-to-end for the
+       common/live-user case).
 
 ## Client-reported bugs fixed 2026-09-18 (outside the numbered list above)
 
