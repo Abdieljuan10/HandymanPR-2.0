@@ -793,11 +793,36 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
        Postgres image. `npx tsc --noEmit` and `eslint` both clean.
 4. [ ] **Unread badge count on the Messages tab.**
 5. [ ] **Auth basics** — show-password toggle on login, confirm-password
-       field on signup, change-password screen in Settings.
+       field on signup, change-password screen in Settings. **Client
+       reconfirmed 2026-09-19 this is still wanted, confirm-password on
+       signup specifically** — none of the three built yet.
 6. [x] **Tap a job photo to view it full-size, swipe between multiple —
        built 2026-09-19**, and broadened past just job photos to every
        photo surface in the app (portfolio, certifications, avatars) —
        see item 7 in the pilot-scope list at the top of this file.
+7. [ ] **Certifications should accept PDFs, not just photos — flagged by
+       client 2026-09-19.** Real licenses usually arrive as PDFs (emailed,
+       or downloaded from a licensing board); making someone screenshot a
+       PDF to upload it is friction on exactly the thing the app wants
+       them to do. Not built yet. Needs: (1) `certifications.tsx`'s
+       `handleAdd()` currently calls `compressJobPhoto()` unconditionally
+       and only offers `ImagePicker.launchImageLibraryAsync({ mediaTypes:
+       ['images'] })` — needs a document-picker path for PDFs
+       (`expo-document-picker`, not yet a dependency) alongside or instead
+       of the image picker, skipping image compression for a PDF upload;
+       (2) confirm the private `certifications` storage bucket's
+       `certifications_storage_insert` policy (`storage.objects`, scoped
+       by owner folder) doesn't also need a MIME-type check added —
+       currently ungated on content type, so likely fine as-is, but worth
+       confirming rather than assuming; (3) the certification edit
+       screen's `PhotoViewer` usage (built in the same batch as this note,
+       see item 7 in the pilot-scope list) only knows how to display
+       images — a PDF should open externally (`Linking.openURL()` on the
+       signed URL, or `expo-sharing`) instead of being handed to the image
+       viewer, gated on `file_url`'s extension or a stored content-type
+       column (schema currently has no column tracking this — `file_url`
+       is just a bare storage path, so either infer from the extension at
+       upload time or add a `file_type` column alongside it).
 
 ## Client-reported bugs fixed 2026-09-18 (outside the numbered list above)
 
