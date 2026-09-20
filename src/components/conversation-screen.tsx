@@ -253,7 +253,8 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    padding: Spacing.four,
+    paddingTop: Spacing.four,
+    paddingHorizontal: Spacing.four,
   },
   headerRow: {
     flexDirection: 'row',
