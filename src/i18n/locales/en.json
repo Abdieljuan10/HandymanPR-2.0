@@ -159,7 +159,10 @@
     "description": "Search and filter handymen by pueblo and trade, then view a profile or invite them to quote a job. Coming soon."
   },
   "messages": {
-    "title": "Messages"
+    "title": "Messages",
+    "hide": "Delete",
+    "hideConfirmTitle": "Delete this chat?",
+    "hideConfirmMessage": "This only removes it from your view — the other person keeps their copy."
   },
   "clientProfile": {
     "title": "Your Profile",
@@ -417,6 +420,8 @@
     "messageHandyman": "Message",
     "placeholder": "Type a message...",
     "send": "Send",
+    "attach": "Attach a photo",
+    "removePhoto": "Remove photo",
     "empty": "No messages yet. Say hello!",
     "listEmpty": "No conversations yet.",
     "startedAgo": "Started {{time}}"

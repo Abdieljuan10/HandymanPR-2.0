@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { Link } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,10 +15,12 @@ import {
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PhotoViewer } from '@/components/photo-viewer';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { compressJobPhoto } from '@/lib/job-photos';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
 import { formatRelativeTime } from '@/utils/relative-time';
@@ -35,6 +38,7 @@ type MessageRow = {
   id: string;
   sender_id: string;
   body: string;
+  photo_url: string | null;
   created_at: string;
 };
 
@@ -46,6 +50,8 @@ type ConversationRow = {
   handyman_profiles: { id: string; full_name: string; avatar_url: string | null } | null;
 };
 
+type PendingPhoto = { uri: string; mimeType: string };
+
 export function ConversationScreen({ conversationId }: { conversationId: string }) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -56,6 +62,14 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [pendingPhoto, setPendingPhoto] = useState<PendingPhoto | null>(null);
+  // chat-photos is a private bucket -- job_messages.photo_url only ever
+  // stores the bare Storage path (same convention as certifications'
+  // file_url), so every photo message needs a signed URL to actually
+  // render. Keyed by path so both the initial batch fetch and a realtime
+  // insert can share the same map.
+  const [signedPhotoUrls, setSignedPhotoUrls] = useState<Record<string, string>>({});
+  const [viewerPhoto, setViewerPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     if (!conversationId || !session) return;
@@ -89,11 +103,14 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
 
     supabase
       .from('job_messages')
-      .select('id, sender_id, body, created_at')
+      .select('id, sender_id, body, photo_url, created_at')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
-      .then(({ data }) => {
-        if (isMounted) setMessages(data ?? []);
+      .then(async ({ data }) => {
+        if (!isMounted) return;
+        const rows = data ?? [];
+        setMessages(rows);
+        await signPhotoPaths(rows.map((row) => row.photo_url).filter((url): url is string => !!url));
       });
 
     // Unique per effect run (not just per conversationId): the Supabase realtime client
@@ -113,7 +130,9 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as MessageRow]);
+          const row = payload.new as MessageRow;
+          setMessages((prev) => [...prev, row]);
+          if (row.photo_url) signPhotoPaths([row.photo_url]);
         }
       )
       .subscribe();
@@ -124,16 +143,69 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
     };
   }, [conversationId, session]);
 
+  async function signPhotoPaths(paths: string[]) {
+    if (paths.length === 0) return;
+    const { data, error } = await supabase.storage.from('chat-photos').createSignedUrls(paths, 3600);
+    if (error || !data) return;
+    setSignedPhotoUrls((prev) => {
+      const next = { ...prev };
+      for (const entry of data) {
+        if (entry.signedUrl) next[entry.path ?? ''] = entry.signedUrl;
+      }
+      return next;
+    });
+  }
+
+  async function handleAttach() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+    });
+    if (result.canceled || result.assets.length === 0) return;
+
+    const asset = result.assets[0];
+    const compressed = await compressJobPhoto(asset.uri, asset.width, asset.height);
+    setPendingPhoto(compressed);
+  }
+
   async function handleSend() {
     const body = draft.trim();
-    if (!body || !session) return;
+    if ((!body && !pendingPhoto) || !session) return;
     setDraft('');
+    const photoToSend = pendingPhoto;
+    setPendingPhoto(null);
     setSending(true);
+
+    let photoPath: string | null = null;
+    if (photoToSend) {
+      const response = await fetch(photoToSend.uri);
+      const arrayBuffer = await response.arrayBuffer();
+      const path = `${conversationId}/${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('chat-photos')
+        .upload(path, arrayBuffer, { contentType: photoToSend.mimeType });
+      if (uploadError) {
+        console.error('Chat photo upload failed:', uploadError.message);
+        setSending(false);
+        setDraft(body);
+        setPendingPhoto(photoToSend);
+        return;
+      }
+      photoPath = path;
+      await signPhotoPaths([path]);
+    }
+
     const { error } = await supabase
       .from('job_messages')
-      .insert({ conversation_id: conversationId, sender_id: session.user.id, body });
+      .insert({ conversation_id: conversationId, sender_id: session.user.id, body, photo_url: photoPath });
     setSending(false);
-    if (error) setDraft(body);
+    if (error) {
+      setDraft(body);
+      setPendingPhoto(photoToSend);
+    }
   }
 
   if (header === undefined) {
@@ -202,12 +274,18 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
             }
             renderItem={({ item }) => {
               const isMine = item.sender_id === session?.user.id;
+              const photoUri = item.photo_url ? signedPhotoUrls[item.photo_url] : null;
               return (
                 <View style={[styles.bubbleRow, isMine && styles.bubbleRowMine]}>
                   <ThemedView
                     type={isMine ? 'backgroundSelected' : 'backgroundElement'}
                     style={styles.bubble}>
-                    <ThemedText type="default">{item.body}</ThemedText>
+                    {photoUri && (
+                      <Pressable onPress={() => setViewerPhoto(photoUri)}>
+                        <Image source={{ uri: photoUri }} style={styles.messagePhoto} contentFit="cover" />
+                      </Pressable>
+                    )}
+                    {item.body ? <ThemedText type="default">{item.body}</ThemedText> : null}
                     <ThemedText type="small" themeColor="textSecondary">
                       {formatRelativeTime(item.created_at, t)}
                     </ThemedText>
@@ -217,7 +295,25 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
             }}
           />
 
+          {pendingPhoto && (
+            <View style={styles.pendingPhotoRow}>
+              <Image source={{ uri: pendingPhoto.uri }} style={styles.pendingPhotoThumb} contentFit="cover" />
+              <Pressable
+                onPress={() => setPendingPhoto(null)}
+                accessibilityLabel={t('conversation.removePhoto')}
+                style={styles.pendingPhotoRemove}>
+                <Ionicons name="close" size={16} color="#ffffff" />
+              </Pressable>
+            </View>
+          )}
+
           <View style={styles.inputRow}>
+            <Pressable
+              onPress={handleAttach}
+              accessibilityLabel={t('conversation.attach')}
+              style={styles.attachButton}>
+              <Ionicons name="image-outline" size={22} color={theme.textSecondary} />
+            </Pressable>
             <TextInput
               value={draft}
               onChangeText={setDraft}
@@ -240,6 +336,13 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      <PhotoViewer
+        photos={viewerPhoto ? [viewerPhoto] : []}
+        initialIndex={0}
+        visible={!!viewerPhoto}
+        onClose={() => setViewerPhoto(null)}
+      />
     </ThemedView>
   );
 }
@@ -294,12 +397,43 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     gap: Spacing.half,
   },
+  messagePhoto: {
+    width: 200,
+    height: 200,
+    borderRadius: Spacing.one,
+  },
+  pendingPhotoRow: {
+    marginTop: Spacing.two,
+    alignSelf: 'flex-start',
+  },
+  pendingPhotoThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: Spacing.one,
+  },
+  pendingPhotoRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: Spacing.two,
     marginTop: Spacing.two,
     paddingBottom: Spacing.two,
+  },
+  attachButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     flex: 1,

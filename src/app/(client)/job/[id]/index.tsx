@@ -155,6 +155,41 @@ export default function JobDetailScreen() {
     setRemoving(true);
     setRemoveError(null);
 
+    // Chat photos live at chat-photos/<conversation-id>/... -- same reason as
+    // job-photos below, this has to run BEFORE the job row (and its
+    // conversations, via on-delete cascade) are gone, since the bucket's own
+    // delete policy checks that the conversation's job_conversations row
+    // still exists.
+    const { data: conversations, error: listConversationsError } = await supabase
+      .from('job_conversations')
+      .select('id')
+      .eq('job_id', id);
+    if (listConversationsError) {
+      setRemoving(false);
+      setRemoveError(`${t('jobDelete.error')} (${listConversationsError.message})`);
+      return;
+    }
+    for (const conversation of conversations ?? []) {
+      const { data: chatFiles, error: listChatError } = await supabase.storage
+        .from('chat-photos')
+        .list(conversation.id);
+      if (listChatError) {
+        setRemoving(false);
+        setRemoveError(`${t('jobDelete.error')} (${listChatError.message})`);
+        return;
+      }
+      if (chatFiles.length > 0) {
+        const { error: removeChatError } = await supabase.storage
+          .from('chat-photos')
+          .remove(chatFiles.map((file) => `${conversation.id}/${file.name}`));
+        if (removeChatError) {
+          setRemoving(false);
+          setRemoveError(`${t('jobDelete.error')} (${removeChatError.message})`);
+          return;
+        }
+      }
+    }
+
     // Photos live at job-photos/<job-id>/... in Storage. jobs.id's on-delete
     // cascade only clears the job_photos DB rows, not the actual files, so
     // this has to run BEFORE the job row is gone -- the bucket's own delete

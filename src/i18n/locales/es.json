@@ -159,7 +159,10 @@
     "description": "Busca y filtra técnicos por pueblo y oficio, luego mira su perfil o invítalo a cotizar un trabajo. Próximamente."
   },
   "messages": {
-    "title": "Mensajes"
+    "title": "Mensajes",
+    "hide": "Eliminar",
+    "hideConfirmTitle": "¿Eliminar esta conversación?",
+    "hideConfirmMessage": "Esto solo la elimina de tu vista — la otra persona conserva su copia."
   },
   "clientProfile": {
     "title": "Tu Perfil",
@@ -417,6 +420,8 @@
     "messageHandyman": "Mensaje",
     "placeholder": "Escribe un mensaje...",
     "send": "Enviar",
+    "attach": "Adjuntar una foto",
+    "removePhoto": "Quitar foto",
     "empty": "Todavía no hay mensajes. ¡Saluda!",
     "listEmpty": "Todavía no hay conversaciones.",
     "startedAgo": "Iniciado {{time}}"
