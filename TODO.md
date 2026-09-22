@@ -823,12 +823,60 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
        column (schema currently has no column tracking this — `file_url`
        is just a bare storage path, so either infer from the extension at
        upload time or add a `file_type` column alongside it).
-8. [ ] **Per-user chat deletion/archiving + photo attachments — planned
-       2026-09-20, deliberately held for Monday** (client was at 92% of
-       their weekly usage limit, this is too big to start mid-session).
-       Full plan below so it can be picked up exactly where it left off —
-       don't re-derive from scratch, the design questions are already
-       answered.
+8. [x] **Per-user chat deletion/archiving + photo attachments — built
+       2026-09-22, migrations NOT yet run by the client.** Full plan below
+       kept as-is for context/history.
+       **Six new migrations, must run in this exact order** (all printed in
+       chat as they were written, per the client's request to copy each one
+       from a phone):
+       1. `20261005000000_chat_delete_hide_schema.sql` — `archived_at`/
+          `last_message_at` on `job_conversations` (backfilled from
+          existing message history), `job_conversation_hides` table + RLS,
+          the `last_message_at`-bump trigger.
+       2. `20261005010000_chat_photos_storage.sql` — the private
+          `chat-photos` bucket + insert/select/delete policies.
+       3. `20261005020000_job_conversations_auto_archive.sql` — the
+          `jobs.status` trigger that sets `archived_at` on
+          completed/cancelled/expired.
+       4. `20261005030000_chat_mutual_hide_cleanup.sql` —
+          `chat_both_parties_hidden()` + a new `job_conversations_delete`
+          RLS policy (there was no delete policy on this table before) that
+          enforces the "both hidden" condition at the DB level, not just in
+          app code.
+       5. `20261005040000_chat_90day_cleanup_cron.sql` — the 90-day
+          backstop cron. **Needs a one-time manual Vault step before it
+          does anything — a loud warning block is at the top of the file
+          itself, and it's called out again in "Then: the Vault step"
+          below.**
+       App side (all in the same commits, `npx tsc --noEmit` + `expo lint`
+       clean throughout, **not yet tested on-device**): both `messages.tsx`
+       screens now order by `last_message_at`, swipe-to-delete with a
+       confirm (`src/lib/chat.ts:hideConversation()`, shared between both
+       screens — hides the chat for you, then checks
+       `chat_both_parties_hidden()` and if true sweeps that conversation's
+       chat photos out of Storage and deletes the row for real).
+       `conversation-screen.tsx` has an attach icon that opens the image
+       picker, compresses via the existing `compressJobPhoto`, uploads to
+       `chat-photos`, and renders photo messages through batch-generated
+       signed URLs into the existing `PhotoViewer`. The client job-detail
+       screen's `handleDelete()` now also sweeps a deleted job's
+       conversations' chat photos first, same precedent as the existing
+       job-photo cleanup.
+       **Then: the Vault step (client, manual, one-time)** — Dashboard →
+       Project Settings → API → copy the `service_role` key (never the
+       anon key), then Dashboard → Project Settings → Vault → New secret,
+       named exactly `service_role_key`, value = that key. Until this is
+       done the 90-day cron runs daily, finds nothing to do, and logs a
+       `NOTICE` instead of erroring — it will not silently corrupt
+       anything, it just won't clean anything up yet.
+       **Resume here**: client runs the 5 migrations above in order, then
+       does the Vault step, then confirm on-device — hide a chat solo
+       (disappears from your list, other party's list unaffected), send a
+       message into a hidden-by-you chat from the other side (should
+       resurface), hide from both sides (row should actually disappear —
+       checkable via Table Editor), attach + send a photo both directions,
+       and delete a job with an existing conversation (chat photos should
+       be gone from the `chat-photos` bucket in Storage after).
        **One piece already shipped ahead of the rest, on its own**
        (`20261004000000_fix_job_messages_select_rls.sql`, commit
        `d581573`): `job_messages_select`'s RLS only checked that a
