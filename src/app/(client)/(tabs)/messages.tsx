@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { hideConversation } from '@/lib/chat';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
 import { formatRelativeTime } from '@/utils/relative-time';
@@ -72,15 +73,12 @@ export default function ClientMessagesScreen() {
     setRefreshing(false);
   }
 
-  async function hideConversation(conversationId: string) {
+  async function handleHide(conversationId: string) {
     if (!session) return;
-    const hiddenAt = new Date().toISOString();
-    setHides((prev) => ({ ...prev, [conversationId]: hiddenAt }));
-    const { error } = await supabase
-      .from('job_conversation_hides')
-      .upsert({ conversation_id: conversationId, user_id: session.user.id, hidden_at: hiddenAt }, { onConflict: 'conversation_id,user_id' });
+    setHides((prev) => ({ ...prev, [conversationId]: new Date().toISOString() }));
+    const { error } = await hideConversation(conversationId, session.user.id);
     if (error) {
-      console.error('Failed to hide conversation:', error.message);
+      console.error('Failed to hide conversation:', error);
       setHides((prev) => {
         const next = { ...prev };
         delete next[conversationId];
@@ -92,7 +90,7 @@ export default function ClientMessagesScreen() {
   function confirmHide(conversationId: string) {
     Alert.alert(t('messages.hideConfirmTitle'), t('messages.hideConfirmMessage'), [
       { text: t('jobDelete.cancelDialog'), style: 'cancel' },
-      { text: t('messages.hide'), style: 'destructive', onPress: () => hideConversation(conversationId) },
+      { text: t('messages.hide'), style: 'destructive', onPress: () => handleHide(conversationId) },
     ]);
   }
 
