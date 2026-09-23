@@ -28,7 +28,7 @@ async function getOrCreateDeviceId(): Promise<string> {
 // project is linked (no projectId yet), or if the user declines the
 // permission prompt — none of those are errors worth surfacing to a
 // screen, they just mean this device won't receive pushes yet.
-export async function registerForPushNotifications(userId: string): Promise<void> {
+export async function registerForPushNotifications(): Promise<void> {
   if (isExpoGo) return;
   if (!Device.isDevice) return;
 
@@ -56,15 +56,15 @@ export async function registerForPushNotifications(userId: string): Promise<void
   const { data: expoPushToken } = await Notifications.getExpoPushTokenAsync({ projectId });
   const deviceId = await getOrCreateDeviceId();
 
-  const { error } = await supabase.from('push_tokens').upsert(
-    {
-      user_id: userId,
-      device_id: deviceId,
-      expo_push_token: expoPushToken,
-      platform: Platform.OS,
-    },
-    { onConflict: 'user_id,device_id' }
-  );
+  // Not a direct upsert: register_push_token() also removes any OTHER
+  // account's row for this device/token (20261013000000). A phone's token
+  // has exactly one owner -- whoever logged in on it last -- otherwise every
+  // account that ever logged in here keeps receiving pushes on it.
+  const { error } = await supabase.rpc('register_push_token', {
+    p_device_id: deviceId,
+    p_expo_push_token: expoPushToken,
+    p_platform: Platform.OS,
+  });
 
   // Every earlier early-return above is an intentional no-op (Expo Go,
   // simulator, no EAS project yet, permission declined) — this one isn't.
@@ -74,6 +74,31 @@ export async function registerForPushNotifications(userId: string): Promise<void
   if (error) {
     console.error('Failed to save push token:', error.message);
   }
+}
+
+// Stops this device receiving the current account's pushes. Must run
+// BEFORE supabase.auth.signOut(): deleting the row needs the session to pass
+// push_tokens' own-rows-only RLS. Reads the device id without creating one
+// -- no stored id means this device never registered, so nothing to remove.
+export async function unregisterPushToken(): Promise<void> {
+  const deviceId = await AsyncStorage.getItem(DEVICE_ID_KEY);
+  if (!deviceId) return;
+  const { error } = await supabase.from('push_tokens').delete().eq('device_id', deviceId);
+  if (error) console.error('Failed to remove push token on sign-out:', error.message);
+}
+
+// The one way to log out. A bare supabase.auth.signOut() left this
+// device's push token registered, so a logged-out phone kept receiving (and
+// displaying) that account's notifications.
+export async function signOutAndUnregister(): Promise<void> {
+  try {
+    await unregisterPushToken();
+  } catch (err) {
+    // Never block logging out on this -- if it failed (e.g. offline), the
+    // next login on this device reclaims the token via register_push_token.
+    console.error('Failed to remove push token on sign-out:', err);
+  }
+  await supabase.auth.signOut();
 }
 
 // Every notification payload (see 20260922000000_push_notifications_send.sql

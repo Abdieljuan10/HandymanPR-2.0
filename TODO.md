@@ -104,6 +104,19 @@ arrives on the phone (client testing it now).
    that must return no rows.
 Rule for this going forward is now in CLAUDE.md.
 
+**Push tokens: one phone got BOTH accounts' pushes (found on-device
+2026-09-23) — fix built, migration 15 NOT YET RUN.** Causes: logout was a
+bare `signOut()` that never removed the device's `push_tokens` row, and rows
+were unique on (user, device) not on the Expo token, so each account that
+logged in on a phone added another row with the same token. Also a privacy
+leak (logged-out phone kept showing that account's message previews). Fix:
+`20261013000000_push_token_one_owner.sql` — keeps only the newest row per
+token, unique index on `expo_push_token`, and `register_push_token()` RPC
+that hands the device to whoever logged in last. App: registration uses the
+RPC; both Log out buttons call `signOutAndUnregister()` (deletes this
+device's row before signing out). Until the migration runs, registration
+logs an error and old rows keep working — nothing breaks.
+
 **Standing rule (2026-09-23):** every migration that changes who can see or
 do what ships with a plain-language abuse review ("what could a malicious or
 careless user do") before the client runs it.

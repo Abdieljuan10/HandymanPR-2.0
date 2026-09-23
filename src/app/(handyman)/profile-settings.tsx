@@ -4,7 +4,7 @@ import { LanguageToggle } from '@/components/language-toggle';
 import { PlaceholderScreen } from '@/components/placeholder-screen';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
-import { supabase } from '@/lib/supabase';
+import { signOutAndUnregister } from '@/lib/push-notifications';
 
 export default function HandymanSettingsScreen() {
   const { t } = useTranslation();
@@ -13,7 +13,7 @@ export default function HandymanSettingsScreen() {
     <PlaceholderScreen title={t('common.settings')}>
       <ThemedText type="smallBold">{t('common.language')}</ThemedText>
       <LanguageToggle />
-      <PrimaryButton label={t('common.logOut')} onPress={() => supabase.auth.signOut()} />
+      <PrimaryButton label={t('common.logOut')} onPress={signOutAndUnregister} />
     </PlaceholderScreen>
   );
 }
