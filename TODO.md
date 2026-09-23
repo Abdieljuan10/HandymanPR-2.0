@@ -73,15 +73,27 @@ FK to embed through). Returns no author/job ids. Execute revoked from
 anon/public. Until it's run the Reviews section is hidden (not "No reviews
 yet"). Not on Browse cards yet.
 
-**OPEN SECURITY GAP (found 2026-09-23, pre-existing, not fixed):**
-`client_profiles_select` is `using (true)` — any signed-in user can read
-every client's **full name, phone and avatar**. Nothing in the app reads
-another user's phone. (`handyman_profiles_select` is also `using (true)`,
-phone included — arguably fine for handymen advertising, but a client
-decision.) Proposed fix handed to the client: stop exposing `phone` to
-anyone but its owner; restrict client names/avatars to the client
-themselves plus handymen with a real relationship (bid, conversation,
-invite). Awaiting go-ahead — touches every screen that shows a client name.
+Migration 12 confirmed run 2026-09-23.
+
+**SECURITY FIXES — built 2026-09-23, NOT YET RUN. Top priority.**
+1. `20261012000000_lock_down_client_profiles.sql` — `client_profiles_select`
+   was `using (true)`: any signed-in account could read every client's name,
+   phone and avatar. Now: own row, or a handyman connected by a bid (any
+   status), a conversation, a private invite, or a `job_invitations` row
+   (`auth_handyman_connected_to_client()`). Phone numbers (client AND
+   handyman) moved to owner-only `profile_private`, copy verified before the
+   old columns are dropped. Handyman profiles stay public (they advertise).
+   No app change needed — every screen showing a client name is reached via
+   a connection, and all use `?.` fallbacks. Verify with the rolled-back RLS
+   impersonation test handed over in chat.
+2. `20261012010000_lock_down_internal_functions.sql` — **anyone, signed out,
+   could call `send_push_to_users` through the REST API** and push any text
+   to any user (Supabase grants EXECUTE to anon by default; only grants were
+   ever written, never revokes). Also get_user_language and the five cron
+   sweeps. All revoked from public/anon/authenticated; every in-DB caller
+   verified SECURITY DEFINER first. The migration ends with a check query
+   that must return no rows.
+Rule for this going forward is now in CLAUDE.md.
 
 **Standing rule (2026-09-23):** every migration that changes who can see or
 do what ships with a plain-language abuse review ("what could a malicious or
