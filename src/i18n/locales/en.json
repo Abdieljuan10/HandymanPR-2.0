@@ -399,7 +399,11 @@
     "facebook": "Facebook",
     "inviteToQuote": "Invite to Quote",
     "save": "Save handyman",
-    "unsave": "Remove from saved"
+    "unsave": "Remove from saved",
+    "reviewsTitle": "Reviews",
+    "noReviews": "No reviews yet.",
+    "ratingSummary_one": "{{average}} · {{count}} review",
+    "ratingSummary_other": "{{average}} · {{count}} reviews"
   },
   "handymanPueblos": {
     "intro": "Tap every pueblo you work in. You'll be notified about jobs posted there.",

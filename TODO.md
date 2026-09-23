@@ -57,12 +57,16 @@ All" toggle in its title row and a small heart on saved cards. The saved list
 is fetched separately and fails soft. Not added to the client Profile tab —
 Browse covers "find them again" in one tap.
 
-**Reviews on the handyman public profile — NOT BUILT (answered 2026-09-23).**
-The screen never queried reviews; they only show on the two job-detail
-screens. DB side is ready: `reviews_select` lets any signed-in user read
-published reviews, `subject_id` = the handyman for `author_role = 'client'`.
-Offered to build: average (StarDisplay) + count + list of published client
-reviews. Awaiting the client's go-ahead.
+**Reviews on the handyman public profile — built 2026-09-23, not yet tested.**
+Migration 11 (saved handymen) confirmed run the same day. The screen had never
+queried reviews at all (DB was fine — Juan Ríos had 2 published, avg 5.0).
+Now: stars + "5.0 · 2 reviews" under the name, and a Reviews section (stars,
+comment, date) above the portfolio, "No reviews yet." when empty. Published
+client reviews only — filtered on `published_at` explicitly, because
+`reviews_select` still lets an author read their own unpublished review.
+**No reviewer name** (the page is visible to every client; naming reviewers
+would reveal who hired whom) — ask the client if they want first names. No
+migration, no access change. Not on Browse cards yet.
 
 **Standing rule (2026-09-23):** every migration that changes who can see or
 do what ships with a plain-language abuse review ("what could a malicious or
