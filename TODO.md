@@ -1,5 +1,50 @@
 # Roadmap
 
+## Start here — session handoff, end of 2026-09-22
+
+Everything below is committed and pushed (`cf68210` is the tip). The chat
+batch (item 8) is built; the rest is verification the client has to do.
+
+**Waiting on the client, in order:**
+1. **Run migrations 6 and 7** — `20261006000000_fix_job_conversation_hides_update.sql`
+   then `20261006010000_restrict_chat_delete_to_ended_jobs.sql`. Handed over
+   as text and as files; 1–5 are confirmed run, these two are **not confirmed**.
+   Migration 7 drops `chat_both_parties_hidden()` and the app now calls
+   `chat_conversation_deletable()` instead, so the app needs a bundle reload
+   after it. An old bundle against the new DB fails safe (hides, never deletes).
+2. **The Vault step** for the 90-day cron — Project Settings → API → copy the
+   `service_role` key → Project Settings → Vault → New secret named exactly
+   `service_role_key`. Until then the cron runs daily, logs a `NOTICE`, and
+   cleans nothing. It cannot corrupt anything in that state.
+3. **On-device test pass** (item 8's checklist) — now genuinely testable, since
+   the client was previously hitting the web no-op Alert bug, not a chat bug.
+4. **Diagnostic query result** for "cancelling a job made the handyman lose the
+   conversation" — the query is in the "Open, awaiting a diagnostic query
+   result" note under item 8. Not assumed to be a real bug until it says so.
+
+**Known and unfixed, ready to pick up:** the `hidden_at`-vs-`last_message_at`
+clock mismatch (its own section below). Small RPC, design already settled.
+
+**Dev environment gotcha that cost most of an afternoon — don't re-derive it:**
+`expo start --tunnel` is **permanently broken on a free ngrok account**.
+`@expo/ngrok@4.1.3` is the newest release and bundles the ngrok **v2.3.41**
+agent; ngrok now refuses any agent below 3.20.0 on free plans
+(`ERR_NGROK_121`), and no `@expo/ngrok` version ships a v3 agent. `ngrok
+update` only stays within the v2 line. Paid plans are exempt, so paying would
+also fix it.
+The working alternative, already set up on this machine:
+```
+"/c/Users/juanp/.cloudflared/cloudflared.exe" tunnel --url http://localhost:8081
+# take the https://<random>.trycloudflare.com URL it prints, then:
+EXPO_PACKAGER_PROXY_URL=https://<that-url> npx expo start --dev-client
+```
+`EXPO_PACKAGER_PROXY_URL` is read from the pre-dotenv environment (verified in
+`@expo/cli`'s `UrlCreator.js`), so it must be passed inline — putting it in
+`.env` will not work. The URL is entered manually in the dev client; there's no
+`exp://` URL or QR with this setup, and the hostname is random on every restart.
+Also: `expo start` can orphan a Metro process holding port 8081 after a failed
+run — check `netstat -ano | grep :8081` before assuming the port is free.
+
 **Pilot-scope override, set 2026-09-18**: before anything else below, the
 goal is the minimum to put this in front of one real handyman in Puerto
 Rico (not a store launch). Working through this list, in order:
