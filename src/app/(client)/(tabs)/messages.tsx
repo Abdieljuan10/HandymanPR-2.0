@@ -94,10 +94,14 @@ export default function ClientMessagesScreen() {
     ]);
   }
 
+  // Date.parse, not a string compare: PostgREST returns timestamps as
+  // "...+00:00" while the optimistic local value is Date.toISOString()'s
+  // "...Z", so comparing them as text gives the wrong answer for anything
+  // landing in the same second as the delete.
   const visible = (conversations ?? []).filter((item) => {
     const hiddenAt = hides[item.id];
     if (!hiddenAt) return true;
-    return item.last_message_at > hiddenAt;
+    return Date.parse(item.last_message_at) > Date.parse(hiddenAt);
   });
 
   return (
