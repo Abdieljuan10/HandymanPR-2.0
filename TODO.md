@@ -1180,6 +1180,53 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
   waiting on a session limit reset) — **waiting on a fresh repro + the
   query result before touching any code here.**
 
+## Cross-cutting: every Alert.alert is a no-op on web
+
+Found 2026-09-22 while debugging "chat delete does nothing." Confirmed by
+reading the installed source — `react-native-web@0.21.2` ships
+`class Alert { static alert() {} }`, a literal empty function. So in a
+browser every `Alert.alert` silently does nothing: no dialog, no error.
+For a **confirm** dialog that means the destructive action behind it is
+never reached at all (the swipe-to-delete on Messages looked completely
+dead on web, while swipe-to-archive kept working precisely because it has
+no confirm step). For an **informational** alert it means the message
+just never appears.
+
+This matters because the client routinely tests the client-side flows in
+a browser and the handyman side on a device.
+
+- [x] Fixed at the root with `src/lib/confirm.ts:confirmDestructive()` —
+      `window.confirm` on web, `Alert.alert` on native, same call shape
+      either way. Wired into both `messages.tsx` screens (the reported
+      bug). Swap in a themed modal during the visual-polish pass if
+      wanted; call sites won't need to change.
+- [ ] **Not yet swept**: 9 other files still call `Alert.alert` directly.
+      The destructive confirms among them are the ones that actually
+      break on web — notably `(client)/job/[id]/index.tsx` (delete job /
+      cancel job), `(client)/job/[id]/edit.tsx`, `(handyman)/job/[id]/index.tsx`,
+      `(handyman)/portfolio/index.tsx`, `(handyman)/portfolio/[id]/index.tsx`,
+      `(handyman)/certifications/[id].tsx`. The rest
+      (`post-job.tsx`'s photo-limit warning, `portfolio/new.tsx`,
+      `profile-edit.tsx`) are informational, so they degrade to a missing
+      message rather than a dead button. Left alone for now to keep the
+      chat-delete fix isolated for testing — sweep when convenient.
+
+## Known: hidden_at is device time, last_message_at is server time
+
+Also found 2026-09-22, not yet fixed. `hideConversation()` sends
+`new Date().toISOString()` (the **device** clock) as `hidden_at`, but
+`last_message_at` is written by a Postgres trigger using `now()` (the
+**server** clock) — and the "has this conversation resurfaced" rule
+compares the two against each other. If a device clock lags the server,
+a just-deleted chat can immediately look resurfaced and reappear, which
+presents as "delete did nothing." Narrow (needs skew larger than the age
+of the last message) but real, and it also silently shifts the cutoff
+used by `conversation-screen.tsx` for which messages come back.
+Fix is a small RPC that does the upsert server-side with `now()` on both
+the insert and the on-conflict update, so both timestamps come from the
+same clock. Deliberately held back so the `confirmDestructive` fix above
+can be confirmed on its own first.
+
 ## Then: scheduling
 
 - [ ] Handyman availability calendar on their profile — no schema for this

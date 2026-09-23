@@ -1,7 +1,7 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
 // The root-export Swipeable is deprecated in favor of this Reanimated-backed
 // one (matches the pattern already used for job/bid archiving).
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -11,6 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { hideConversation } from '@/lib/chat';
+import { confirmDestructive } from '@/lib/confirm';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
 import { formatRelativeTime } from '@/utils/relative-time';
@@ -88,10 +89,13 @@ export default function ClientMessagesScreen() {
   }
 
   function confirmHide(conversationId: string) {
-    Alert.alert(t('messages.hideConfirmTitle'), t('messages.hideConfirmMessage'), [
-      { text: t('jobDelete.cancelDialog'), style: 'cancel' },
-      { text: t('messages.hide'), style: 'destructive', onPress: () => handleHide(conversationId) },
-    ]);
+    confirmDestructive({
+      title: t('messages.hideConfirmTitle'),
+      message: t('messages.hideConfirmMessage'),
+      confirmLabel: t('messages.hide'),
+      cancelLabel: t('jobDelete.cancelDialog'),
+      onConfirm: () => handleHide(conversationId),
+    });
   }
 
   // Date.parse, not a string compare: PostgREST returns timestamps as
