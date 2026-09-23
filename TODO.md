@@ -824,9 +824,10 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
        is just a bare storage path, so either infer from the extension at
        upload time or add a `file_type` column alongside it).
 8. [x] **Per-user chat deletion/archiving + photo attachments — built
-       2026-09-22, migrations NOT yet run by the client.** Full plan below
-       kept as-is for context/history.
-       **Six new migrations, must run in this exact order** (all printed in
+       2026-09-22.** Migrations 1–5 below **run and confirmed by the client
+       2026-09-22**; 6 and 7 (the on-device bug fixes) written the same day,
+       client applying them. Full plan below kept as-is for context/history.
+       **Seven migrations, must run in this exact order** (all printed in
        chat as they were written, per the client's request to copy each one
        from a phone):
        1. `20261005000000_chat_delete_hide_schema.sql` — `archived_at`/
@@ -848,13 +849,51 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
           does anything — a loud warning block is at the top of the file
           itself, and it's called out again in "Then: the Vault step"
           below.**
+       6. `20261006000000_fix_job_conversation_hides_update.sql` — **bug
+          found on-device**: deleting a conversation you'd already deleted
+          once failed with "new row violates row-level security policy
+          (USING expression)". The table had select/insert/delete policies
+          but no **update** policy, and the app's upsert becomes
+          `INSERT ... ON CONFLICT DO UPDATE` once the hide row exists —
+          that path is gated by an UPDATE policy's USING expression, hence
+          the confusing wording on what looked like an insert. First delete
+          of any conversation always worked; only the second hit it.
+       7. `20261006010000_restrict_chat_delete_to_ended_jobs.sql` —
+          **design change, client's call 2026-09-22**: on a **live** job,
+          mutual delete must only ever hide, never erase. Both sides
+          deleting a chat mid-job used to destroy the history for good,
+          which cut against the whole reason per-user delete exists.
+          `chat_both_parties_hidden()` replaced by
+          `chat_conversation_deletable()` (adds "job has ended", checked
+          against the job's *current* status, not `archived_at` — correct
+          for conversations whose job ended before the auto-archive trigger
+          existed, and for a cancelled job, which `cancel_hired_job()`
+          reopens to `'open'` and so is genuinely live again). Renamed
+          rather than widened in place so the RLS policy and the app can't
+          drift — both call the one function.
+          Also fixes a latent bug in the same invariant:
+          `auto_archive_job_conversations()` now **clears** `archived_at`
+          when a job leaves the terminal statuses, not just sets it on
+          entry. Without that, renewing an expired job left a stale
+          `archived_at` ticking and the 90-day cron (which reads
+          `archived_at`, not job status) would eventually delete a live
+          job's conversation.
        App side (all in the same commits, `npx tsc --noEmit` + `expo lint`
-       clean throughout, **not yet tested on-device**): both `messages.tsx`
-       screens now order by `last_message_at`, swipe-to-delete with a
-       confirm (`src/lib/chat.ts:hideConversation()`, shared between both
-       screens — hides the chat for you, then checks
-       `chat_both_parties_hidden()` and if true sweeps that conversation's
-       chat photos out of Storage and deletes the row for real).
+       clean throughout): both `messages.tsx` screens now order by
+       `last_message_at`, swipe-to-delete with a confirm
+       (`src/lib/chat.ts:hideConversation()`, shared between both screens —
+       hides the chat for you, then checks `chat_conversation_deletable()`
+       and if true sweeps that conversation's chat photos out of Storage
+       and deletes the row for real).
+       **Resurface fix (found on-device 2026-09-22)**: a conversation that
+       came back after a new message reloaded its *entire* history from day
+       one. `conversation-screen.tsx` now filters the message query
+       server-side on the caller's own `hidden_at`, so only messages sent
+       after the delete return — WhatsApp behavior. Server-side on purpose:
+       PostgREST returns `+00:00` timestamps while `toISOString()` produces
+       `Z` ones, so comparing them as strings in JS is wrong. The same
+       latent bug was in both `messages.tsx` list filters
+       (`last_message_at` vs `hidden_at`) — now `Date.parse`d on both sides.
        `conversation-screen.tsx` has an attach icon that opens the image
        picker, compresses via the existing `compressJobPhoto`, uploads to
        `chat-photos`, and renders photo messages through batch-generated
@@ -869,14 +908,33 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
        done the 90-day cron runs daily, finds nothing to do, and logs a
        `NOTICE` instead of erroring — it will not silently corrupt
        anything, it just won't clean anything up yet.
-       **Resume here**: client runs the 5 migrations above in order, then
-       does the Vault step, then confirm on-device — hide a chat solo
-       (disappears from your list, other party's list unaffected), send a
-       message into a hidden-by-you chat from the other side (should
-       resurface), hide from both sides (row should actually disappear —
-       checkable via Table Editor), attach + send a photo both directions,
-       and delete a job with an existing conversation (chat photos should
-       be gone from the `chat-photos` bucket in Storage after).
+       **Resume here**: client applies migrations 6 and 7, does the Vault
+       step, then confirms on-device — delete a chat **twice** (the bug
+       above), delete a chat on a **live** job from both sides (must stay
+       hidden-only, row still present in Table Editor), delete from both
+       sides on an **ended** job (row should actually disappear), send a
+       message into a deleted-by-you chat from the other side (should
+       resurface showing **only** the new message, not the old history),
+       attach + send a photo both directions, and delete a job with an
+       existing conversation (chat photos should be gone from the
+       `chat-photos` bucket in Storage after).
+       **Open, awaiting a diagnostic query result (2026-09-22)**: client
+       reported that cancelling a job from the client side made the
+       handyman lose the conversation entirely. Traced every path that can
+       remove a `job_conversations` row — `cancel_hired_job()` isn't one of
+       them (it sets the job back to `'open'`, marks the bid cancelled, and
+       never touches conversations; the auto-archive trigger only stamps
+       `archived_at`, which nothing but the 90-day cron reads). Only two
+       things delete a conversation: the mutual-hide cleanup (needs both
+       parties) and deleting the job itself (cascade, pre-existing since
+       the initial schema). Client was testing delete/cancel/delete in
+       quick succession across two accounts, so mutual-hide firing is the
+       likely explanation — diagnostic query handed over, **not assumed to
+       be a separate bug unless the result says otherwise**. Worth knowing
+       either way: after a cancel reopens a job to `'open'`, the same red
+       button on the client job screen becomes **Delete Job**, which
+       cascades the conversation away for both parties — easy to hit twice
+       without noticing the label changed.
        **One piece already shipped ahead of the rest, on its own**
        (`20261004000000_fix_job_messages_select_rls.sql`, commit
        `d581573`): `job_messages_select`'s RLS only checked that a
