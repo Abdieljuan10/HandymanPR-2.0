@@ -75,8 +75,14 @@ yet"). Not on Browse cards yet.
 
 Migration 12 confirmed run 2026-09-23.
 
-**SECURITY FIXES — built 2026-09-23, NOT YET RUN. Top priority.**
-1. `20261012000000_lock_down_client_profiles.sql` — `client_profiles_select`
+**SECURITY FIXES — built 2026-09-23. #1 RUN + VERIFIED, #2 not yet run.**
+1. **Run and verified 2026-09-23** via the rolled-back impersonation test:
+   0 phone columns left; connected handyman sees exactly 1 of 2 clients (their
+   chat client); client sees only self; no one else's `profile_private` rows.
+   Not directly tested: a handyman with zero connections (none exist in the
+   data — every handyman has one). Same rule, but worth one check with a
+   fresh handyman account.
+   `20261012000000_lock_down_client_profiles.sql` — `client_profiles_select`
    was `using (true)`: any signed-in account could read every client's name,
    phone and avatar. Now: own row, or a handyman connected by a bid (any
    status), a conversation, a private invite, or a `job_invitations` row
