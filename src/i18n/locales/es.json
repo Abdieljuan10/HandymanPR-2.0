@@ -162,7 +162,7 @@
     "title": "Mensajes",
     "hide": "Eliminar",
     "hideConfirmTitle": "¿Eliminar esta conversación?",
-    "hideConfirmMessage": "Esto solo la elimina de tu vista — la otra persona conserva su copia. Vuelve a aparecer, con su historial, si llega un mensaje nuevo.",
+    "hideConfirmMessage": "Esto solo la elimina de tu vista — la otra persona conserva su copia.",
     "archive": "Archivar",
     "unarchive": "Desarchivar",
     "showArchived": "Mostrar Archivadas ({{count}})",

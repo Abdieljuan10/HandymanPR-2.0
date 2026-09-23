@@ -110,27 +110,47 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
         });
       });
 
-    // Always the full history: deleting a chat only hides it from this
-    // user's list, so when it resurfaces on a new message, everything comes
-    // back with it. Merged by id rather than replaced, since a realtime
-    // insert can land before this fetch resolves -- a plain setMessages(rows)
-    // would drop it.
-    supabase
-      .from('job_messages')
-      .select('id, sender_id, body, photo_url, created_at')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true })
-      .then(async ({ data, error }) => {
-        if (!isMounted) return;
-        if (error) {
-          console.error('Failed to load messages:', error.message);
-          setLoadError(error.message);
-          return;
-        }
-        const rows = data ?? [];
-        setMessages((prev) => mergeMessages(rows, prev));
-        await signPhotoPaths(rows.map((row) => row.photo_url).filter((url): url is string => !!url));
-      });
+    // Deleting a chat is per-user and keeps the messages on the server (the
+    // other party still has their copy), so a conversation that resurfaces
+    // after a new message must NOT bring back everything from day one --
+    // only what arrived after this user deleted it, same as WhatsApp. The
+    // filter is server-side on purpose: comparing timestamps as strings in
+    // JS is unsafe here, since PostgREST returns "+00:00"-suffixed values
+    // and Date.toISOString() produces "Z"-suffixed ones. Merged by id rather
+    // than replaced, since a realtime insert can land before this fetch
+    // resolves -- a plain setMessages(rows) would drop it.
+    (async () => {
+      const { data: hide, error: hideError } = await supabase
+        .from('job_conversation_hides')
+        .select('hidden_at')
+        .eq('conversation_id', conversationId)
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+      if (!isMounted) return;
+      // Failing here must not fall through to loading the full history.
+      if (hideError) {
+        console.error('Failed to load messages:', hideError.message);
+        setLoadError(hideError.message);
+        return;
+      }
+
+      let query = supabase
+        .from('job_messages')
+        .select('id, sender_id, body, photo_url, created_at')
+        .eq('conversation_id', conversationId);
+      if (hide?.hidden_at) query = query.gt('created_at', hide.hidden_at);
+
+      const { data, error } = await query.order('created_at', { ascending: true });
+      if (!isMounted) return;
+      if (error) {
+        console.error('Failed to load messages:', error.message);
+        setLoadError(error.message);
+        return;
+      }
+      const rows = data ?? [];
+      setMessages((prev) => mergeMessages(rows, prev));
+      await signPhotoPaths(rows.map((row) => row.photo_url).filter((url): url is string => !!url));
+    })();
 
     // Unique per effect run (not just per conversationId): the Supabase realtime client
     // reuses the same channel object for a repeated topic name rather than creating a new

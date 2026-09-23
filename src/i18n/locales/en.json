@@ -162,7 +162,7 @@
     "title": "Messages",
     "hide": "Delete",
     "hideConfirmTitle": "Delete this chat?",
-    "hideConfirmMessage": "This only removes it from your view — the other person keeps their copy. It comes back, with its history, if a new message arrives.",
+    "hideConfirmMessage": "This only removes it from your view — the other person keeps their copy.",
     "archive": "Archive",
     "unarchive": "Unarchive",
     "showArchived": "Show Archived ({{count}})",

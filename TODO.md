@@ -5,8 +5,11 @@
 **Chat delete/archive redesigned (client's call 2026-09-23, after testing).**
 Replaces migration 7's "live job stays hidden" rule. Built and pushed;
 migration 8 **not yet run**. New rules:
-- **Delete** — immediate, per-user, no job-status restriction. Comes back
-  **with full history** if a new message arrives after the delete.
+- **Delete** — immediate, per-user, no job-status restriction. If the other
+  side messages again it comes back as a **fresh** conversation showing only
+  messages sent after the delete — the old history is NOT restored. (Briefly
+  changed to restore full history on 2026-09-23 from a misread of the spec;
+  reverted the same day at the client's explicit correction. Don't re-do it.)
 - **Archive** (new) — swipe action next to Delete, per-user
   `job_conversation_archives` table, "Show Archived" toggle. Touches nothing.
   Stays archived when new messages arrive (WhatsApp default) until unarchived.
@@ -20,9 +23,11 @@ migration 8 **not yet run**. New rules:
    `58f0ca94…` is the original row (created 09-21), all 18 messages present,
    job `open`, migration 7 confirmed live (`chat_conversation_deletable`
    exists), no orphaned chat-photo folders. Nothing in the app or DB can
-   delete individual messages. So the empty chat was the display-side
-   `created_at > hidden_at` filter (since removed), not a hard delete. The
-   exact moment can't be reconstructed — hide rows are upserted, so only the
+   delete individual messages. So the empty chat came from the display-side
+   `created_at > hidden_at` filter (intended behavior, kept), most likely
+   either the screen being opened before the new message existed or the old
+   device-clock `hidden_at` — the latter fixed by migration 8. The exact
+   moment can't be reconstructed — hide rows are upserted, so only the
    latest delete times survive.
 2. **Renewal test** (a self-rolling-back `do $$` block, handed over after the
    diagnostic) — confirms expired → open clears `archived_at` on the live DB.
@@ -36,8 +41,8 @@ migration 8 **not yet run**. New rules:
    `service_role_key`. Until then the cron runs daily, logs a `NOTICE`, and
    cleans nothing. It cannot corrupt anything in that state.
 5. **On-device test pass**: delete a chat on a live job (gone immediately,
-   other side unaffected); have the other side message → it comes back with
-   **all** history; archive/unarchive; delete from both sides with no new
+   other side unaffected); have the other side message → it comes back
+   showing **only** the new message; archive/unarchive; delete from both sides with no new
    message in between → row gone in Table Editor.
 6. **Diagnostic query result** for "cancelling a job made the handyman lose the
    conversation" — the query is in the "Open, awaiting a diagnostic query

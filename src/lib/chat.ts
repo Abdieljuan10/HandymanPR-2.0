@@ -4,8 +4,9 @@ import { supabase } from '@/lib/supabase';
 // logic can't drift between them.
 //
 // Deleting a chat is per-user, immediate, and never touches the other
-// party's copy, whatever the job's status. It comes back (full history
-// included) if a new message arrives after the delete. Only once BOTH
+// party's copy, whatever the job's status. If a new message arrives after
+// the delete it comes back as a fresh conversation showing only what was
+// sent after the delete (see conversation-screen.tsx). Only once BOTH
 // parties have deleted it, with nothing new since either delete, is it
 // actually removed -- chat_conversation_deletable() owns that condition,
 // since job_conversation_hides' select policy only shows a user their own
