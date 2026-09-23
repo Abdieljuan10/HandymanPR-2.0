@@ -48,6 +48,22 @@ tested.** Migration 10 `20261009000000_job_invitations.sql` **not yet run.**
   so a bid insert on any job id returns its status/"full" message — minor
   status oracle (no personal data). Worth a caller check someday.
 
+**Saved handymen — built 2026-09-23, not yet tested.** Migration 11
+`20261010000000_saved_handymen.sql` **not yet run.** Private per-client
+bookmark list (`client_saved_handymen`, own-rows-only RLS, no push, the
+handyman never sees it). Heart on the public profile (hidden until its state
+loads, so it never shows a wrong state); Browse gets a "Saved (n)" / "Show
+All" toggle in its title row and a small heart on saved cards. The saved list
+is fetched separately and fails soft. Not added to the client Profile tab —
+Browse covers "find them again" in one tap.
+
+**Reviews on the handyman public profile — NOT BUILT (answered 2026-09-23).**
+The screen never queried reviews; they only show on the two job-detail
+screens. DB side is ready: `reviews_select` lets any signed-in user read
+published reviews, `subject_id` = the handyman for `author_role = 'client'`.
+Offered to build: average (StarDisplay) + count + list of published client
+reviews. Awaiting the client's go-ahead.
+
 **Standing rule (2026-09-23):** every migration that changes who can see or
 do what ships with a plain-language abuse review ("what could a malicious or
 careless user do") before the client runs it.

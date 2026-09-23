@@ -165,7 +165,11 @@
     "emptyFiltered": "No handymen match your search. Try clearing some filters.",
     "featured": "Featured",
     "puebloCount_one": "Serves {{count}} pueblo",
-    "puebloCount_other": "Serves {{count}} pueblos"
+    "puebloCount_other": "Serves {{count}} pueblos",
+    "showSaved": "Saved ({{count}})",
+    "showAll": "Show All",
+    "emptySaved": "You haven't saved anyone yet. Tap the heart on a handyman's profile to save them.",
+    "savedBadge": "Saved"
   },
   "messages": {
     "title": "Messages",
@@ -393,7 +397,9 @@
     "certificationsTitle": "Certifications",
     "instagram": "Instagram",
     "facebook": "Facebook",
-    "inviteToQuote": "Invite to Quote"
+    "inviteToQuote": "Invite to Quote",
+    "save": "Save handyman",
+    "unsave": "Remove from saved"
   },
   "handymanPueblos": {
     "intro": "Tap every pueblo you work in. You'll be notified about jobs posted there.",

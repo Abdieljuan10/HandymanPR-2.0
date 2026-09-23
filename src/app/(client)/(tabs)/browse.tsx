@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -15,6 +16,7 @@ import { usePueblos } from '@/hooks/use-pueblos';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
+import { useSession } from '@/providers/session-provider';
 
 type HandymanRow = {
   id: string;
@@ -45,16 +47,27 @@ export default function BrowseHandymenScreen() {
   const theme = useTheme();
   const { language } = useLanguage();
   const { pueblos } = usePueblos();
+  const { session } = useSession();
   const [handymen, setHandymen] = useState<HandymanRow[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterTradeIds, setFilterTradeIds] = useState<number[]>([]);
   const [filterPuebloSlugs, setFilterPuebloSlugs] = useState<string[]>([]);
+  // Saved handymen (client_saved_handymen) -- a private bookmark list.
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [savedOnly, setSavedOnly] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from('handyman_profiles').select(HANDYMEN_SELECT);
+    if (!session) return;
+    const [{ data, error }, { data: savedData, error: savedError }] = await Promise.all([
+      supabase.from('handyman_profiles').select(HANDYMEN_SELECT),
+      supabase.from('client_saved_handymen').select('handyman_id').eq('client_id', session.user.id),
+    ]);
+    // Fail-soft on its own: a broken saved list must not hide Browse itself.
+    if (savedError) console.error('Failed to load saved handymen:', savedError.message);
+    setSavedIds(new Set((savedData ?? []).map((row) => row.handyman_id as string)));
     if (error) {
       console.error('Failed to load handymen:', error.message);
       setLoadError(error.message);
@@ -63,7 +76,7 @@ export default function BrowseHandymenScreen() {
     }
     setLoadError(null);
     setHandymen((data as unknown as HandymanRow[] | null) ?? []);
-  }, []);
+  }, [session]);
 
   useFocusEffect(
     useCallback(() => {
@@ -90,6 +103,7 @@ export default function BrowseHandymenScreen() {
     const query = search.trim().toLowerCase();
     return handymen
       .filter((row) => {
+        if (savedOnly && !savedIds.has(row.id)) return false;
         if (query && !row.full_name.toLowerCase().includes(query)) return false;
         if (filterTradeIds.length > 0 && !row.handyman_trades.some((ht) => filterTradeIds.includes(ht.trade_id))) {
           return false;
@@ -105,16 +119,23 @@ export default function BrowseHandymenScreen() {
           Number(b.is_verified) - Number(a.is_verified) ||
           a.full_name.localeCompare(b.full_name)
       );
-  }, [handymen, search, filterTradeIds, filterPuebloIds]);
+  }, [handymen, search, filterTradeIds, filterPuebloIds, savedOnly, savedIds]);
 
   const hasActiveFilters = filterTradeIds.length > 0 || filterPuebloSlugs.length > 0;
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="subtitle" style={styles.title}>
-          {t('browseHandymen.title')}
-        </ThemedText>
+        <View style={styles.titleRow}>
+          <ThemedText type="subtitle">{t('browseHandymen.title')}</ThemedText>
+          {(savedIds.size > 0 || savedOnly) && (
+            <Pressable onPress={() => setSavedOnly((prev) => !prev)}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {savedOnly ? t('browseHandymen.showAll') : t('browseHandymen.showSaved', { count: savedIds.size })}
+              </ThemedText>
+            </Pressable>
+          )}
+        </View>
 
         {/* Search + filters live in the list header, not above the list:
             the pickers don't scroll on their own (built to sit inside Post
@@ -179,9 +200,11 @@ export default function BrowseHandymenScreen() {
                 ? t('common.loading')
                 : loadError
                   ? t('common.loadError', { error: loadError })
-                  : hasActiveFilters || search.trim()
-                    ? t('browseHandymen.emptyFiltered')
-                    : t('browseHandymen.empty')}
+                  : savedOnly && !hasActiveFilters && !search.trim()
+                    ? t('browseHandymen.emptySaved')
+                    : hasActiveFilters || search.trim() || savedOnly
+                      ? t('browseHandymen.emptyFiltered')
+                      : t('browseHandymen.empty')}
             </ThemedText>
           }
           renderItem={({ item }) => {
@@ -207,7 +230,19 @@ export default function BrowseHandymenScreen() {
                       </View>
                     )}
                     <View style={styles.cardText}>
-                      <ThemedText type="default">{item.full_name}</ThemedText>
+                      <View style={styles.nameRow}>
+                        <ThemedText type="default" style={styles.name}>
+                          {item.full_name}
+                        </ThemedText>
+                        {savedIds.has(item.id) && (
+                          <Ionicons
+                            name="heart"
+                            size={16}
+                            color="#d64545"
+                            accessibilityLabel={t('browseHandymen.savedBadge')}
+                          />
+                        )}
+                      </View>
                       {badges.length > 0 && (
                         <ThemedText type="small" themeColor="tint">
                           {badges.join(' · ')}
@@ -249,8 +284,19 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.three,
   },
-  title: {
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: Spacing.two,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  name: {
+    flexShrink: 1,
   },
   header: {
     gap: Spacing.three,

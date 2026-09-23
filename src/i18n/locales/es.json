@@ -165,7 +165,11 @@
     "emptyFiltered": "Ningún técnico coincide con tu búsqueda. Prueba quitando algunos filtros.",
     "featured": "Destacado",
     "puebloCount_one": "Trabaja en {{count}} pueblo",
-    "puebloCount_other": "Trabaja en {{count}} pueblos"
+    "puebloCount_other": "Trabaja en {{count}} pueblos",
+    "showSaved": "Guardados ({{count}})",
+    "showAll": "Ver Todos",
+    "emptySaved": "Todavía no has guardado a nadie. Toca el corazón en el perfil de un técnico para guardarlo.",
+    "savedBadge": "Guardado"
   },
   "messages": {
     "title": "Mensajes",
@@ -393,7 +397,9 @@
     "certificationsTitle": "Certificaciones",
     "instagram": "Instagram",
     "facebook": "Facebook",
-    "inviteToQuote": "Invitar a Cotizar"
+    "inviteToQuote": "Invitar a Cotizar",
+    "save": "Guardar técnico",
+    "unsave": "Quitar de guardados"
   },
   "handymanPueblos": {
     "intro": "Toca cada pueblo donde trabajas. Te notificaremos sobre trabajos publicados allí.",

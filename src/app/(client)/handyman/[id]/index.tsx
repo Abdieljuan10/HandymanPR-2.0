@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -11,8 +12,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { saveHandyman, unsaveHandyman } from '@/lib/saved-handymen';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
+import { useSession } from '@/providers/session-provider';
 
 type HandymanProfileRow = {
   id: string;
@@ -42,7 +45,11 @@ export default function PublicHandymanProfileScreen() {
   const { language } = useLanguage();
   const theme = useTheme();
   const router = useRouter();
+  const { session } = useSession();
   const { id } = useLocalSearchParams<{ id: string }>();
+  // null = unknown (not loaded, or the lookup failed) -- the heart is hidden
+  // rather than guessing, so it can never show the wrong state.
+  const [saved, setSaved] = useState<boolean | null>(null);
 
   const [profile, setProfile] = useState<HandymanProfileRow | null | undefined>(undefined);
   const [trades, setTrades] = useState<TradeRow[]>([]);
@@ -50,6 +57,39 @@ export default function PublicHandymanProfileScreen() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [certifications, setCertifications] = useState<CertificationRow[]>([]);
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!id || !session) return;
+    let isMounted = true;
+    supabase
+      .from('client_saved_handymen')
+      .select('handyman_id')
+      .eq('client_id', session.user.id)
+      .eq('handyman_id', id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+        if (error) {
+          console.error('Failed to load saved state:', error.message);
+          return;
+        }
+        setSaved(!!data);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [id, session]);
+
+  async function toggleSaved() {
+    if (!session || !id || saved === null) return;
+    const next = !saved;
+    setSaved(next);
+    const { error } = next ? await saveHandyman(session.user.id, id) : await unsaveHandyman(session.user.id, id);
+    if (error) {
+      console.error('Failed to update saved handyman:', error);
+      setSaved(!next);
+    }
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -169,6 +209,19 @@ export default function PublicHandymanProfileScreen() {
                 </ThemedText>
               )}
             </View>
+            {saved !== null && (
+              <Pressable
+                onPress={toggleSaved}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={saved ? t('handymanPublicProfile.unsave') : t('handymanPublicProfile.save')}>
+                <Ionicons
+                  name={saved ? 'heart' : 'heart-outline'}
+                  size={28}
+                  color={saved ? '#d64545' : theme.textSecondary}
+                />
+              </Pressable>
+            )}
           </View>
 
           <PrimaryButton
@@ -318,6 +371,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerText: {
+    flex: 1,
     gap: Spacing.half,
   },
   socialRow: {
