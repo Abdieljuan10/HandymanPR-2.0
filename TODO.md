@@ -1,29 +1,44 @@
 # Roadmap
 
-## Start here — session handoff, end of 2026-09-22
+## Start here — session handoff, 2026-09-23
 
-Everything below is committed and pushed (`cf68210` is the tip). The chat
-batch (item 8) is built; the rest is verification the client has to do.
+**Chat delete/archive redesigned (client's call 2026-09-23, after testing).**
+Replaces migration 7's "live job stays hidden" rule. Built and pushed;
+migration 8 **not yet run**. New rules:
+- **Delete** — immediate, per-user, no job-status restriction. Comes back
+  **with full history** if a new message arrives after the delete.
+- **Archive** (new) — swipe action next to Delete, per-user
+  `job_conversation_archives` table, "Show Archived" toggle. Touches nothing.
+  Stays archived when new messages arrive (WhatsApp default) until unarchived.
+- **Cleanup** — (a) bonus: both parties deleted *and* no message since either
+  delete → row + Storage photos removed on the spot; (b) 90-day cron stays the
+  real backstop for every conversation whose job is completed/cancelled/expired.
+- Both messages tabs are now one shared `src/components/conversation-list-screen.tsx`.
 
 **Waiting on the client, in order:**
-1. **Run migrations 6 and 7** — `20261006000000_fix_job_conversation_hides_update.sql`
-   then `20261006010000_restrict_chat_delete_to_ended_jobs.sql`. Handed over
-   as text and as files; 1–5 are confirmed run, these two are **not confirmed**.
-   Migration 7 drops `chat_both_parties_hidden()` and the app now calls
-   `chat_conversation_deletable()` instead, so the app needs a bundle reload
-   after it. An old bundle against the new DB fails safe (hides, never deletes).
-2. **The Vault step** for the 90-day cron — Project Settings → API → copy the
+1. **Diagnostic query** for the "resurfaced chat came back empty" report —
+   handed over in chat 2026-09-23. Decides whether it was a real hard delete
+   (old mutual-delete rule + the handyman's Message button creating a fresh
+   empty row) or the device-clock `hidden_at` filter. Both are fixed in code
+   either way; the query tells us whether any messages were actually lost.
+2. **Renewal test** (a self-rolling-back `do $$` block, handed over after the
+   diagnostic) — confirms expired → open clears `archived_at` on the live DB.
+3. **Run migration 8** — `20261007000000_chat_delete_archive_redesign.sql`.
+   Supersedes 7 (safe whether or not 6/7 ever ran — 6 is still worth running,
+   it's the update policy on hides). **The new app bundle calls
+   `hide_conversation()`, which only exists after this — delete fails with a
+   visible console error until it's run.**
+4. **The Vault step** for the 90-day cron — Project Settings → API → copy the
    `service_role` key → Project Settings → Vault → New secret named exactly
    `service_role_key`. Until then the cron runs daily, logs a `NOTICE`, and
    cleans nothing. It cannot corrupt anything in that state.
-3. **On-device test pass** (item 8's checklist) — now genuinely testable, since
-   the client was previously hitting the web no-op Alert bug, not a chat bug.
-4. **Diagnostic query result** for "cancelling a job made the handyman lose the
+5. **On-device test pass**: delete a chat on a live job (gone immediately,
+   other side unaffected); have the other side message → it comes back with
+   **all** history; archive/unarchive; delete from both sides with no new
+   message in between → row gone in Table Editor.
+6. **Diagnostic query result** for "cancelling a job made the handyman lose the
    conversation" — the query is in the "Open, awaiting a diagnostic query
-   result" note under item 8. Not assumed to be a real bug until it says so.
-
-**Known and unfixed, ready to pick up:** the `hidden_at`-vs-`last_message_at`
-clock mismatch (its own section below). Small RPC, design already settled.
+   result" note under item 8. Very likely the same hard-delete as item 1.
 
 **Dev environment gotcha that cost most of an afternoon — don't re-derive it:**
 `expo start --tunnel` is **permanently broken on a free ngrok account**.
@@ -1263,9 +1278,13 @@ a browser and the handyman side on a device.
       `expo lint` both clean (only the 4 pre-existing unrelated
       warnings/error). **Not yet re-tested on device or web.**
 
-## Known: hidden_at is device time, last_message_at is server time
+## Fixed: hidden_at is device time, last_message_at is server time
 
-Also found 2026-09-22, not yet fixed. `hideConversation()` sends
+**Fixed 2026-09-23** in migration 8 (`hide_conversation()` RPC stamps
+`hidden_at` with the server's `now()`); the list's optimistic hide now uses
+the row's own `last_message_at` instead of the device clock. Original note:
+
+Found 2026-09-22. `hideConversation()` sends
 `new Date().toISOString()` (the **device** clock) as `hidden_at`, but
 `last_message_at` is written by a Postgres trigger using `now()` (the
 **server** clock) — and the "has this conversation resurfaced" rule

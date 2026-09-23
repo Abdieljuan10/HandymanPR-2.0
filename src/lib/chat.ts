@@ -3,32 +3,23 @@ import { supabase } from '@/lib/supabase';
 // Shared between both Messages screens (client + handyman) so the cleanup
 // logic can't drift between them.
 //
-// Hiding a chat is per-user and never touches Storage or the other party's
-// copy by itself. A conversation is only actually removed once its job has
-// ENDED and both parties have hidden it -- on a live job, mutual delete
-// only ever hides, so the message history survives as dispute evidence even
-// if both sides tidy up their inbox. chat_conversation_deletable() owns
-// that whole condition: the app can't evaluate it itself, since
-// job_conversation_hides' select policy only shows a user their own hide
-// rows. The real delete runs from the acting user's own authenticated
-// client (same pattern as the existing job/portfolio-photo delete flows:
-// storage.remove() before the row delete), not a cron.
-export async function hideConversation(
-  conversationId: string,
-  userId: string
-): Promise<{ error: string | null }> {
-  const hiddenAt = new Date().toISOString();
-  const { error } = await supabase
-    .from('job_conversation_hides')
-    .upsert(
-      { conversation_id: conversationId, user_id: userId, hidden_at: hiddenAt },
-      { onConflict: 'conversation_id,user_id' }
-    );
-  if (error) return { error: error.message };
-
-  const { data: deletable } = await supabase.rpc('chat_conversation_deletable', {
+// Deleting a chat is per-user, immediate, and never touches the other
+// party's copy, whatever the job's status. It comes back (full history
+// included) if a new message arrives after the delete. Only once BOTH
+// parties have deleted it, with nothing new since either delete, is it
+// actually removed -- chat_conversation_deletable() owns that condition,
+// since job_conversation_hides' select policy only shows a user their own
+// hide rows. hide_conversation() stamps hidden_at with the server clock so
+// it compares correctly against last_message_at. The real delete runs from
+// the acting user's own authenticated client (same pattern as the existing
+// job/portfolio-photo delete flows: storage.remove() before the row
+// delete, since chat-photos' delete policy needs the row to still exist).
+// The 90-day cron is the backstop for everything this never reaches.
+export async function hideConversation(conversationId: string): Promise<{ error: string | null }> {
+  const { data: deletable, error } = await supabase.rpc('hide_conversation', {
     p_conversation_id: conversationId,
   });
+  if (error) return { error: error.message };
 
   if (deletable) {
     const { data: files } = await supabase.storage.from('chat-photos').list(conversationId);
@@ -41,4 +32,28 @@ export async function hideConversation(
   }
 
   return { error: null };
+}
+
+// Archive is a pure view preference -- nothing is deleted, and it stays
+// archived even if new messages arrive, until the user unarchives it.
+export async function archiveConversation(
+  conversationId: string,
+  userId: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('job_conversation_archives')
+    .insert({ conversation_id: conversationId, user_id: userId });
+  return { error: error?.message ?? null };
+}
+
+export async function unarchiveConversation(
+  conversationId: string,
+  userId: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('job_conversation_archives')
+    .delete()
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId);
+  return { error: error?.message ?? null };
 }

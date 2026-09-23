@@ -52,6 +52,12 @@ type ConversationRow = {
 
 type PendingPhoto = { uri: string; mimeType: string };
 
+function mergeMessages(base: MessageRow[], incoming: MessageRow[]): MessageRow[] {
+  const byId = new Map(base.map((row) => [row.id, row]));
+  for (const row of incoming) byId.set(row.id, row);
+  return [...byId.values()].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+}
+
 export function ConversationScreen({ conversationId }: { conversationId: string }) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -60,6 +66,8 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
 
   const [header, setHeader] = useState<ConversationHeader | null | undefined>(undefined);
   const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [pendingPhoto, setPendingPhoto] = useState<PendingPhoto | null>(null);
@@ -82,8 +90,9 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
       )
       .eq('id', conversationId)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (!isMounted) return;
+        if (error) console.error('Failed to load conversation:', error.message);
         const row = data as unknown as ConversationRow | null;
         if (!row) {
           setHeader(null);
@@ -101,34 +110,27 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
         });
       });
 
-    // Deleting a chat is per-user and keeps the messages on the server (the
-    // other party still has their copy), so a conversation that resurfaces
-    // after a new message must NOT bring back everything from day one --
-    // only what arrived after this user deleted it, same as WhatsApp. The
-    // filter is server-side on purpose: comparing timestamps as strings in
-    // JS is unsafe here, since PostgREST returns "+00:00"-suffixed values
-    // and Date.toISOString() produces "Z"-suffixed ones.
-    (async () => {
-      const { data: hide } = await supabase
-        .from('job_conversation_hides')
-        .select('hidden_at')
-        .eq('conversation_id', conversationId)
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-      if (!isMounted) return;
-
-      let query = supabase
-        .from('job_messages')
-        .select('id, sender_id, body, photo_url, created_at')
-        .eq('conversation_id', conversationId);
-      if (hide?.hidden_at) query = query.gt('created_at', hide.hidden_at);
-
-      const { data } = await query.order('created_at', { ascending: true });
-      if (!isMounted) return;
-      const rows = data ?? [];
-      setMessages(rows);
-      await signPhotoPaths(rows.map((row) => row.photo_url).filter((url): url is string => !!url));
-    })();
+    // Always the full history: deleting a chat only hides it from this
+    // user's list, so when it resurfaces on a new message, everything comes
+    // back with it. Merged by id rather than replaced, since a realtime
+    // insert can land before this fetch resolves -- a plain setMessages(rows)
+    // would drop it.
+    supabase
+      .from('job_messages')
+      .select('id, sender_id, body, photo_url, created_at')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true })
+      .then(async ({ data, error }) => {
+        if (!isMounted) return;
+        if (error) {
+          console.error('Failed to load messages:', error.message);
+          setLoadError(error.message);
+          return;
+        }
+        const rows = data ?? [];
+        setMessages((prev) => mergeMessages(rows, prev));
+        await signPhotoPaths(rows.map((row) => row.photo_url).filter((url): url is string => !!url));
+      });
 
     // Unique per effect run (not just per conversationId): the Supabase realtime client
     // reuses the same channel object for a repeated topic name rather than creating a new
@@ -148,7 +150,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
         },
         (payload) => {
           const row = payload.new as MessageRow;
-          setMessages((prev) => [...prev, row]);
+          setMessages((prev) => mergeMessages(prev, [row]));
           if (row.photo_url) signPhotoPaths([row.photo_url]);
         }
       )
@@ -194,6 +196,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
     setDraft('');
     const photoToSend = pendingPhoto;
     setPendingPhoto(null);
+    setSendError(null);
     setSending(true);
 
     let photoPath: string | null = null;
@@ -206,6 +209,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
         .upload(path, arrayBuffer, { contentType: photoToSend.mimeType });
       if (uploadError) {
         console.error('Chat photo upload failed:', uploadError.message);
+        setSendError(uploadError.message);
         setSending(false);
         setDraft(body);
         setPendingPhoto(photoToSend);
@@ -220,6 +224,8 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
       .insert({ conversation_id: conversationId, sender_id: session.user.id, body, photo_url: photoPath });
     setSending(false);
     if (error) {
+      console.error('Failed to send message:', error.message);
+      setSendError(error.message);
       setDraft(body);
       setPendingPhoto(photoToSend);
     }
@@ -286,7 +292,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
             ListEmptyComponent={
               <ThemedText type="default" themeColor="textSecondary">
-                {t('conversation.empty')}
+                {loadError ? `${t('conversation.loadError')} (${loadError})` : t('conversation.empty')}
               </ThemedText>
             }
             renderItem={({ item }) => {
@@ -322,6 +328,12 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
                 <Ionicons name="close" size={16} color="#ffffff" />
               </Pressable>
             </View>
+          )}
+
+          {sendError && (
+            <ThemedText type="small" style={styles.sendError}>
+              {`${t('conversation.sendError')} (${sendError})`}
+            </ThemedText>
           )}
 
           <View style={styles.inputRow}>
@@ -469,5 +481,9 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.7,
+  },
+  sendError: {
+    color: '#d64545',
+    marginTop: Spacing.two,
   },
 });

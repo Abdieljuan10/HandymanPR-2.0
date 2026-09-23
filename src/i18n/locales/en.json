@@ -162,7 +162,12 @@
     "title": "Messages",
     "hide": "Delete",
     "hideConfirmTitle": "Delete this chat?",
-    "hideConfirmMessage": "This only removes it from your view — the other person keeps their copy."
+    "hideConfirmMessage": "This only removes it from your view — the other person keeps their copy. It comes back, with its history, if a new message arrives.",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "showArchived": "Show Archived ({{count}})",
+    "hideArchived": "Hide Archived",
+    "archivedSection": "Archived"
   },
   "clientProfile": {
     "title": "Your Profile",
@@ -424,7 +429,9 @@
     "removePhoto": "Remove photo",
     "empty": "No messages yet. Say hello!",
     "listEmpty": "No conversations yet.",
-    "startedAgo": "Started {{time}}"
+    "startedAgo": "Started {{time}}",
+    "loadError": "Couldn't load messages.",
+    "sendError": "Message not sent."
   },
   "puebloPicker": {
     "selectAll": "Select All",

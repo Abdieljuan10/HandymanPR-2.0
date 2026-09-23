@@ -162,7 +162,12 @@
     "title": "Mensajes",
     "hide": "Eliminar",
     "hideConfirmTitle": "¿Eliminar esta conversación?",
-    "hideConfirmMessage": "Esto solo la elimina de tu vista — la otra persona conserva su copia."
+    "hideConfirmMessage": "Esto solo la elimina de tu vista — la otra persona conserva su copia. Vuelve a aparecer, con su historial, si llega un mensaje nuevo.",
+    "archive": "Archivar",
+    "unarchive": "Desarchivar",
+    "showArchived": "Mostrar Archivadas ({{count}})",
+    "hideArchived": "Ocultar Archivadas",
+    "archivedSection": "Archivadas"
   },
   "clientProfile": {
     "title": "Tu Perfil",
@@ -424,7 +429,9 @@
     "removePhoto": "Quitar foto",
     "empty": "Todavía no hay mensajes. ¡Saluda!",
     "listEmpty": "Todavía no hay conversaciones.",
-    "startedAgo": "Iniciado {{time}}"
+    "startedAgo": "Iniciado {{time}}",
+    "loadError": "No se pudieron cargar los mensajes.",
+    "sendError": "Mensaje no enviado."
   },
   "puebloPicker": {
     "selectAll": "Seleccionar Todos",
