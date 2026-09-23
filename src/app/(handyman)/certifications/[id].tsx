@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
@@ -12,6 +12,7 @@ import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { confirmDestructive } from '@/lib/confirm';
 import { supabase } from '@/lib/supabase';
 
 type CertificationRow = {
@@ -103,20 +104,19 @@ export default function EditCertificationScreen() {
   }
 
   function handleDelete() {
-    Alert.alert(t('certifications.removeConfirmTitle'), t('certifications.removeConfirmMessage'), [
-      { text: t('certifications.cancel'), style: 'cancel' },
-      {
-        text: t('certifications.remove'),
-        style: 'destructive',
-        onPress: async () => {
-          if (fileUrl) {
-            await supabase.storage.from('certifications').remove([fileUrl]);
-          }
-          await supabase.from('handyman_certifications').delete().eq('id', id);
-          router.back();
-        },
+    confirmDestructive({
+      title: t('certifications.removeConfirmTitle'),
+      message: t('certifications.removeConfirmMessage'),
+      confirmLabel: t('certifications.remove'),
+      cancelLabel: t('certifications.cancel'),
+      onConfirm: async () => {
+        if (fileUrl) {
+          await supabase.storage.from('certifications').remove([fileUrl]);
+        }
+        await supabase.from('handyman_certifications').delete().eq('id', id);
+        router.back();
       },
-    ]);
+    });
   }
 
   if (loading) {

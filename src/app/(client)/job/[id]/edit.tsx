@@ -4,7 +4,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
@@ -17,6 +17,7 @@ import { ThemedView } from '@/components/themed-view';
 import { TradePicker } from '@/components/trade-picker';
 import { Spacing } from '@/constants/theme';
 import { usePueblos } from '@/hooks/use-pueblos';
+import { confirmAsync, confirmDestructive, notify } from '@/lib/confirm';
 import { compressJobPhoto, jobPhotoStoragePath, MAX_JOB_PHOTOS } from '@/lib/job-photos';
 import { supabase } from '@/lib/supabase';
 
@@ -95,10 +96,13 @@ export default function EditJobScreen() {
       navigation.dispatch(data.action);
       return;
     }
-    Alert.alert(t('jobEdit.unsavedTitle'), t('jobEdit.unsavedMessage'), [
-      { text: t('jobEdit.keepEditing'), style: 'cancel' },
-      { text: t('jobEdit.discard'), style: 'destructive', onPress: () => navigation.dispatch(data.action) },
-    ]);
+    confirmDestructive({
+      title: t('jobEdit.unsavedTitle'),
+      message: t('jobEdit.unsavedMessage'),
+      confirmLabel: t('jobEdit.discard'),
+      cancelLabel: t('jobEdit.keepEditing'),
+      onConfirm: () => navigation.dispatch(data.action),
+    });
   });
 
   useEffect(() => {
@@ -149,7 +153,7 @@ export default function EditJobScreen() {
 
   async function handlePickPhotos() {
     if (totalPhotoCount >= MAX_JOB_PHOTOS) {
-      Alert.alert(t('postJob.photoLimitTitle'), t('postJob.photoLimit', { max: MAX_JOB_PHOTOS }));
+      notify({ title: t('postJob.photoLimitTitle'), message: t('postJob.photoLimit', { max: MAX_JOB_PHOTOS }) });
       return;
     }
 
@@ -168,7 +172,7 @@ export default function EditJobScreen() {
     setNewPhotos((prev) => [...prev, ...accepted]);
 
     if (result.assets.length > remainingSlots) {
-      Alert.alert(t('postJob.photoLimitTitle'), t('postJob.photoLimit', { max: MAX_JOB_PHOTOS }));
+      notify({ title: t('postJob.photoLimitTitle'), message: t('postJob.photoLimit', { max: MAX_JOB_PHOTOS }) });
     }
   }
 
@@ -191,11 +195,11 @@ export default function EditJobScreen() {
 
   function confirmMissingDescription(): Promise<boolean> {
     if (description.trim()) return Promise.resolve(true);
-    return new Promise((resolve) => {
-      Alert.alert(t('postJob.nudgeTitle'), t('postJob.nudgeDescription'), [
-        { text: t('postJob.cancel'), style: 'cancel', onPress: () => resolve(false) },
-        { text: t('postJob.postAnyway'), onPress: () => resolve(true) },
-      ]);
+    return confirmAsync({
+      title: t('postJob.nudgeTitle'),
+      message: t('postJob.nudgeDescription'),
+      confirmLabel: t('postJob.postAnyway'),
+      cancelLabel: t('postJob.cancel'),
     });
   }
 

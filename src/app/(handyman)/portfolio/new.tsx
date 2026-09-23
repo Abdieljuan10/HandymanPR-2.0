@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
@@ -15,6 +15,7 @@ import { ThemedView } from '@/components/themed-view';
 import { TradePicker } from '@/components/trade-picker';
 import { Spacing } from '@/constants/theme';
 import { usePueblos } from '@/hooks/use-pueblos';
+import { notify } from '@/lib/confirm';
 import { compressJobPhoto } from '@/lib/job-photos';
 import { MAX_PROJECT_PHOTOS, portfolioPhotoStoragePath } from '@/lib/portfolio-photos';
 import { supabase } from '@/lib/supabase';
@@ -39,7 +40,7 @@ export default function NewPortfolioProjectScreen() {
 
   async function handlePickPhotos() {
     if (photos.length >= MAX_PROJECT_PHOTOS) {
-      Alert.alert(t('portfolio.photoLimitTitle'), t('portfolio.photoLimit', { max: MAX_PROJECT_PHOTOS }));
+      notify({ title: t('portfolio.photoLimitTitle'), message: t('portfolio.photoLimit', { max: MAX_PROJECT_PHOTOS }) });
       return;
     }
 
@@ -58,7 +59,7 @@ export default function NewPortfolioProjectScreen() {
     setPhotos((prev) => [...prev, ...accepted]);
 
     if (result.assets.length > remainingSlots) {
-      Alert.alert(t('portfolio.photoLimitTitle'), t('portfolio.photoLimit', { max: MAX_PROJECT_PHOTOS }));
+      notify({ title: t('portfolio.photoLimitTitle'), message: t('portfolio.photoLimit', { max: MAX_PROJECT_PHOTOS }) });
     }
   }
 

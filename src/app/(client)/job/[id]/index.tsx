@@ -1,7 +1,7 @@
 import { Link, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CompletionCard } from '@/components/completion-card';
@@ -13,6 +13,7 @@ import { ReviewsCard } from '@/components/reviews-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { confirmAsync, confirmDestructive } from '@/lib/confirm';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
 import { useSession } from '@/providers/session-provider';
@@ -105,15 +106,17 @@ export default function JobDetailScreen() {
     }, [fetchAll])
   );
 
-  function confirmAccept(bid: BidRow) {
-    Alert.alert(
-      t('bids.confirmTitle'),
-      t('bids.confirmMessage', { name: bid.handyman_profiles?.full_name ?? '', price: bid.price.toFixed(2) }),
-      [
-        { text: t('bids.confirmCancel'), style: 'cancel' },
-        { text: t('bids.confirmAccept'), onPress: () => acceptBid(bid.id) },
-      ]
-    );
+  async function confirmAccept(bid: BidRow) {
+    const confirmed = await confirmAsync({
+      title: t('bids.confirmTitle'),
+      message: t('bids.confirmMessage', {
+        name: bid.handyman_profiles?.full_name ?? '',
+        price: bid.price.toFixed(2),
+      }),
+      confirmLabel: t('bids.confirmAccept'),
+      cancelLabel: t('bids.confirmCancel'),
+    });
+    if (confirmed) acceptBid(bid.id);
   }
 
   async function acceptBid(bidId: string) {
@@ -138,15 +141,21 @@ export default function JobDetailScreen() {
 
   function confirmRemoveJob() {
     if (job?.status === 'open' || job?.status === 'cancelled' || job?.status === 'expired') {
-      Alert.alert(t('jobDelete.confirmDeleteTitle'), t('jobDelete.confirmDeleteMessage'), [
-        { text: t('jobDelete.cancelDialog'), style: 'cancel' },
-        { text: t('jobDelete.confirm'), style: 'destructive', onPress: handleDelete },
-      ]);
+      confirmDestructive({
+        title: t('jobDelete.confirmDeleteTitle'),
+        message: t('jobDelete.confirmDeleteMessage'),
+        confirmLabel: t('jobDelete.confirm'),
+        cancelLabel: t('jobDelete.cancelDialog'),
+        onConfirm: handleDelete,
+      });
     } else if (job?.status === 'hired') {
-      Alert.alert(t('jobDelete.confirmCancelTitle'), t('jobDelete.confirmCancelMessage'), [
-        { text: t('jobDelete.cancelDialog'), style: 'cancel' },
-        { text: t('jobDelete.confirm'), style: 'destructive', onPress: handleCancelJob },
-      ]);
+      confirmDestructive({
+        title: t('jobDelete.confirmCancelTitle'),
+        message: t('jobDelete.confirmCancelMessage'),
+        confirmLabel: t('jobDelete.confirm'),
+        cancelLabel: t('jobDelete.cancelDialog'),
+        onConfirm: handleCancelJob,
+      });
     }
   }
 

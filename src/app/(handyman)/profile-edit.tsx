@@ -5,7 +5,7 @@ import { useNavigation, useRouter } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
@@ -15,6 +15,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { confirmDestructive } from '@/lib/confirm';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
 
@@ -85,10 +86,13 @@ export default function HandymanProfileEditScreen() {
       navigation.dispatch(data.action);
       return;
     }
-    Alert.alert(t('profileEdit.unsavedTitle'), t('profileEdit.unsavedMessage'), [
-      { text: t('profileEdit.keepEditing'), style: 'cancel' },
-      { text: t('profileEdit.discard'), style: 'destructive', onPress: () => navigation.dispatch(data.action) },
-    ]);
+    confirmDestructive({
+      title: t('profileEdit.unsavedTitle'),
+      message: t('profileEdit.unsavedMessage'),
+      confirmLabel: t('profileEdit.discard'),
+      cancelLabel: t('profileEdit.keepEditing'),
+      onConfirm: () => navigation.dispatch(data.action),
+    });
   });
 
   useEffect(() => {

@@ -1195,21 +1195,28 @@ just never appears.
 This matters because the client routinely tests the client-side flows in
 a browser and the handyman side on a device.
 
-- [x] Fixed at the root with `src/lib/confirm.ts:confirmDestructive()` —
-      `window.confirm` on web, `Alert.alert` on native, same call shape
-      either way. Wired into both `messages.tsx` screens (the reported
-      bug). Swap in a themed modal during the visual-polish pass if
-      wanted; call sites won't need to change.
-- [ ] **Not yet swept**: 9 other files still call `Alert.alert` directly.
-      The destructive confirms among them are the ones that actually
-      break on web — notably `(client)/job/[id]/index.tsx` (delete job /
-      cancel job), `(client)/job/[id]/edit.tsx`, `(handyman)/job/[id]/index.tsx`,
-      `(handyman)/portfolio/index.tsx`, `(handyman)/portfolio/[id]/index.tsx`,
-      `(handyman)/certifications/[id].tsx`. The rest
-      (`post-job.tsx`'s photo-limit warning, `portfolio/new.tsx`,
-      `profile-edit.tsx`) are informational, so they degrade to a missing
-      message rather than a dead button. Left alone for now to keep the
-      chat-delete fix isolated for testing — sweep when convenient.
+- [x] Fixed at the root with `src/lib/confirm.ts` — `window.confirm`/
+      `window.alert` on web, `Alert.alert` on native, same call shape
+      either way. Swap in themed modals during the visual-polish pass if
+      wanted; call sites won't need to change. Three helpers, matching the
+      three shapes the app actually used:
+      - `notify({title, message})` — informational, single dismiss.
+      - `confirmAsync({...}) => Promise<boolean>` — two-button confirm.
+        Also resolves `false` on Android back/tap-outside dismiss, which
+        the hand-rolled promise versions didn't: they left the promise
+        pending forever, so an awaiting submit handler just hung.
+      - `confirmDestructive({..., onConfirm})` — callback-style
+        destructive confirm, the common delete/discard case.
+- [x] **Swept 2026-09-22**: all 22 `Alert.alert` call sites across 9 files
+      converted. `grep -rn "Alert" src/app` now returns nothing —
+      `Alert` is imported only inside `src/lib/confirm.ts`. Covered the
+      destructive confirms that were genuinely dead on web (job
+      delete/cancel, bid withdraw, handyman-side job cancel, portfolio
+      project deletes ×2, certification delete, and the three
+      unsaved-changes discard guards), the three "you left this blank"
+      nudges, and the six photo-limit warnings. `npx tsc --noEmit` and
+      `expo lint` both clean (only the 4 pre-existing unrelated
+      warnings/error). **Not yet re-tested on device or web.**
 
 ## Known: hidden_at is device time, last_message_at is server time
 

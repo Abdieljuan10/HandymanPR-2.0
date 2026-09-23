@@ -4,7 +4,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
@@ -18,6 +18,7 @@ import { ThemedView } from '@/components/themed-view';
 import { TradePicker } from '@/components/trade-picker';
 import { Spacing } from '@/constants/theme';
 import { usePueblos } from '@/hooks/use-pueblos';
+import { confirmDestructive, notify } from '@/lib/confirm';
 import { compressJobPhoto } from '@/lib/job-photos';
 import { MAX_PROJECT_PHOTOS, portfolioPhotoStoragePath, storagePathFromPortfolioUrl } from '@/lib/portfolio-photos';
 import { supabase } from '@/lib/supabase';
@@ -76,10 +77,13 @@ export default function EditPortfolioProjectScreen() {
       navigation.dispatch(data.action);
       return;
     }
-    Alert.alert(t('portfolio.unsavedTitle'), t('portfolio.unsavedMessage'), [
-      { text: t('portfolio.keepEditing'), style: 'cancel' },
-      { text: t('portfolio.discard'), style: 'destructive', onPress: () => navigation.dispatch(data.action) },
-    ]);
+    confirmDestructive({
+      title: t('portfolio.unsavedTitle'),
+      message: t('portfolio.unsavedMessage'),
+      confirmLabel: t('portfolio.discard'),
+      cancelLabel: t('portfolio.keepEditing'),
+      onConfirm: () => navigation.dispatch(data.action),
+    });
   });
 
   useEffect(() => {
@@ -144,7 +148,7 @@ export default function EditPortfolioProjectScreen() {
 
   async function handlePickPhotos() {
     if (totalPhotoCount >= MAX_PROJECT_PHOTOS) {
-      Alert.alert(t('portfolio.photoLimitTitle'), t('portfolio.photoLimit', { max: MAX_PROJECT_PHOTOS }));
+      notify({ title: t('portfolio.photoLimitTitle'), message: t('portfolio.photoLimit', { max: MAX_PROJECT_PHOTOS }) });
       return;
     }
 
@@ -163,7 +167,7 @@ export default function EditPortfolioProjectScreen() {
     setNewPhotos((prev) => [...prev, ...accepted]);
 
     if (result.assets.length > remainingSlots) {
-      Alert.alert(t('portfolio.photoLimitTitle'), t('portfolio.photoLimit', { max: MAX_PROJECT_PHOTOS }));
+      notify({ title: t('portfolio.photoLimitTitle'), message: t('portfolio.photoLimit', { max: MAX_PROJECT_PHOTOS }) });
     }
   }
 
@@ -182,24 +186,23 @@ export default function EditPortfolioProjectScreen() {
   }
 
   function handleDeleteProject() {
-    Alert.alert(t('portfolio.deleteConfirmTitle'), t('portfolio.deleteConfirmMessage'), [
-      { text: t('portfolio.cancel'), style: 'cancel' },
-      {
-        text: t('portfolio.delete'),
-        style: 'destructive',
-        onPress: async () => {
-          const paths = existingPhotos
-            .map((p) => storagePathFromPortfolioUrl(p.photo_url))
-            .filter((p): p is string => !!p);
-          if (paths.length > 0) {
-            await supabase.storage.from('portfolio-photos').remove(paths);
-          }
-          await supabase.from('handyman_portfolio_projects').delete().eq('id', id);
-          justSavedRef.current = true;
-          router.back();
-        },
+    confirmDestructive({
+      title: t('portfolio.deleteConfirmTitle'),
+      message: t('portfolio.deleteConfirmMessage'),
+      confirmLabel: t('portfolio.delete'),
+      cancelLabel: t('portfolio.cancel'),
+      onConfirm: async () => {
+        const paths = existingPhotos
+          .map((p) => storagePathFromPortfolioUrl(p.photo_url))
+          .filter((p): p is string => !!p);
+        if (paths.length > 0) {
+          await supabase.storage.from('portfolio-photos').remove(paths);
+        }
+        await supabase.from('handyman_portfolio_projects').delete().eq('id', id);
+        justSavedRef.current = true;
+        router.back();
       },
-    ]);
+    });
   }
 
   async function handleSave() {

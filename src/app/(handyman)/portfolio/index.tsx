@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '@/components/primary-button';
@@ -10,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { confirmDestructive } from '@/lib/confirm';
 import { storagePathFromPortfolioUrl } from '@/lib/portfolio-photos';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
@@ -57,27 +58,26 @@ export default function PortfolioProjectsScreen() {
   );
 
   function handleDelete(project: ProjectRow) {
-    Alert.alert(t('portfolio.deleteConfirmTitle'), t('portfolio.deleteConfirmMessage'), [
-      { text: t('portfolio.cancel'), style: 'cancel' },
-      {
-        text: t('portfolio.delete'),
-        style: 'destructive',
-        onPress: async () => {
-          // The DB row cascade-deletes its photo rows on its own, but
-          // nothing deletes the actual Storage files without this step --
-          // the same class of bug job-photos hit before its own cleanup
-          // was added (a DB-only delete leaving orphaned files behind).
-          const paths = project.handyman_portfolio_photos
-            .map((p) => storagePathFromPortfolioUrl(p.photo_url))
-            .filter((p): p is string => !!p);
-          if (paths.length > 0) {
-            await supabase.storage.from('portfolio-photos').remove(paths);
-          }
-          await supabase.from('handyman_portfolio_projects').delete().eq('id', project.id);
-          setProjects((prev) => (prev ?? []).filter((p) => p.id !== project.id));
-        },
+    confirmDestructive({
+      title: t('portfolio.deleteConfirmTitle'),
+      message: t('portfolio.deleteConfirmMessage'),
+      confirmLabel: t('portfolio.delete'),
+      cancelLabel: t('portfolio.cancel'),
+      onConfirm: async () => {
+        // The DB row cascade-deletes its photo rows on its own, but
+        // nothing deletes the actual Storage files without this step --
+        // the same class of bug job-photos hit before its own cleanup
+        // was added (a DB-only delete leaving orphaned files behind).
+        const paths = project.handyman_portfolio_photos
+          .map((p) => storagePathFromPortfolioUrl(p.photo_url))
+          .filter((p): p is string => !!p);
+        if (paths.length > 0) {
+          await supabase.storage.from('portfolio-photos').remove(paths);
+        }
+        await supabase.from('handyman_portfolio_projects').delete().eq('id', project.id);
+        setProjects((prev) => (prev ?? []).filter((p) => p.id !== project.id));
       },
-    ]);
+    });
   }
 
   if (!projects) {

@@ -1,7 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CompletionCard } from '@/components/completion-card';
@@ -15,6 +15,7 @@ import { ReviewsCard } from '@/components/reviews-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { confirmAsync, confirmDestructive } from '@/lib/confirm';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
 import { useSession } from '@/providers/session-provider';
@@ -144,11 +145,11 @@ export default function HandymanJobDetailScreen() {
 
   function confirmMissingNote(): Promise<boolean> {
     if (note.trim()) return Promise.resolve(true);
-    return new Promise((resolve) => {
-      Alert.alert(t('bidForm.nudgeTitle'), t('bidForm.nudgeNote'), [
-        { text: t('bidForm.cancel'), style: 'cancel', onPress: () => resolve(false) },
-        { text: t('bidForm.submitAnyway'), onPress: () => resolve(true) },
-      ]);
+    return confirmAsync({
+      title: t('bidForm.nudgeTitle'),
+      message: t('bidForm.nudgeNote'),
+      confirmLabel: t('bidForm.submitAnyway'),
+      cancelLabel: t('bidForm.cancel'),
     });
   }
 
@@ -189,10 +190,13 @@ export default function HandymanJobDetailScreen() {
   }
 
   function confirmWithdraw() {
-    Alert.alert(t('myBid.confirmWithdrawTitle'), t('myBid.confirmWithdrawMessage'), [
-      { text: t('bids.confirmCancel'), style: 'cancel' },
-      { text: t('myBid.withdraw'), style: 'destructive', onPress: handleWithdraw },
-    ]);
+    confirmDestructive({
+      title: t('myBid.confirmWithdrawTitle'),
+      message: t('myBid.confirmWithdrawMessage'),
+      confirmLabel: t('myBid.withdraw'),
+      cancelLabel: t('bids.confirmCancel'),
+      onConfirm: handleWithdraw,
+    });
   }
 
   async function handleWithdraw() {
@@ -211,10 +215,13 @@ export default function HandymanJobDetailScreen() {
   }
 
   function confirmCancelJob() {
-    Alert.alert(t('myBid.confirmCancelJobTitle'), t('myBid.confirmCancelJobMessage'), [
-      { text: t('jobDelete.cancelDialog'), style: 'cancel' },
-      { text: t('jobDelete.confirm'), style: 'destructive', onPress: handleCancelJob },
-    ]);
+    confirmDestructive({
+      title: t('myBid.confirmCancelJobTitle'),
+      message: t('myBid.confirmCancelJobMessage'),
+      confirmLabel: t('jobDelete.confirm'),
+      cancelLabel: t('jobDelete.cancelDialog'),
+      onConfirm: handleCancelJob,
+    });
   }
 
   async function handleCancelJob() {
