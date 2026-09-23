@@ -36,17 +36,34 @@ export default function HandymanJobFeedScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterTradeIds, setFilterTradeIds] = useState<number[]>([]);
   const [filterPuebloSlugs, setFilterPuebloSlugs] = useState<string[]>([]);
+  // Public jobs this handyman was invited to by name (job_invitations; RLS
+  // only returns their own rows). Separate query, not a jobs embed, so if
+  // it ever fails only the "invited" pinning is lost, not the whole feed.
+  const [invitedJobIds, setInvitedJobIds] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!session) return;
-    const { data } = await supabase
-      .from('jobs')
-      .select('id, title, created_at, trade_id, pueblo_id, visibility, pueblos(name), trades(name_es, name_en)')
-      .eq('status', 'open')
-      .order('created_at', { ascending: false });
+    const [{ data }, { data: invitations, error: invitationsError }] = await Promise.all([
+      supabase
+        .from('jobs')
+        .select('id, title, created_at, trade_id, pueblo_id, visibility, pueblos(name), trades(name_es, name_en)')
+        .eq('status', 'open')
+        .order('created_at', { ascending: false }),
+      supabase.from('job_invitations').select('job_id').eq('handyman_id', session.user.id),
+    ]);
+    if (invitationsError) console.error('Failed to load job invitations:', invitationsError.message);
     setJobs((data as JobFeedRow[] | null) ?? []);
+    setInvitedJobIds(new Set((invitations ?? []).map((row) => row.job_id as string)));
   }, [session]);
+
+  // Personally addressed to this handyman: a private invite_only job (RLS
+  // only returns those to the handyman they name) or an invitation to a
+  // public job.
+  const isInvite = useCallback(
+    (job: JobFeedRow) => job.visibility === 'invite_only' || invitedJobIds.has(job.id),
+    [invitedJobIds]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -72,20 +89,20 @@ export default function HandymanJobFeedScreen() {
     return new Set(pueblos.filter((p) => slugSet.has(p.slug)).map((p) => p.id));
   }, [pueblos, filterPuebloSlugs]);
 
-  // RLS only ever returns an invite_only job to the handyman it invites, so
-  // any one here is addressed to this user personally: pinned to the top
-  // and exempt from the trade/pueblo filters, so a filter can't hide it.
+  // Invites are pinned to the top and exempt from the trade/pueblo filters,
+  // so a filter can't hide something addressed to this user personally --
+  // especially an invitation outside their own pueblos/trades.
   const filteredJobs = useMemo(() => {
     if (!jobs) return null;
-    const invites = jobs.filter((job) => job.visibility === 'invite_only');
+    const invites = jobs.filter(isInvite);
     const rest = jobs.filter((job) => {
-      if (job.visibility === 'invite_only') return false;
+      if (isInvite(job)) return false;
       if (filterTradeIds.length > 0 && !filterTradeIds.includes(job.trade_id)) return false;
       if (filterPuebloIds && !filterPuebloIds.has(job.pueblo_id)) return false;
       return true;
     });
     return [...invites, ...rest];
-  }, [jobs, filterTradeIds, filterPuebloIds]);
+  }, [jobs, filterTradeIds, filterPuebloIds, isInvite]);
 
   const hasActiveFilters = filterTradeIds.length > 0 || filterPuebloSlugs.length > 0;
 
@@ -157,7 +174,7 @@ export default function HandymanJobFeedScreen() {
                 <Link href={`/job/${item.id}`} asChild>
                   <Pressable>
                     <ThemedView type="backgroundElement" style={styles.card}>
-                      {item.visibility === 'invite_only' && (
+                      {isInvite(item) && (
                         <ThemedText type="smallBold" themeColor="tint">
                           {t('handymanJobFeed.invitedYou')}
                         </ThemedText>

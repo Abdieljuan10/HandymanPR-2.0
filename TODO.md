@@ -25,8 +25,36 @@ Migration 9 `20261008000000_job_invite_notify.sql` **not yet run**.
 - "Wait for them to bid on a posted job" needs nothing new — a public job
   already reaches every handyman matching its pueblo + trade.
 
+**Invitations to already-posted public jobs — built 2026-09-23, not yet
+tested.** Migration 10 `20261009000000_job_invitations.sql` **not yet run.**
+- New `job_invitations (job_id, handyman_id)` table. The job stays public;
+  an invitation additionally grants that handyman visibility of the job
+  while it's open (new `jobs_select` branch via `auth_is_invited_to_job()`)
+  and lets them bid past pueblo/trade, head start **and max_bids** (client's
+  call: full job still takes an invited bid). Address stays hidden until
+  hired, same as every bidder.
+- Rules in the insert trigger: owner only (checked first — see abuse review),
+  job open + public, not a handyman who already bid, max 10 per job, one per
+  handyman per job (PK). **No revoke** by design (delete + re-insert = push
+  spam). Push on insert.
+- App: profile "Invite to Quote" → chooser `invite/[handymanId]` (your open
+  public jobs with Invite / Invited / Already bid, or "New private job" →
+  `invite/[handymanId]/new`, the old invite form). Handyman feed pins and
+  labels these too; client job detail lists "Invited: …".
+- Invitations are fetched in separate fail-soft queries on the job detail
+  and feed, never embedded in the main job query — an embed error there
+  reads as "job not found" (the CLAUDE.md completion-migration lesson).
+- **Known, pre-existing, not fixed:** `enforce_bid_insert` runs before RLS,
+  so a bid insert on any job id returns its status/"full" message — minor
+  status oracle (no personal data). Worth a caller check someday.
+
+**Standing rule (2026-09-23):** every migration that changes who can see or
+do what ships with a plain-language abuse review ("what could a malicious or
+careless user do") before the client runs it.
+
 **Waiting on the client:**
-1. **Run migration 9** (handed over as chat text).
+0. **Run migration 10** (job_invitations) — handed over with its abuse review.
+1. **Run migration 9** (handed over as chat text) — not confirmed yet.
 2. **Test**: browse + filters + search (web); invite a handyman from their
    profile (web) → the handyman gets the push and sees the pinned invite
    (device) → they bid → client accepts as usual. Also confirm another

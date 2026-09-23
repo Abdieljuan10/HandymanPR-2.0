@@ -282,7 +282,8 @@
     "notFound": "Job not found.",
     "maxBids": "Up to {{count}} bids",
     "edit": "Edit Job",
-    "invitedOnly": "Private invite — only {{name}} can see and quote this job"
+    "invitedOnly": "Private invite — only {{name}} can see and quote this job",
+    "invitedLabel": "Invited:"
   },
   "jobDate": {
     "title": "Job Date",
@@ -430,7 +431,8 @@
     "yourPueblos": "Your Pueblos",
     "editJob": "Edit Job",
     "chat": "Chat",
-    "inviteToQuote": "Invite to Quote"
+    "inviteToQuote": "Invite to Quote",
+    "newPrivateJob": "New Private Job"
   },
   "conversation": {
     "messageClient": "Ask a Question",
@@ -459,5 +461,17 @@
     "confirm": "Confirm",
     "cancelDialog": "Never mind",
     "error": "Couldn't do that — the job may no longer be in a state that allows it."
+  },
+  "inviteChooser": {
+    "title": "Invite {{name}} to quote",
+    "newPrivateJob": "New private job",
+    "newPrivateJobHint": "Post a new job only {{name}} can see.",
+    "openJobsTitle": "Or invite to one of your open jobs",
+    "openJobsHint": "The job stays public for everyone else. {{name}} gets a notification and can bid even if the job is full or outside their pueblos and trades.",
+    "noOpenJobs": "You don't have any open public jobs right now.",
+    "invite": "Invite",
+    "inviting": "Inviting…",
+    "invited": "Invited",
+    "alreadyBid": "Already bid"
   }
 }

@@ -282,7 +282,8 @@
     "notFound": "Trabajo no encontrado.",
     "maxBids": "Hasta {{count}} ofertas",
     "edit": "Editar Trabajo",
-    "invitedOnly": "Invitación privada — solo {{name}} puede ver y cotizar este trabajo"
+    "invitedOnly": "Invitación privada — solo {{name}} puede ver y cotizar este trabajo",
+    "invitedLabel": "Invitados:"
   },
   "jobDate": {
     "title": "Fecha del Trabajo",
@@ -430,7 +431,8 @@
     "yourPueblos": "Tus Pueblos",
     "editJob": "Editar Trabajo",
     "chat": "Chat",
-    "inviteToQuote": "Invitar a Cotizar"
+    "inviteToQuote": "Invitar a Cotizar",
+    "newPrivateJob": "Nuevo Trabajo Privado"
   },
   "conversation": {
     "messageClient": "Hacer una Pregunta",
@@ -459,5 +461,17 @@
     "confirm": "Confirmar",
     "cancelDialog": "No, mejor no",
     "error": "No se pudo hacer eso — es posible que el trabajo ya no esté en un estado que lo permita."
+  },
+  "inviteChooser": {
+    "title": "Invitar a {{name}} a cotizar",
+    "newPrivateJob": "Nuevo trabajo privado",
+    "newPrivateJobHint": "Publica un trabajo nuevo que solo {{name}} puede ver.",
+    "openJobsTitle": "O invítalo a uno de tus trabajos abiertos",
+    "openJobsHint": "El trabajo sigue siendo público para los demás. {{name}} recibe una notificación y puede cotizar aunque el trabajo esté lleno o fuera de sus pueblos y oficios.",
+    "noOpenJobs": "No tienes trabajos públicos abiertos en este momento.",
+    "invite": "Invitar",
+    "inviting": "Invitando…",
+    "invited": "Invitado",
+    "alreadyBid": "Ya cotizó"
   }
 }

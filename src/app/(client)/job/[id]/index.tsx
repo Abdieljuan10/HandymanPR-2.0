@@ -79,6 +79,11 @@ export default function JobDetailScreen() {
   const [renewError, setRenewError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Handymen invited by name to this PUBLIC job (job_invitations). Fetched
+  // on its own, not embedded in JOB_SELECT: an embed error fails the whole
+  // job query, and this screen treats that as "job not found" -- so a
+  // missing/unapplied job_invitations table must only cost this one line.
+  const [invitedHandymen, setInvitedHandymen] = useState<{ id: string; full_name: string }[]>([]);
 
   const fetchAll = useCallback(async () => {
     if (!id) return null;
@@ -104,10 +109,26 @@ export default function JobDetailScreen() {
         setBids((result.bidsResult.data as BidRow[] | null) ?? []);
         setReviews((result.reviewsResult.data as ReviewRow[] | null) ?? []);
       });
+      supabase
+        .from('job_invitations')
+        .select('handyman_profiles(id, full_name)')
+        .eq('job_id', id)
+        .order('created_at', { ascending: true })
+        .then(({ data, error }) => {
+          if (!isMounted) return;
+          if (error) {
+            console.error('Failed to load job invitations:', error.message);
+            return;
+          }
+          const rows = (data as unknown as { handyman_profiles: { id: string; full_name: string } | null }[]) ?? [];
+          setInvitedHandymen(
+            rows.map((row) => row.handyman_profiles).filter((p): p is { id: string; full_name: string } => !!p)
+          );
+        });
       return () => {
         isMounted = false;
       };
-    }, [fetchAll])
+    }, [fetchAll, id])
   );
 
   async function confirmAccept(bid: BidRow) {
@@ -328,6 +349,18 @@ export default function JobDetailScreen() {
                 </ThemedText>
               </Pressable>
             </Link>
+          )}
+
+          {invitedHandymen.length > 0 && (
+            <ThemedText type="small" themeColor="textSecondary">
+              {t('jobDetail.invitedLabel')}{' '}
+              {invitedHandymen.map((handyman, index) => (
+                <ThemedText key={handyman.id} type="small" themeColor="tint">
+                  <Link href={`/handyman/${handyman.id}`}>{handyman.full_name}</Link>
+                  {index < invitedHandymen.length - 1 ? ', ' : ''}
+                </ThemedText>
+              ))}
+            </ThemedText>
           )}
 
           <ThemedText type="default">{job.description}</ThemedText>
