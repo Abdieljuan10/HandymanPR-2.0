@@ -16,11 +16,14 @@ migration 8 **not yet run**. New rules:
 - Both messages tabs are now one shared `src/components/conversation-list-screen.tsx`.
 
 **Waiting on the client, in order:**
-1. **Diagnostic query** for the "resurfaced chat came back empty" report —
-   handed over in chat 2026-09-23. Decides whether it was a real hard delete
-   (old mutual-delete rule + the handyman's Message button creating a fresh
-   empty row) or the device-clock `hidden_at` filter. Both are fixed in code
-   either way; the query tells us whether any messages were actually lost.
+1. ~~Diagnostic query~~ **answered 2026-09-23: no data loss.** Conversation
+   `58f0ca94…` is the original row (created 09-21), all 18 messages present,
+   job `open`, migration 7 confirmed live (`chat_conversation_deletable`
+   exists), no orphaned chat-photo folders. Nothing in the app or DB can
+   delete individual messages. So the empty chat was the display-side
+   `created_at > hidden_at` filter (since removed), not a hard delete. The
+   exact moment can't be reconstructed — hide rows are upserted, so only the
+   latest delete times survive.
 2. **Renewal test** (a self-rolling-back `do $$` block, handed over after the
    diagnostic) — confirms expired → open clears `archived_at` on the live DB.
 3. **Run migration 8** — `20261007000000_chat_delete_archive_redesign.sql`.
