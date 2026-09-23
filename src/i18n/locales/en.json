@@ -403,7 +403,8 @@
     "reviewsTitle": "Reviews",
     "noReviews": "No reviews yet.",
     "ratingSummary_one": "{{average}} · {{count}} review",
-    "ratingSummary_other": "{{average}} · {{count}} reviews"
+    "ratingSummary_other": "{{average}} · {{count}} reviews",
+    "reviewerFallback": "A client"
   },
   "handymanPueblos": {
     "intro": "Tap every pueblo you work in. You'll be notified about jobs posted there.",

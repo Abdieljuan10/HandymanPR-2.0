@@ -64,9 +64,24 @@ Now: stars + "5.0 · 2 reviews" under the name, and a Reviews section (stars,
 comment, date) above the portfolio, "No reviews yet." when empty. Published
 client reviews only — filtered on `published_at` explicitly, because
 `reviews_select` still lets an author read their own unpublished review.
-**No reviewer name** (the page is visible to every client; naming reviewers
-would reveal who hired whom) — ask the client if they want first names. No
-migration, no access change. Not on Browse cards yet.
+**Reviewer first names added (client's call 2026-09-23)**: first name only,
+plain text, never linked to the reviewer. Migration 12
+`20261011000000_handyman_public_reviews.sql` (**not yet run**) — an RPC that
+splits `full_name` server-side so the last name never reaches the device
+(`client_profiles` has no `first_name` column, and `reviews.author_id` has no
+FK to embed through). Returns no author/job ids. Execute revoked from
+anon/public. Until it's run the Reviews section is hidden (not "No reviews
+yet"). Not on Browse cards yet.
+
+**OPEN SECURITY GAP (found 2026-09-23, pre-existing, not fixed):**
+`client_profiles_select` is `using (true)` — any signed-in user can read
+every client's **full name, phone and avatar**. Nothing in the app reads
+another user's phone. (`handyman_profiles_select` is also `using (true)`,
+phone included — arguably fine for handymen advertising, but a client
+decision.) Proposed fix handed to the client: stop exposing `phone` to
+anyone but its owner; restrict client names/avatars to the client
+themselves plus handymen with a real relationship (bid, conversation,
+invite). Awaiting go-ahead — touches every screen that shows a client name.
 
 **Standing rule (2026-09-23):** every migration that changes who can see or
 do what ships with a plain-language abuse review ("what could a malicious or

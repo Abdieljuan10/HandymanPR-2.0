@@ -403,7 +403,8 @@
     "reviewsTitle": "Reseñas",
     "noReviews": "Todavía no tiene reseñas.",
     "ratingSummary_one": "{{average}} · {{count}} reseña",
-    "ratingSummary_other": "{{average}} · {{count}} reseñas"
+    "ratingSummary_other": "{{average}} · {{count}} reseñas",
+    "reviewerFallback": "Un cliente"
   },
   "handymanPueblos": {
     "intro": "Toca cada pueblo donde trabajas. Te notificaremos sobre trabajos publicados allí.",

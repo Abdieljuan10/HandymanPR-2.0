@@ -41,7 +41,13 @@ type ProjectRow = {
   handyman_portfolio_photos: ProjectPhoto[];
 };
 type CertificationRow = { id: string; title: string; issuing_org: string | null };
-type ReviewRow = { id: string; rating: number; comment: string | null; published_at: string };
+type ReviewRow = {
+  id: string;
+  rating: number;
+  comment: string | null;
+  published_at: string;
+  author_first_name: string | null;
+};
 
 export default function PublicHandymanProfileScreen() {
   const { t } = useTranslation();
@@ -59,7 +65,9 @@ export default function PublicHandymanProfileScreen() {
   const [pueblos, setPueblos] = useState<PuebloRow[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [certifications, setCertifications] = useState<CertificationRow[]>([]);
-  const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  // null = not loaded, or the load failed -- the whole Reviews section is
+  // hidden then, rather than wrongly claiming "No reviews yet".
+  const [reviews, setReviews] = useState<ReviewRow[] | null>(null);
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
 
   useEffect(() => {
@@ -152,28 +160,21 @@ export default function PublicHandymanProfileScreen() {
         if (isMounted) setCertifications(data ?? []);
       });
 
-    // Clients' reviews of this handyman. published_at is filtered here even
-    // though reviews_select already hides unpublished ones from everyone
-    // else: that policy still lets an author read their OWN unpublished
-    // review, so a client who reviewed this handyman would otherwise see it
-    // (and have it counted in the average) before the blind window closes.
-    // No reviewer name on purpose -- this page is visible to every client,
-    // and naming reviewers would reveal who hired whom.
-    supabase
-      .from('reviews')
-      .select('id, rating, comment, published_at')
-      .eq('subject_id', id)
-      .eq('author_role', 'client')
-      .not('published_at', 'is', null)
-      .order('published_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!isMounted) return;
-        if (error) {
-          console.error('Failed to load reviews:', error.message);
-          return;
-        }
-        setReviews((data as ReviewRow[] | null) ?? []);
-      });
+    // Published client reviews of this handyman, with the reviewer's FIRST
+    // name only -- handyman_public_reviews() does the split server-side, so
+    // the last name never reaches the device (20261011000000). It also
+    // filters on published_at: reviews_select alone would still let an
+    // author see their own unpublished review before the blind window
+    // closes. No author id comes back, so nothing here can link to the
+    // reviewer's profile.
+    supabase.rpc('handyman_public_reviews', { p_handyman_id: id }).then(({ data, error }) => {
+      if (!isMounted) return;
+      if (error) {
+        console.error('Failed to load reviews:', error.message);
+        return;
+      }
+      setReviews((data as ReviewRow[] | null) ?? []);
+    });
 
     return () => {
       isMounted = false;
@@ -200,7 +201,8 @@ export default function PublicHandymanProfileScreen() {
     );
   }
 
-  const averageRating = reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
+  const averageRating =
+    reviews && reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
   const tradeNames = trades
     .map((row) => (row.trades ? (language === 'en' ? row.trades.name_en : row.trades.name_es) : null))
     .filter((name): name is string => !!name);
@@ -236,7 +238,7 @@ export default function PublicHandymanProfileScreen() {
                   {t('handymanPublicProfile.yearsExperience', { count: profile.years_experience })}
                 </ThemedText>
               )}
-              {reviews.length > 0 && (
+              {reviews && reviews.length > 0 && (
                 <View style={styles.ratingRow}>
                   <StarDisplay rating={averageRating} />
                   <ThemedText type="small" themeColor="textSecondary">
@@ -303,26 +305,33 @@ export default function PublicHandymanProfileScreen() {
             </View>
           )}
 
-          <View style={styles.section}>
-            <ThemedText type="smallBold">{t('handymanPublicProfile.reviewsTitle')}</ThemedText>
-            {reviews.length === 0 ? (
-              <ThemedText type="default" themeColor="textSecondary">
-                {t('handymanPublicProfile.noReviews')}
-              </ThemedText>
-            ) : (
-              reviews.map((review) => (
-                <ThemedView key={review.id} type="backgroundElement" style={styles.reviewCard}>
-                  <View style={styles.ratingRow}>
-                    <StarDisplay rating={review.rating} />
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {formatRelativeTime(review.published_at, t)}
+          {reviews !== null && (
+            <View style={styles.section}>
+              <ThemedText type="smallBold">{t('handymanPublicProfile.reviewsTitle')}</ThemedText>
+              {reviews.length === 0 ? (
+                <ThemedText type="default" themeColor="textSecondary">
+                  {t('handymanPublicProfile.noReviews')}
+                </ThemedText>
+              ) : (
+                reviews.map((review) => (
+                  <ThemedView key={review.id} type="backgroundElement" style={styles.reviewCard}>
+                    {/* Plain text on purpose -- never a Link or Pressable to
+                        the reviewer's profile (client's rule). */}
+                    <ThemedText type="smallBold">
+                      {review.author_first_name ?? t('handymanPublicProfile.reviewerFallback')}
                     </ThemedText>
-                  </View>
-                  {review.comment && <ThemedText type="default">{review.comment}</ThemedText>}
-                </ThemedView>
-              ))
-            )}
-          </View>
+                    <View style={styles.ratingRow}>
+                      <StarDisplay rating={review.rating} />
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {formatRelativeTime(review.published_at, t)}
+                      </ThemedText>
+                    </View>
+                    {review.comment && <ThemedText type="default">{review.comment}</ThemedText>}
+                  </ThemedView>
+                ))
+              )}
+            </View>
+          )}
 
           {projects.length > 0 && (
             <View style={styles.section}>
