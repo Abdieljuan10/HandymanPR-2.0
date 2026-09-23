@@ -75,7 +75,10 @@ yet"). Not on Browse cards yet.
 
 Migration 12 confirmed run 2026-09-23.
 
-**SECURITY FIXES — built 2026-09-23. #1 RUN + VERIFIED, #2 not yet run.**
+**SECURITY FIXES — built 2026-09-23. BOTH RUN + VERIFIED.** #2 confirmed
+2026-09-23: final check returned no rows (all seven locked), every
+`cron.job` row runs as `postgres`. Still to confirm: a chat message push
+arrives on the phone (client testing it now).
 1. **Run and verified 2026-09-23** via the rolled-back impersonation test:
    0 phone columns left; connected handyman sees exactly 1 of 2 clients (their
    chat client); client sees only self; no one else's `profile_private` rows.
