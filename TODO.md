@@ -1,52 +1,73 @@
 # Roadmap
 
-## Start here — session handoff, 2026-09-23
+## Start here — session handoff, 2026-09-23 (evening)
 
-**Chat delete/archive redesigned (client's call 2026-09-23, after testing).**
-Replaces migration 7's "live job stays hidden" rule. Built and pushed;
-migration 8 **not yet run**. New rules:
+**Browse Handymen + direct invites — built, pushed, not yet tested.**
+Migration 9 `20261008000000_job_invite_notify.sql` **not yet run**.
+- **Browse tab** (`src/app/(client)/(tabs)/browse.tsx`): name search +
+  multi trade/pueblo filters (same panel as the handyman job feed, "match
+  any", filtered client-side — fine at pilot scale, move server-side if the
+  list grows). Sorted: live promotion first (`is_promoted` +
+  `promotion_expires_at`, badge "Featured"), then verified, then name. Tap →
+  the existing public profile.
+- **Invite to quote**: button on the public profile → `invite/[handymanId]`
+  → the Post Job form (now a shared `src/components/post-job-form.tsx`) in
+  invite mode: banner naming the handyman, no bid-cap stepper, posts
+  `visibility: 'invite_only'` + `invited_handyman_id`. Existing RLS / bid
+  guard already enforce it; nothing about invites needed schema.
+- **Migration 9** pushes "You've been invited to quote" to the invited
+  handyman on post and on renewal from expired (every existing new-job push
+  skips invite-only jobs). Without it the invite still works, just silently.
+- **Handyman feed** pins their invites to the top with "Invited you to
+  quote", exempt from their trade/pueblo filters.
+- **Client job detail** shows "Private invite — only X can see…" linking to
+  that handyman's profile.
+- "Wait for them to bid on a posted job" needs nothing new — a public job
+  already reaches every handyman matching its pueblo + trade.
+
+**Waiting on the client:**
+1. **Run migration 9** (handed over as chat text).
+2. **Test**: browse + filters + search (web); invite a handyman from their
+   profile (web) → the handyman gets the push and sees the pinned invite
+   (device) → they bid → client accepts as usual. Also confirm another
+   handyman does NOT see that job in their feed.
+3. **Vault step** for the 90-day chat cron — still not confirmed. Project
+   Settings → API → copy `service_role` key → Project Settings → Vault → New
+   secret named exactly `service_role_key`. Until then the cron logs a
+   `NOTICE` daily and cleans nothing (harmless).
+4. **Renewal test** for chat `archived_at` (the rolled-back `do $$` block
+   handed over 2026-09-23) — never run. Optional; the trigger is recreated by
+   migration 8 either way.
+
+**Chat delete/archive batch — DONE, confirmed on-device 2026-09-23** (delete,
+archive, resurface-as-fresh-conversation, photos). Migration 8 is live.
+Final rules, for reference:
 - **Delete** — immediate, per-user, no job-status restriction. If the other
   side messages again it comes back as a **fresh** conversation showing only
   messages sent after the delete — the old history is NOT restored. (Briefly
   changed to restore full history on 2026-09-23 from a misread of the spec;
   reverted the same day at the client's explicit correction. Don't re-do it.)
-- **Archive** (new) — swipe action next to Delete, per-user
-  `job_conversation_archives` table, "Show Archived" toggle. Touches nothing.
-  Stays archived when new messages arrive (WhatsApp default) until unarchived.
-- **Cleanup** — (a) bonus: both parties deleted *and* no message since either
-  delete → row + Storage photos removed on the spot; (b) 90-day cron stays the
-  real backstop for every conversation whose job is completed/cancelled/expired.
-- Both messages tabs are now one shared `src/components/conversation-list-screen.tsx`.
+  `hidden_at` is stamped server-side by `hide_conversation()`.
+- **Archive** — swipe action next to Delete, per-user
+  `job_conversation_archives`, "Show Archived" toggle. Touches nothing.
+  Stays archived when new messages arrive until unarchived.
+- **Cleanup** — (a) both parties deleted *and* no message since either delete
+  → row + Storage photos removed on the spot; (b) 90-day cron is the real
+  backstop for every conversation whose job is completed/cancelled/expired.
+- Conversations with zero messages never show in either list.
+- "Resurfaced chat came back empty" diagnostic (2026-09-23): **no data
+  loss** — all 18 messages of `58f0ca94…` intact, never hard-deleted.
+- The older "cancelling a job made the handyman lose the conversation"
+  report (item 8 notes) was never re-reported after migration 8 — treat as
+  closed unless it recurs.
 
-**Waiting on the client, in order:**
-1. ~~Diagnostic query~~ **answered 2026-09-23: no data loss.** Conversation
-   `58f0ca94…` is the original row (created 09-21), all 18 messages present,
-   job `open`, migration 7 confirmed live (`chat_conversation_deletable`
-   exists), no orphaned chat-photo folders. Nothing in the app or DB can
-   delete individual messages. So the empty chat came from the display-side
-   `created_at > hidden_at` filter (intended behavior, kept), most likely
-   either the screen being opened before the new message existed or the old
-   device-clock `hidden_at` — the latter fixed by migration 8. The exact
-   moment can't be reconstructed — hide rows are upserted, so only the
-   latest delete times survive.
-2. **Renewal test** (a self-rolling-back `do $$` block, handed over after the
-   diagnostic) — confirms expired → open clears `archived_at` on the live DB.
-3. **Run migration 8** — `20261007000000_chat_delete_archive_redesign.sql`.
-   Supersedes 7 (safe whether or not 6/7 ever ran — 6 is still worth running,
-   it's the update policy on hides). **The new app bundle calls
-   `hide_conversation()`, which only exists after this — delete fails with a
-   visible console error until it's run.**
-4. **The Vault step** for the 90-day cron — Project Settings → API → copy the
-   `service_role` key → Project Settings → Vault → New secret named exactly
-   `service_role_key`. Until then the cron runs daily, logs a `NOTICE`, and
-   cleans nothing. It cannot corrupt anything in that state.
-5. **On-device test pass**: delete a chat on a live job (gone immediately,
-   other side unaffected); have the other side message → it comes back
-   showing **only** the new message; archive/unarchive; delete from both sides with no new
-   message in between → row gone in Table Editor.
-6. **Diagnostic query result** for "cancelling a job made the handyman lose the
-   conversation" — the query is in the "Open, awaiting a diagnostic query
-   result" note under item 8. Very likely the same hard-delete as item 1.
+**Dev gotcha (Windows, found 2026-09-23): typed routes for NEW route files.**
+A route file added while `expo start` is running gets typed as a *static*
+route (`/invite/[handymanId]` literally, brackets and all), so `router.push`
+with a real id fails `tsc`. The watcher hands typegen a backslash path, and
+its dynamic-segment check splits on `/` (`@expo/router-server`
+`typed-routes/generate.js`). Routes present at startup are fine. Fix: restart
+the dev server (the cloudflared tunnel is a separate process, URL survives).
 
 **Dev environment gotcha that cost most of an afternoon — don't re-derive it:**
 `expo start --tunnel` is **permanently broken on a free ngrok account**.
@@ -1331,7 +1352,7 @@ can be confirmed on its own first.
       15-minute-head-start logic — no Settings UI reads or displays them
       yet, and no actual purchase flow exists (activation is manual via
       Table Editor per `supabase/README.md`).
-- [ ] Direct-invite flow: `jobs.visibility = 'invite_only'` and
+- [x] **Built 2026-09-23** (see handoff at top). Direct-invite flow: `jobs.visibility = 'invite_only'` and
       `invited_handyman_id` already exist and are enforced everywhere
       (RLS, `enforce_bid_insert`) — no UI to actually post one. Needs
       hanging off Browse Handymen (see audit below), since inviting someone
@@ -1395,7 +1416,7 @@ sending on new bid/bid status/new message/new job — see history above).
 Went through every table against what's actually got a screen. Two real
 gaps turned up that aren't anywhere in the roadmap above:
 
-- **Browse Handymen (client tab) is still a placeholder.** No search/filter
+- **~~Browse Handymen (client tab) is still a placeholder.~~ Built 2026-09-23.** No search/filter
   by pueblo or trade, no way to open a handyman's profile from the client
   side except by finding them on a bid first. This is a prerequisite for
   the direct-invite flow above (you need to find someone before inviting

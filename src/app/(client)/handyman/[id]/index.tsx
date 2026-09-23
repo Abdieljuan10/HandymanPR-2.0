@@ -1,11 +1,12 @@
 import { Image } from 'expo-image';
-import { Link, useLocalSearchParams } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PhotoViewer } from '@/components/photo-viewer';
+import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -40,6 +41,7 @@ export default function PublicHandymanProfileScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
   const theme = useTheme();
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [profile, setProfile] = useState<HandymanProfileRow | null | undefined>(undefined);
@@ -168,6 +170,11 @@ export default function PublicHandymanProfileScreen() {
               )}
             </View>
           </View>
+
+          <PrimaryButton
+            label={t('handymanPublicProfile.inviteToQuote')}
+            onPress={() => router.push(`/invite/${profile.id}`)}
+          />
 
           {profile.bio && <ThemedText type="default">{profile.bio}</ThemedText>}
 

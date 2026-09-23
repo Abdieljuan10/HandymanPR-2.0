@@ -22,6 +22,7 @@ type JobFeedRow = {
   created_at: string;
   trade_id: number;
   pueblo_id: number;
+  visibility: 'public' | 'invite_only';
   pueblos: { name: string } | null;
   trades: { name_es: string; name_en: string } | null;
 };
@@ -41,7 +42,7 @@ export default function HandymanJobFeedScreen() {
     if (!session) return;
     const { data } = await supabase
       .from('jobs')
-      .select('id, title, created_at, trade_id, pueblo_id, pueblos(name), trades(name_es, name_en)')
+      .select('id, title, created_at, trade_id, pueblo_id, visibility, pueblos(name), trades(name_es, name_en)')
       .eq('status', 'open')
       .order('created_at', { ascending: false });
     setJobs((data as JobFeedRow[] | null) ?? []);
@@ -71,13 +72,19 @@ export default function HandymanJobFeedScreen() {
     return new Set(pueblos.filter((p) => slugSet.has(p.slug)).map((p) => p.id));
   }, [pueblos, filterPuebloSlugs]);
 
+  // RLS only ever returns an invite_only job to the handyman it invites, so
+  // any one here is addressed to this user personally: pinned to the top
+  // and exempt from the trade/pueblo filters, so a filter can't hide it.
   const filteredJobs = useMemo(() => {
     if (!jobs) return null;
-    return jobs.filter((job) => {
+    const invites = jobs.filter((job) => job.visibility === 'invite_only');
+    const rest = jobs.filter((job) => {
+      if (job.visibility === 'invite_only') return false;
       if (filterTradeIds.length > 0 && !filterTradeIds.includes(job.trade_id)) return false;
       if (filterPuebloIds && !filterPuebloIds.has(job.pueblo_id)) return false;
       return true;
     });
+    return [...invites, ...rest];
   }, [jobs, filterTradeIds, filterPuebloIds]);
 
   const hasActiveFilters = filterTradeIds.length > 0 || filterPuebloSlugs.length > 0;
@@ -145,6 +152,11 @@ export default function HandymanJobFeedScreen() {
                 <Link href={`/job/${item.id}`} asChild>
                   <Pressable>
                     <ThemedView type="backgroundElement" style={styles.card}>
+                      {item.visibility === 'invite_only' && (
+                        <ThemedText type="smallBold" themeColor="tint">
+                          {t('handymanJobFeed.invitedYou')}
+                        </ThemedText>
+                      )}
                       <ThemedText type="default">{item.title}</ThemedText>
                       <ThemedText type="small" themeColor="textSecondary">
                         {item.pueblos?.name} · {tradeName} · {formatRelativeTime(item.created_at, t)}

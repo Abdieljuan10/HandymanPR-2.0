@@ -99,7 +99,8 @@
     "showFilters": "Filters",
     "hideFilters": "Hide Filters",
     "filtersActive": "Filters (active)",
-    "clearFilters": "Clear Filters"
+    "clearFilters": "Clear Filters",
+    "invitedYou": "Invited you to quote"
   },
   "myBids": {
     "empty": "You haven't submitted any bids yet.",
@@ -152,11 +153,19 @@
     "nudgeDescription": "A description helps handymen understand the job. Post without one?",
     "nudgeBoth": "Jobs with a description and photos usually get better bids. Post without them?",
     "cancel": "Cancel",
-    "postAnyway": "Post Anyway"
+    "postAnyway": "Post Anyway",
+    "inviteTitle": "Invite to Quote",
+    "inviteBanner": "Only {{name}} will see this job and be able to quote it. They get a notification as soon as you send it.",
+    "inviteSubmit": "Send Invite"
   },
   "browseHandymen": {
     "title": "Browse Handymen",
-    "description": "Search and filter handymen by pueblo and trade, then view a profile or invite them to quote a job. Coming soon."
+    "searchPlaceholder": "Search by name",
+    "empty": "No handymen yet.",
+    "emptyFiltered": "No handymen match your search. Try clearing some filters.",
+    "featured": "Featured",
+    "puebloCount_one": "Serves {{count}} pueblo",
+    "puebloCount_other": "Serves {{count}} pueblos"
   },
   "messages": {
     "title": "Messages",
@@ -272,7 +281,8 @@
   "jobDetail": {
     "notFound": "Job not found.",
     "maxBids": "Up to {{count}} bids",
-    "edit": "Edit Job"
+    "edit": "Edit Job",
+    "invitedOnly": "Private invite — only {{name}} can see and quote this job"
   },
   "jobDate": {
     "title": "Job Date",
@@ -381,7 +391,8 @@
     "portfolioTitle": "Portfolio",
     "certificationsTitle": "Certifications",
     "instagram": "Instagram",
-    "facebook": "Facebook"
+    "facebook": "Facebook",
+    "inviteToQuote": "Invite to Quote"
   },
   "handymanPueblos": {
     "intro": "Tap every pueblo you work in. You'll be notified about jobs posted there.",
@@ -418,7 +429,8 @@
     "yourTrades": "Your Trades",
     "yourPueblos": "Your Pueblos",
     "editJob": "Edit Job",
-    "chat": "Chat"
+    "chat": "Chat",
+    "inviteToQuote": "Invite to Quote"
   },
   "conversation": {
     "messageClient": "Ask a Question",

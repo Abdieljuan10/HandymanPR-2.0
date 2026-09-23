@@ -30,6 +30,10 @@ type JobDetailRow = {
   proposed_date: string | null;
   proposed_by: string | null;
   completion_marked_by: string | null;
+  visibility: 'public' | 'invite_only';
+  // Hinted by column: jobs <-> handyman_profiles is otherwise ambiguous
+  // (bids links them too, so PostgREST sees a second, many-to-many path).
+  invited_handyman: { id: string; full_name: string } | null;
   pueblos: { name: string } | null;
   trades: { name_es: string; name_en: string } | null;
 };
@@ -52,7 +56,7 @@ type ReviewRow = {
 };
 
 const JOB_SELECT =
-  'id, title, description, status, max_bids, created_at, agreed_date, proposed_date, proposed_by, completion_marked_by, pueblos(name), trades(name_es, name_en)';
+  'id, title, description, status, max_bids, created_at, agreed_date, proposed_date, proposed_by, completion_marked_by, visibility, invited_handyman:handyman_profiles!invited_handyman_id(id, full_name), pueblos(name), trades(name_es, name_en)';
 const BID_SELECT = 'id, price, note, status, created_at, handyman_profiles(id, full_name)';
 const REVIEW_SELECT = 'id, author_id, rating, comment, published_at';
 
@@ -315,6 +319,16 @@ export default function JobDetailScreen() {
             {job.pueblos?.name} · {tradeName} · {t(`jobStatus.${job.status}`)} ·{' '}
             {formatRelativeTime(job.created_at, t)}
           </ThemedText>
+
+          {job.visibility === 'invite_only' && job.invited_handyman && (
+            <Link href={`/handyman/${job.invited_handyman.id}`} asChild>
+              <Pressable>
+                <ThemedText type="small" themeColor="tint">
+                  {t('jobDetail.invitedOnly', { name: job.invited_handyman.full_name })}
+                </ThemedText>
+              </Pressable>
+            </Link>
+          )}
 
           <ThemedText type="default">{job.description}</ThemedText>
 

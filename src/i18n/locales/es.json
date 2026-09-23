@@ -99,7 +99,8 @@
     "showFilters": "Filtros",
     "hideFilters": "Ocultar Filtros",
     "filtersActive": "Filtros (activos)",
-    "clearFilters": "Quitar Filtros"
+    "clearFilters": "Quitar Filtros",
+    "invitedYou": "Te invitaron a cotizar"
   },
   "myBids": {
     "empty": "Todavía no has enviado ninguna oferta.",
@@ -152,11 +153,19 @@
     "nudgeDescription": "Una descripción ayuda a los técnicos a entender el trabajo. ¿Publicar sin una?",
     "nudgeBoth": "Los trabajos con descripción y fotos suelen recibir mejores ofertas. ¿Publicar sin ellos?",
     "cancel": "Cancelar",
-    "postAnyway": "Publicar de Todas Formas"
+    "postAnyway": "Publicar de Todas Formas",
+    "inviteTitle": "Invitar a Cotizar",
+    "inviteBanner": "Solo {{name}} verá este trabajo y podrá cotizarlo. Recibirá una notificación en cuanto lo envíes.",
+    "inviteSubmit": "Enviar Invitación"
   },
   "browseHandymen": {
     "title": "Buscar Técnicos",
-    "description": "Busca y filtra técnicos por pueblo y oficio, luego mira su perfil o invítalo a cotizar un trabajo. Próximamente."
+    "searchPlaceholder": "Buscar por nombre",
+    "empty": "Todavía no hay técnicos.",
+    "emptyFiltered": "Ningún técnico coincide con tu búsqueda. Prueba quitando algunos filtros.",
+    "featured": "Destacado",
+    "puebloCount_one": "Trabaja en {{count}} pueblo",
+    "puebloCount_other": "Trabaja en {{count}} pueblos"
   },
   "messages": {
     "title": "Mensajes",
@@ -272,7 +281,8 @@
   "jobDetail": {
     "notFound": "Trabajo no encontrado.",
     "maxBids": "Hasta {{count}} ofertas",
-    "edit": "Editar Trabajo"
+    "edit": "Editar Trabajo",
+    "invitedOnly": "Invitación privada — solo {{name}} puede ver y cotizar este trabajo"
   },
   "jobDate": {
     "title": "Fecha del Trabajo",
@@ -381,7 +391,8 @@
     "portfolioTitle": "Portafolio",
     "certificationsTitle": "Certificaciones",
     "instagram": "Instagram",
-    "facebook": "Facebook"
+    "facebook": "Facebook",
+    "inviteToQuote": "Invitar a Cotizar"
   },
   "handymanPueblos": {
     "intro": "Toca cada pueblo donde trabajas. Te notificaremos sobre trabajos publicados allí.",
@@ -418,7 +429,8 @@
     "yourTrades": "Tus Oficios",
     "yourPueblos": "Tus Pueblos",
     "editJob": "Editar Trabajo",
-    "chat": "Chat"
+    "chat": "Chat",
+    "inviteToQuote": "Invitar a Cotizar"
   },
   "conversation": {
     "messageClient": "Hacer una Pregunta",
