@@ -55,10 +55,16 @@ careless user do") before the client runs it.
 **Waiting on the client:**
 0. **Run migration 10** (job_invitations) — handed over with its abuse review.
 1. **Run migration 9** (handed over as chat text) — not confirmed yet.
-2. **Test**: browse + filters + search (web); invite a handyman from their
-   profile (web) → the handyman gets the push and sees the pinned invite
-   (device) → they bid → client accepts as usual. Also confirm another
-   handyman does NOT see that job in their feed.
+2. **Test — all on the phone app, both sides** (client's call 2026-09-23:
+   no browser testing, it caused the Alert.alert bug hunt):
+   a. Browse + filters (scrolls to pueblos now) + search.
+   b. Private invite: profile → Invite to Quote → New private job → the
+      handyman gets the push; a third handyman does NOT see the job at all.
+   c. Invitation to an existing public job: profile → Invite to Quote → pick
+      an open job → switches to "Invited" → handyman gets the push, job pinned
+      in feed → their bid goes through even outside their pueblo/trade or past
+      the bid cap → a third handyman sees it as a normal job (only if it
+      matches their pueblo/trade and isn't full), never labelled as an invite.
 3. **Vault step** for the 90-day chat cron — still not confirmed. Project
    Settings → API → copy `service_role` key → Project Settings → Vault → New
    secret named exactly `service_role_key`. Until then the cron logs a
