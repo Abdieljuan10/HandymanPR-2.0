@@ -1,7 +1,7 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '@/components/primary-button';
@@ -89,45 +89,53 @@ export default function HandymanJobFeedScreen() {
 
   const hasActiveFilters = filterTradeIds.length > 0 || filterPuebloSlugs.length > 0;
 
+  // Rendered as the list's header, not above the list: the pickers don't
+  // scroll on their own (built to sit inside Post Job's ScrollView), so a
+  // fixed panel above the list ran off the bottom of the screen with no way
+  // to reach the rest of the trades or the pueblo section.
+  const filtersHeader = (
+    <View style={styles.header}>
+      <PrimaryButton
+        label={
+          hasActiveFilters
+            ? t('handymanJobFeed.filtersActive')
+            : filtersOpen
+              ? t('handymanJobFeed.hideFilters')
+              : t('handymanJobFeed.showFilters')
+        }
+        variant="secondary"
+        onPress={() => setFiltersOpen((prev) => !prev)}
+      />
+
+      {filtersOpen && (
+        <ThemedView type="backgroundElement" style={styles.filterPanel}>
+          <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
+          <TradePicker mode="multi" selected={filterTradeIds} onChange={setFilterTradeIds} />
+
+          <ThemedText type="smallBold">{t('postJob.puebloLabel')}</ThemedText>
+          <PuebloPicker mode="multi" selected={filterPuebloSlugs} onChange={setFilterPuebloSlugs} />
+
+          {hasActiveFilters && (
+            <PrimaryButton
+              label={t('handymanJobFeed.clearFilters')}
+              variant="secondary"
+              onPress={() => {
+                setFilterTradeIds([]);
+                setFilterPuebloSlugs([]);
+              }}
+            />
+          )}
+        </ThemedView>
+      )}
+    </View>
+  );
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedText type="subtitle" style={styles.title}>
           {t('handymanJobFeed.title')}
         </ThemedText>
-
-        <PrimaryButton
-          label={
-            hasActiveFilters
-              ? t('handymanJobFeed.filtersActive')
-              : filtersOpen
-                ? t('handymanJobFeed.hideFilters')
-                : t('handymanJobFeed.showFilters')
-          }
-          variant="secondary"
-          onPress={() => setFiltersOpen((prev) => !prev)}
-        />
-
-        {filtersOpen && (
-          <ThemedView type="backgroundElement" style={styles.filterPanel}>
-            <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
-            <TradePicker mode="multi" selected={filterTradeIds} onChange={setFilterTradeIds} />
-
-            <ThemedText type="smallBold">{t('postJob.puebloLabel')}</ThemedText>
-            <PuebloPicker mode="multi" selected={filterPuebloSlugs} onChange={setFilterPuebloSlugs} />
-
-            {hasActiveFilters && (
-              <PrimaryButton
-                label={t('handymanJobFeed.clearFilters')}
-                variant="secondary"
-                onPress={() => {
-                  setFilterTradeIds([]);
-                  setFilterPuebloSlugs([]);
-                }}
-              />
-            )}
-          </ThemedView>
-        )}
 
         {filteredJobs === null ? (
           <ThemedText type="default">{t('common.loading')}</ThemedText>
@@ -137,17 +145,14 @@ export default function HandymanJobFeedScreen() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+            ListHeaderComponent={filtersHeader}
             ListEmptyComponent={
               <ThemedText type="default" themeColor="textSecondary">
                 {hasActiveFilters ? t('handymanJobFeed.emptyFiltered') : t('handymanJobFeed.empty')}
               </ThemedText>
             }
             renderItem={({ item }) => {
-              const tradeName = item.trades
-                ? language === 'en'
-                  ? item.trades.name_en
-                  : item.trades.name_es
-                : '';
+              const tradeName = item.trades ? (language === 'en' ? item.trades.name_en : item.trades.name_es) : '';
               return (
                 <Link href={`/job/${item.id}`} asChild>
                   <Pressable>
@@ -184,6 +189,10 @@ const styles = StyleSheet.create({
   },
   title: {
     marginBottom: Spacing.two,
+  },
+  header: {
+    gap: Spacing.three,
+    marginBottom: Spacing.one,
   },
   filterPanel: {
     padding: Spacing.three,

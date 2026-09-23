@@ -116,118 +116,125 @@ export default function BrowseHandymenScreen() {
           {t('browseHandymen.title')}
         </ThemedText>
 
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder={t('browseHandymen.searchPlaceholder')}
-          placeholderTextColor={theme.textSecondary}
-          autoCorrect={false}
-          style={[styles.search, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-        />
-
-        <PrimaryButton
-          label={
-            hasActiveFilters
-              ? t('handymanJobFeed.filtersActive')
-              : filtersOpen
-                ? t('handymanJobFeed.hideFilters')
-                : t('handymanJobFeed.showFilters')
-          }
-          variant="secondary"
-          onPress={() => setFiltersOpen((prev) => !prev)}
-        />
-
-        {filtersOpen && (
-          <ThemedView type="backgroundElement" style={styles.filterPanel}>
-            <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
-            <TradePicker mode="multi" selected={filterTradeIds} onChange={setFilterTradeIds} />
-
-            <ThemedText type="smallBold">{t('postJob.puebloLabel')}</ThemedText>
-            <PuebloPicker mode="multi" selected={filterPuebloSlugs} onChange={setFilterPuebloSlugs} />
-
-            {hasActiveFilters && (
-              <PrimaryButton
-                label={t('handymanJobFeed.clearFilters')}
-                variant="secondary"
-                onPress={() => {
-                  setFilterTradeIds([]);
-                  setFilterPuebloSlugs([]);
-                }}
+        {/* Search + filters live in the list header, not above the list:
+            the pickers don't scroll on their own (built to sit inside Post
+            Job's ScrollView), so a fixed panel above the list ran off the
+            bottom of the screen with no way to reach the rest of the trades
+            or the pueblo section. Passed as an element, not a component, so
+            the search TextInput keeps focus across re-renders. */}
+        <FlatList
+          data={visibleHandymen ?? []}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+          ListHeaderComponent={
+            <View style={styles.header}>
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder={t('browseHandymen.searchPlaceholder')}
+                placeholderTextColor={theme.textSecondary}
+                autoCorrect={false}
+                style={[styles.search, { color: theme.text, backgroundColor: theme.backgroundElement }]}
               />
-            )}
-          </ThemedView>
-        )}
 
-        {visibleHandymen === null ? (
-          <ThemedText type="default">{t('common.loading')}</ThemedText>
-        ) : (
-          <FlatList
-            data={visibleHandymen}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.list}
-            keyboardShouldPersistTaps="handled"
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-            ListEmptyComponent={
-              <ThemedText type="default" themeColor="textSecondary">
-                {loadError
+              <PrimaryButton
+                label={
+                  hasActiveFilters
+                    ? t('handymanJobFeed.filtersActive')
+                    : filtersOpen
+                      ? t('handymanJobFeed.hideFilters')
+                      : t('handymanJobFeed.showFilters')
+                }
+                variant="secondary"
+                onPress={() => setFiltersOpen((prev) => !prev)}
+              />
+
+              {filtersOpen && (
+                <ThemedView type="backgroundElement" style={styles.filterPanel}>
+                  <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
+                  <TradePicker mode="multi" selected={filterTradeIds} onChange={setFilterTradeIds} />
+
+                  <ThemedText type="smallBold">{t('postJob.puebloLabel')}</ThemedText>
+                  <PuebloPicker mode="multi" selected={filterPuebloSlugs} onChange={setFilterPuebloSlugs} />
+
+                  {hasActiveFilters && (
+                    <PrimaryButton
+                      label={t('handymanJobFeed.clearFilters')}
+                      variant="secondary"
+                      onPress={() => {
+                        setFilterTradeIds([]);
+                        setFilterPuebloSlugs([]);
+                      }}
+                    />
+                  )}
+                </ThemedView>
+              )}
+            </View>
+          }
+          ListEmptyComponent={
+            <ThemedText type="default" themeColor="textSecondary">
+              {visibleHandymen === null
+                ? t('common.loading')
+                : loadError
                   ? t('common.loadError', { error: loadError })
                   : hasActiveFilters || search.trim()
                     ? t('browseHandymen.emptyFiltered')
                     : t('browseHandymen.empty')}
-              </ThemedText>
-            }
-            renderItem={({ item }) => {
-              const tradeNames = item.handyman_trades
-                .map((ht) => (ht.trades ? (language === 'en' ? ht.trades.name_en : ht.trades.name_es) : null))
-                .filter((name): name is string => !!name)
-                .join(', ');
-              const badges = [
-                isPromotedNow(item) ? t('browseHandymen.featured') : null,
-                item.is_verified ? t('handymanPublicProfile.verified') : null,
-              ].filter(Boolean);
-              return (
-                <Link href={`/handyman/${item.id}`} asChild>
-                  <Pressable>
-                    <ThemedView type="backgroundElement" style={styles.card}>
-                      {item.avatar_url ? (
-                        <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
-                      ) : (
-                        <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.background }]}>
-                          <ThemedText type="smallBold" themeColor="textSecondary">
-                            {item.full_name.trim().charAt(0).toUpperCase() || '?'}
-                          </ThemedText>
-                        </View>
-                      )}
-                      <View style={styles.cardText}>
-                        <ThemedText type="default">{item.full_name}</ThemedText>
-                        {badges.length > 0 && (
-                          <ThemedText type="small" themeColor="tint">
-                            {badges.join(' · ')}
-                          </ThemedText>
-                        )}
-                        {tradeNames.length > 0 && (
-                          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-                            {tradeNames}
-                          </ThemedText>
-                        )}
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {[
-                            t('browseHandymen.puebloCount', { count: item.handyman_pueblos.length }),
-                            item.years_experience !== null
-                              ? t('handymanPublicProfile.yearsExperience', { count: item.years_experience })
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')}
+            </ThemedText>
+          }
+          renderItem={({ item }) => {
+            const tradeNames = item.handyman_trades
+              .map((ht) => (ht.trades ? (language === 'en' ? ht.trades.name_en : ht.trades.name_es) : null))
+              .filter((name): name is string => !!name)
+              .join(', ');
+            const badges = [
+              isPromotedNow(item) ? t('browseHandymen.featured') : null,
+              item.is_verified ? t('handymanPublicProfile.verified') : null,
+            ].filter(Boolean);
+            return (
+              <Link href={`/handyman/${item.id}`} asChild>
+                <Pressable>
+                  <ThemedView type="backgroundElement" style={styles.card}>
+                    {item.avatar_url ? (
+                      <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
+                    ) : (
+                      <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.background }]}>
+                        <ThemedText type="smallBold" themeColor="textSecondary">
+                          {item.full_name.trim().charAt(0).toUpperCase() || '?'}
                         </ThemedText>
                       </View>
-                    </ThemedView>
-                  </Pressable>
-                </Link>
-              );
-            }}
-          />
-        )}
+                    )}
+                    <View style={styles.cardText}>
+                      <ThemedText type="default">{item.full_name}</ThemedText>
+                      {badges.length > 0 && (
+                        <ThemedText type="small" themeColor="tint">
+                          {badges.join(' · ')}
+                        </ThemedText>
+                      )}
+                      {tradeNames.length > 0 && (
+                        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                          {tradeNames}
+                        </ThemedText>
+                      )}
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {[
+                          t('browseHandymen.puebloCount', { count: item.handyman_pueblos.length }),
+                          item.years_experience !== null
+                            ? t('handymanPublicProfile.yearsExperience', { count: item.years_experience })
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </ThemedText>
+                    </View>
+                  </ThemedView>
+                </Pressable>
+              </Link>
+            );
+          }}
+        />
       </SafeAreaView>
     </ThemedView>
   );
@@ -244,6 +251,10 @@ const styles = StyleSheet.create({
   },
   title: {
     marginBottom: Spacing.two,
+  },
+  header: {
+    gap: Spacing.three,
+    marginBottom: Spacing.one,
   },
   search: {
     borderRadius: Spacing.two,
