@@ -15,9 +15,10 @@ import { Alert, Platform } from 'react-native';
 // device, neither half can rely on Alert directly. Everything in the app goes
 // through these three helpers instead.
 //
-// window.confirm/window.alert are plain, but they're real: they block, and
-// confirm returns a boolean. Swap them for themed modals during the visual
-// polish pass if wanted -- call sites won't need to change.
+// Since 2026-09-24 both helpers render the app's own themed dialog
+// (DialogHost, mounted once in the root layout) on every platform, instead
+// of the OS popup. Alert / window.alert / window.confirm remain only as the
+// fallback for the brief window before DialogHost mounts (splash/loading).
 
 type NotifyOptions = {
   title: string;
@@ -27,12 +28,31 @@ type NotifyOptions = {
 type ConfirmOptions = NotifyOptions & {
   confirmLabel: string;
   cancelLabel: string;
-  /** Marks the confirm button destructive on iOS. Defaults to false. */
+  /** Styles the confirm button as destructive (red). Defaults to false. */
   destructive?: boolean;
 };
 
+export type DialogRequest =
+  | (NotifyOptions & { kind: 'notify'; resolve: () => void })
+  | (ConfirmOptions & { kind: 'confirm'; resolve: (confirmed: boolean) => void });
+
+let presenter: ((request: DialogRequest) => void) | null = null;
+
+/** Called by DialogHost on mount; returns the unregister function. */
+export function registerDialogPresenter(present: (request: DialogRequest) => void) {
+  presenter = present;
+  return () => {
+    if (presenter === present) presenter = null;
+  };
+}
+
 /** Informational message, single dismiss. */
 export function notify({ title, message }: NotifyOptions) {
+  if (presenter) {
+    presenter({ kind: 'notify', title, message, resolve: () => {} });
+    return;
+  }
+
   if (Platform.OS === 'web') {
     window.alert(`${title}\n\n${message}`);
     return;
@@ -53,6 +73,13 @@ export function confirmAsync({
   cancelLabel,
   destructive = false,
 }: ConfirmOptions): Promise<boolean> {
+  const present = presenter;
+  if (present) {
+    return new Promise((resolve) => {
+      present({ kind: 'confirm', title, message, confirmLabel, cancelLabel, destructive, resolve });
+    });
+  }
+
   if (Platform.OS === 'web') {
     return Promise.resolve(window.confirm(`${title}\n\n${message}`));
   }

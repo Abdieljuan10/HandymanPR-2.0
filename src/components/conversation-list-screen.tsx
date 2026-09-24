@@ -8,9 +8,10 @@ import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
+import { SwipeAction, SWIPE_OVERSHOOT_FRICTION, SWIPE_SPRING } from '@/components/swipe-action';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import { archiveConversation, hideConversation, unarchiveConversation } from '@/lib/chat';
 import { confirmDestructive } from '@/lib/confirm';
 import { supabase } from '@/lib/supabase';
@@ -186,10 +187,14 @@ export function ConversationListScreen({ role }: { role: 'client' | 'handyman' }
               const isArchived = section.key === 'archived';
               return (
                 <Swipeable
-                  renderRightActions={(_progress, _drag, swipeable) => (
+                  animationOptions={SWIPE_SPRING}
+                  overshootFriction={SWIPE_OVERSHOOT_FRICTION}
+                  renderRightActions={(progress, _drag, swipeable) => (
                     <View style={styles.swipeActions}>
-                      <Pressable
-                        style={[styles.swipeAction, isArchived ? styles.unarchiveAction : styles.archiveAction]}
+                      <SwipeAction
+                        kind={isArchived ? 'unarchive' : 'archive'}
+                        label={t(isArchived ? 'messages.unarchive' : 'messages.archive')}
+                        progress={progress}
                         onPress={() => {
                           swipeable.close();
                           if (isArchived) {
@@ -197,21 +202,18 @@ export function ConversationListScreen({ role }: { role: 'client' | 'handyman' }
                           } else {
                             handleArchive(item.id);
                           }
-                        }}>
-                        <ThemedText type="smallBold" style={styles.swipeActionText}>
-                          {t(isArchived ? 'messages.unarchive' : 'messages.archive')}
-                        </ThemedText>
-                      </Pressable>
-                      <Pressable
-                        style={[styles.swipeAction, styles.hideAction]}
+                        }}
+                      />
+                      <SwipeAction
+                        kind="hide"
+                        label={t('messages.hide')}
+                        progress={progress}
+                        index={1}
                         onPress={() => {
                           swipeable.close();
                           confirmHide(item);
-                        }}>
-                        <ThemedText type="smallBold" style={styles.swipeActionText}>
-                          {t('messages.hide')}
-                        </ThemedText>
-                      </Pressable>
+                        }}
+                      />
                     </View>
                   )}>
                   <Link href={`/conversation/${item.id}`} asChild>
@@ -264,26 +266,5 @@ const styles = StyleSheet.create({
   },
   swipeActions: {
     flexDirection: 'row',
-    gap: Spacing.one,
-    marginLeft: Spacing.one,
-  },
-  swipeAction: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 88,
-    marginBottom: Spacing.two,
-    borderRadius: Spacing.two,
-  },
-  archiveAction: {
-    backgroundColor: Colors.light.tint,
-  },
-  unarchiveAction: {
-    backgroundColor: '#6b7280',
-  },
-  hideAction: {
-    backgroundColor: '#d64545',
-  },
-  swipeActionText: {
-    color: '#ffffff',
   },
 });

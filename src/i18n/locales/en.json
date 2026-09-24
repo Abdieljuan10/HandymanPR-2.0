@@ -17,7 +17,8 @@
     "photosFailedTitle": "Some photos were not saved",
     "photosFailed_one": "{{count}} photo couldn't be saved. Everything else was — you can add it again by editing.",
     "photosFailed_other": "{{count}} photos couldn't be saved. Everything else was — you can add them again by editing.",
-    "messageError": "Couldn't open the chat. {{error}}"
+    "messageError": "Couldn't open the chat. {{error}}",
+    "ok": "OK"
   },
   "welcome": {
     "tagline": "Find trusted local help, or find work near you.",

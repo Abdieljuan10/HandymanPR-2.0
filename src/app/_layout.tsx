@@ -9,6 +9,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { AccountLoadErrorScreen } from '@/components/account-load-error-screen';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { DialogHost } from '@/components/dialog-host';
 import { LanguageProvider, useLanguage } from '@/providers/language-provider';
 import { SessionProvider, useSession } from '@/providers/session-provider';
 import { getNotificationDeepLink, isExpoGo } from '@/lib/push-notifications';
@@ -154,6 +155,7 @@ function RootNavigator() {
               <AccountLoadErrorScreen error={roleError} onRetry={retryRole} />
             </View>
           )}
+          <DialogHost />
         </ThemeProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>

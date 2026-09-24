@@ -17,7 +17,8 @@
     "photosFailedTitle": "Algunas fotos no se guardaron",
     "photosFailed_one": "No se pudo guardar {{count}} foto. Todo lo demás sí — puedes añadirla de nuevo editando.",
     "photosFailed_other": "No se pudieron guardar {{count}} fotos. Todo lo demás sí — puedes añadirlas de nuevo editando.",
-    "messageError": "No se pudo abrir la conversación. {{error}}"
+    "messageError": "No se pudo abrir la conversación. {{error}}",
+    "ok": "OK"
   },
   "welcome": {
     "tagline": "Encuentra ayuda local de confianza, o encuentra trabajo cerca de ti.",

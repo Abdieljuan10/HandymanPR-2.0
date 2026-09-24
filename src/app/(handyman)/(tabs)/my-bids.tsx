@@ -10,10 +10,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '@/components/app-header';
 import { PrimaryButton } from '@/components/primary-button';
 import { PuebloPicker } from '@/components/pueblo-picker';
+import { SwipeAction, SWIPE_OVERSHOOT_FRICTION, SWIPE_SPRING } from '@/components/swipe-action';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TradePicker } from '@/components/trade-picker';
-import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePueblos } from '@/hooks/use-pueblos';
 import { supabase } from '@/lib/supabase';
@@ -358,9 +359,13 @@ export default function MyBidsScreen() {
               const isArchived = section.key === 'archived';
               return (
                 <Swipeable
-                  renderRightActions={(_progress, _drag, swipeable) => (
-                    <Pressable
-                      style={[styles.swipeAction, isArchived ? styles.unarchiveAction : styles.archiveAction]}
+                  animationOptions={SWIPE_SPRING}
+                  overshootFriction={SWIPE_OVERSHOOT_FRICTION}
+                  renderRightActions={(progress, _drag, swipeable) => (
+                    <SwipeAction
+                      kind={isArchived ? 'unarchive' : 'archive'}
+                      label={t(isArchived ? 'myBids.unarchive' : 'myBids.archive')}
+                      progress={progress}
                       onPress={() => {
                         swipeable.close();
                         if (isArchived) {
@@ -368,11 +373,8 @@ export default function MyBidsScreen() {
                         } else {
                           handleArchive(jobId);
                         }
-                      }}>
-                      <ThemedText type="smallBold" style={styles.swipeActionText}>
-                        {t(isArchived ? 'myBids.unarchive' : 'myBids.archive')}
-                      </ThemedText>
-                    </Pressable>
+                      }}
+                    />
                   )}>
                   {row}
                 </Swipeable>
@@ -434,22 +436,6 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     gap: Spacing.one,
     marginBottom: Spacing.two,
-  },
-  swipeAction: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 88,
-    marginBottom: Spacing.two,
-    borderRadius: Spacing.two,
-  },
-  archiveAction: {
-    backgroundColor: Colors.light.tint,
-  },
-  unarchiveAction: {
-    backgroundColor: '#6b7280',
-  },
-  swipeActionText: {
-    color: '#ffffff',
   },
   error: {
     color: '#d64545',

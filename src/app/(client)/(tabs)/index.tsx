@@ -8,6 +8,7 @@ import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
+import { SwipeAction, SWIPE_OVERSHOOT_FRICTION, SWIPE_SPRING } from '@/components/swipe-action';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
@@ -247,9 +248,13 @@ export default function ClientHomeScreen() {
               const isArchived = section.key === 'archived';
               return (
                 <Swipeable
-                  renderRightActions={(_progress, _drag, swipeable) => (
-                    <Pressable
-                      style={[styles.swipeAction, isArchived ? styles.unarchiveAction : styles.archiveAction]}
+                  animationOptions={SWIPE_SPRING}
+                  overshootFriction={SWIPE_OVERSHOOT_FRICTION}
+                  renderRightActions={(progress, _drag, swipeable) => (
+                    <SwipeAction
+                      kind={isArchived ? 'unarchive' : 'archive'}
+                      label={t(isArchived ? 'clientHome.unarchive' : 'clientHome.archive')}
+                      progress={progress}
                       onPress={() => {
                         swipeable.close();
                         if (isArchived) {
@@ -257,11 +262,8 @@ export default function ClientHomeScreen() {
                         } else {
                           handleArchive(item.id);
                         }
-                      }}>
-                      <ThemedText type="smallBold" style={styles.swipeActionText}>
-                        {t(isArchived ? 'clientHome.unarchive' : 'clientHome.archive')}
-                      </ThemedText>
-                    </Pressable>
+                      }}
+                    />
                   )}>
                   {row}
                 </Swipeable>
@@ -310,21 +312,5 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  swipeAction: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 88,
-    marginBottom: Spacing.two,
-    borderRadius: Spacing.two,
-  },
-  archiveAction: {
-    backgroundColor: Colors.light.tint,
-  },
-  unarchiveAction: {
-    backgroundColor: '#6b7280',
-  },
-  swipeActionText: {
-    color: '#ffffff',
   },
 });
