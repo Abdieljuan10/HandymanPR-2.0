@@ -7,6 +7,7 @@ import { Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, View } 
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/app-header';
 import { PrimaryButton } from '@/components/primary-button';
 import { PuebloPicker } from '@/components/pueblo-picker';
 import { ThemedText } from '@/components/themed-text';
@@ -220,17 +221,17 @@ export default function MyBidsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.titleRow}>
-          <ThemedText type="subtitle">{t('tabs.myBids')}</ThemedText>
-          {archivedCount > 0 && (
-            <Pressable onPress={() => setShowArchived((prev) => !prev)}>
-              <ThemedText type="small" themeColor="textSecondary">
-                {showArchived ? t('myBids.hideArchived') : t('myBids.showArchived', { count: archivedCount })}
-              </ThemedText>
-            </Pressable>
-          )}
-        </View>
+      <SafeAreaView edges={['top', 'left', 'right']}>
+        <AppHeader pageTitle={t('tabs.myBids')} />
+      </SafeAreaView>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
+        {archivedCount > 0 && (
+          <Pressable onPress={() => setShowArchived((prev) => !prev)} style={styles.archiveToggle}>
+            <ThemedText type="small" themeColor="textSecondary">
+              {showArchived ? t('myBids.hideArchived') : t('myBids.showArchived', { count: archivedCount })}
+            </ThemedText>
+          </Pressable>
+        )}
 
         <View style={styles.controlsRow}>
           <PrimaryButton
@@ -392,10 +393,8 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.three,
   },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  archiveToggle: {
+    alignSelf: 'flex-end',
   },
   controlsRow: {
     flexDirection: 'row',

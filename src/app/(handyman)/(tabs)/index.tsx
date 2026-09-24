@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/app-header';
 import { PrimaryButton } from '@/components/primary-button';
 import { PuebloPicker } from '@/components/pueblo-picker';
 import { ThemedText } from '@/components/themed-text';
@@ -132,11 +133,10 @@ export default function HandymanJobFeedScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="subtitle" style={styles.title}>
-          {t('handymanJobFeed.title')}
-        </ThemedText>
-
+      <SafeAreaView edges={['top', 'left', 'right']}>
+        <AppHeader pageTitle={t('handymanJobFeed.title')} />
+      </SafeAreaView>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
         {/* With filters open, the screen is a plain ScrollView holding the
             panel -- the same structure Post Job uses for these pickers, which
             scrolls on-device. The previous fix put the panel in the FlatList's
@@ -224,9 +224,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: Spacing.four,
     gap: Spacing.three,
-  },
-  title: {
-    marginBottom: Spacing.two,
   },
   header: {
     gap: Spacing.three,

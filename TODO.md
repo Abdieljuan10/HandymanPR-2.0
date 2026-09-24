@@ -109,6 +109,50 @@ cron is the backstop). **Not fixed:** updates without `.select()` that RLS
 could silently skip (accept bid, withdraw bid) — the refresh after shows the
 real state, so it's visible, just not explained.
 
+### Visual pass — 2026-09-24, client picked from a design-canvas walkthrough
+(12 real mockups built with actual Isla tokens/copy before any code changed
+— see reply in chat for the artifact link). Picks: Oficio picker A, bottom
+nav B, header C, map B. Built in this order, **not yet phone-tested**:
+
+1. **Map B (outlined fix) — DONE.** Root cause confirmed: unselected fill
+   was `backgroundElement`, the SAME token as the gray filter-panel
+   container it usually sits inside; stroke was `background`, which by
+   definition blends into whatever page it's on. Two new theme tokens,
+   `mapFill`/`mapBorder` (own literals, light+dark, reused nowhere else so
+   they can't collide with a container again) — `pueblo-map.tsx` now uses
+   them: white/unfilled + gray border when unselected, full tint when
+   selected. Dark-mode values are my own extrapolation, not from the
+   (light-mode-only) approved mockup — sanity-check on a real dark-mode
+   screen.
+   **Vieques/Culebra question, answered with real numbers:** the full
+   78-municipio geometry's bounding box is x:20–980, y:20–313.6 against a
+   declared viewBox of 0–1000 × 0–334 — comfortably inside on every side,
+   both islands included. Nothing was clipped in the real map or its data.
+   What looked like it in the walkthrough mockup was a bug in THAT mockup
+   only: I gave the demo `<svg>` a hardcoded pixel width slightly wider
+   than its flex container, so the map overflowed its card to the right —
+   exactly where Vieques/Culebra are drawn, which is why they looked cut
+   off. The real `PuebloMap.tsx` already sizes correctly (`width: '100%'`
+   + `aspectRatio`), so no code change was needed for that part.
+2. **Oficio picker A (refined list) — DONE.** `TradePicker.tsx`: leading
+   radio-style dot (tint border/fill + white check) replaces the trailing
+   text checkmark, hairline row dividers, no more whole-row highlight (the
+   dot alone carries selected state). One shared component — Post Job,
+   Browse, the job feed filter and My Bids all get it automatically.
+3. **Header C (consolidated) — DONE.** New `AppHeader` component: a slim
+   wordmark bar ("HandymanPR", text only — no real logo mark exists yet,
+   `icon.png`/`splash-icon.png` are still literal default Expo template
+   graphics) with the page title inline on the right, replacing each
+   screen's own big title. Applied to all 9 top-level tab screens (5
+   client, 4 handyman); pushed/stack screens (job detail, chat, settings,
+   etc.) already have their own native header and were deliberately left
+   alone. Each screen now has two stacked `SafeAreaView`s (header owns the
+   top inset, content drops it) instead of one. The 3 screens with a
+   secondary top-right toggle (archived/saved) moved that toggle to its own
+   right-aligned row below the header. Handyman Profile keeps its own name
+   in large text as page content, separate from the header's "Tu Perfil".
+4. **Bottom nav B (floating translucent)** — next up, see below.
+
 ### Filter panel scroll — REAL fix 2026-09-24
 The 2026-09-23 fix (`506c8b3`, filter panel moved into the FlatList's
 `ListHeaderComponent`) never worked on Android — the client re-reported it

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/app-header';
 import { FormField } from '@/components/form-field';
 import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
 import { PlaceholderScreen } from '@/components/placeholder-screen';
@@ -241,12 +242,22 @@ export function PostJobForm({ invite }: { invite?: Invite }) {
     return <PlaceholderScreen title={t('postJob.title')} description={t('common.loading')} />;
   }
 
+  // Two contexts: the Post Job TAB (no invite -- AppHeader replaces the big
+  // title, visual pass 2026-09-24) and the invite/[handymanId]/new PUSHED
+  // stack screen (invite set -- already has its own native Stack header via
+  // Stack.Screen's own `options.title`, so its inline subtitle stays
+  // exactly as it was; not touched today).
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      {!invite && (
+        <SafeAreaView edges={['top', 'left', 'right']}>
+          <AppHeader pageTitle={t('postJob.title')} />
+        </SafeAreaView>
+      )}
+      <SafeAreaView {...(!invite ? { edges: ['left', 'right', 'bottom'] as const } : {})} style={styles.safeArea}>
         <KeyboardAvoidingScreen>
         <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
-          <ThemedText type="subtitle">{invite ? t('postJob.inviteTitle') : t('postJob.title')}</ThemedText>
+          {invite && <ThemedText type="subtitle">{t('postJob.inviteTitle')}</ThemedText>}
           {invite && (
             <ThemedView type="backgroundElement" style={styles.inviteBanner}>
               <ThemedText type="default">{t('postJob.inviteBanner', { name: invite.handymanName })}</ThemedText>

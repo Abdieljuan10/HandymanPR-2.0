@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/app-header';
 import { PrimaryButton } from '@/components/primary-button';
 import { PuebloPicker } from '@/components/pueblo-picker';
 import { ThemedText } from '@/components/themed-text';
@@ -139,17 +140,17 @@ export default function BrowseHandymenScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.titleRow}>
-          <ThemedText type="subtitle">{t('browseHandymen.title')}</ThemedText>
-          {(savedIds.size > 0 || savedOnly) && (
-            <Pressable onPress={() => setSavedOnly((prev) => !prev)}>
-              <ThemedText type="small" themeColor="textSecondary">
-                {savedOnly ? t('browseHandymen.showAll') : t('browseHandymen.showSaved', { count: savedIds.size })}
-              </ThemedText>
-            </Pressable>
-          )}
-        </View>
+      <SafeAreaView edges={['top', 'left', 'right']}>
+        <AppHeader pageTitle={t('browseHandymen.title')} />
+      </SafeAreaView>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
+        {(savedIds.size > 0 || savedOnly) && (
+          <Pressable onPress={() => setSavedOnly((prev) => !prev)} style={styles.savedToggle}>
+            <ThemedText type="small" themeColor="textSecondary">
+              {savedOnly ? t('browseHandymen.showAll') : t('browseHandymen.showSaved', { count: savedIds.size })}
+            </ThemedText>
+          </Pressable>
+        )}
 
         {/* With filters open, the screen is a plain ScrollView holding the
             panel -- the same structure Post Job uses for these pickers, which
@@ -298,10 +299,8 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.three,
   },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  savedToggle: {
+    alignSelf: 'flex-end',
     marginBottom: Spacing.two,
   },
   nameRow: {

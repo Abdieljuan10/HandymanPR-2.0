@@ -20,6 +20,15 @@ export const Colors = {
     textSecondary: '#60646C',
     tint: '#0E7A82',
     accent: '#E8593F',
+    // Pueblo map only (PuebloMap.tsx) -- deliberately NOT background or
+    // backgroundElement. Those were the original bug: an unselected
+    // municipio's fill was backgroundElement and its border stroke was
+    // background, so wherever the map sat inside a backgroundElement panel
+    // (every filter panel), fill == container and the border blended into
+    // the page by definition. Own literals here, reused nowhere else, so
+    // they can never again collide with whatever container the map is in.
+    mapFill: '#ffffff',
+    mapBorder: '#C7CBD1',
   },
   dark: {
     text: '#ffffff',
@@ -29,6 +38,10 @@ export const Colors = {
     textSecondary: '#B0B4BA',
     tint: '#22A0A8',
     accent: '#F16B50',
+    // See light.mapFill/mapBorder above. Not verified on a physical dark-mode
+    // screen -- the approved mockup was light-mode only.
+    mapFill: '#2E3135',
+    mapBorder: '#4A4E55',
   },
 } as const;
 

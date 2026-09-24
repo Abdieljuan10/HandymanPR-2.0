@@ -22,16 +22,19 @@ export function PuebloMap({ selected, onToggle }: PuebloMapProps) {
         viewBox={`0 0 ${PUEBLO_MAP_VIEWBOX.width} ${PUEBLO_MAP_VIEWBOX.height}`}
         width="100%"
         height="100%">
-        {PUEBLO_SHAPES.map((shape) => (
-          <Path
-            key={shape.slug}
-            d={shape.path}
-            fill={selected.has(shape.slug) ? theme.tint : theme.backgroundElement}
-            stroke={theme.background}
-            strokeWidth={1}
-            onPress={() => onToggle(shape.slug)}
-          />
-        ))}
+        {PUEBLO_SHAPES.map((shape) => {
+          const isSelected = selected.has(shape.slug);
+          return (
+            <Path
+              key={shape.slug}
+              d={shape.path}
+              fill={isSelected ? theme.tint : theme.mapFill}
+              stroke={isSelected ? theme.tint : theme.mapBorder}
+              strokeWidth={1.25}
+              onPress={() => onToggle(shape.slug)}
+            />
+          );
+        })}
       </Svg>
     </View>
   );

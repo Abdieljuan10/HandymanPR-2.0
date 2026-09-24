@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Pressable, StyleSheet } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -12,6 +13,11 @@ type TradePickerProps = {
   onChange: (ids: number[]) => void;
 };
 
+// Visual pass 2026-09-24, option "Oficio A -- Refined List": a leading
+// radio-style dot (tint border/fill + white check when selected) in place
+// of the trailing text checkmark, hairline row dividers, tighter rows. No
+// row-background highlight anymore -- the dot alone carries selected state,
+// so it isn't said twice.
 export function TradePicker({ mode, selected, onChange }: TradePickerProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -50,17 +56,25 @@ export function TradePicker({ mode, selected, onChange }: TradePickerProps) {
       data={trades}
       keyExtractor={(item) => String(item.id)}
       scrollEnabled={false}
-      renderItem={({ item }) => {
+      renderItem={({ item, index }) => {
         const isSelected = selectedSet.has(item.id);
         return (
           <Pressable
             onPress={() => handleToggle(item.id)}
-            style={[
-              styles.row,
-              { backgroundColor: isSelected ? theme.backgroundSelected : 'transparent' },
-            ]}>
-            <ThemedText type="default">{item.name}</ThemedText>
-            {isSelected && <ThemedText type="smallBold">✓</ThemedText>}
+            style={[styles.row, index > 0 && { borderTopColor: theme.backgroundSelected, borderTopWidth: 1 }]}>
+            <View
+              style={[
+                styles.dot,
+                {
+                  borderColor: isSelected ? theme.tint : theme.textSecondary,
+                  backgroundColor: isSelected ? theme.tint : 'transparent',
+                },
+              ]}>
+              {isSelected && <Ionicons name="checkmark" size={12} color="#ffffff" />}
+            </View>
+            <ThemedText type="default" style={styles.label}>
+              {item.name}
+            </ThemedText>
           </Pressable>
         );
       }}
@@ -71,11 +85,22 @@ export function TradePicker({ mode, selected, onChange }: TradePickerProps) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    borderRadius: Spacing.two,
+    gap: Spacing.two,
+    paddingVertical: 13,
+    paddingHorizontal: Spacing.one,
+  },
+  dot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  label: {
+    flexGrow: 1,
   },
   errorText: {
     color: '#d64545',

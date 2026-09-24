@@ -7,6 +7,7 @@ import { Pressable, RefreshControl, SectionList, StyleSheet, View } from 'react-
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/app-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Spacing } from '@/constants/theme';
@@ -186,17 +187,17 @@ export default function ClientHomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.titleRow}>
-          <ThemedText type="subtitle">{t('clientHome.title')}</ThemedText>
-          {archivedCount > 0 && (
-            <Pressable onPress={() => setShowArchived((prev) => !prev)}>
-              <ThemedText type="small" themeColor="textSecondary">
-                {showArchived ? t('clientHome.hideArchived') : t('clientHome.showArchived', { count: archivedCount })}
-              </ThemedText>
-            </Pressable>
-          )}
-        </View>
+      <SafeAreaView edges={['top', 'left', 'right']}>
+        <AppHeader pageTitle={t('clientHome.title')} />
+      </SafeAreaView>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
+        {archivedCount > 0 && (
+          <Pressable onPress={() => setShowArchived((prev) => !prev)} style={styles.archiveToggle}>
+            <ThemedText type="small" themeColor="textSecondary">
+              {showArchived ? t('clientHome.hideArchived') : t('clientHome.showArchived', { count: archivedCount })}
+            </ThemedText>
+          </Pressable>
+        )}
 
         {jobs === null ? (
           <ThemedText type="default">{t('common.loading')}</ThemedText>
@@ -281,10 +282,8 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.three,
   },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  archiveToggle: {
+    alignSelf: 'flex-end',
     marginBottom: Spacing.two,
   },
   list: {
