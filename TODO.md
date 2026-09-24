@@ -157,6 +157,13 @@ nav B, header C, map B. Built in this order, **not yet phone-tested**:
    existing installed dev client needs a fresh EAS build
    (`eas build --profile development`) before this renders at all; on the
    current build it will likely just show as a solid/blank bar, not crash.**
+   **Build history:** first attempt `9551def4-18ce-40d4-8331-9aef074701fd`
+   (commit `efe340a`) ERRORED in Install dependencies — `npx expo install
+   expo-blur` had dropped the nested `@expo/config/node_modules/typescript`
+   5.9.3 from the lockfile; local npm 11 didn't care, EAS's npm 10 did (see
+   the new CLAUDE.md rule). Lockfile fully regenerated, `npm ci` verified
+   under npm 10.9.9, committed, and the build re-queued 2026-09-24 — check
+   `eas build:list` for its status before assuming it finished.
    Both `Tabs` layouts: `tabBarStyle` now `position:'absolute'`, inset
    16px + the device's bottom safe-area inset from the edges, 68 tall,
    rounded 24, `tabBarBackground` renders a new `FloatingTabBarBackground`
