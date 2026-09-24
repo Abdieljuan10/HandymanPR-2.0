@@ -1,11 +1,14 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { supabase } from '@/lib/supabase';
 import type { AccountRole } from '@/providers/session-provider';
 
 export function useSignUp(role: AccountRole) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -13,6 +16,14 @@ export function useSignUp(role: AccountRole) {
 
   async function submit() {
     setError(null);
+
+    // Client-side only -- Supabase never sees a "confirm" field, so nothing
+    // server-side can catch a typo between the two here.
+    if (password !== confirmPassword) {
+      setError(t('common.passwordMismatch'));
+      return;
+    }
+
     setLoading(true);
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
@@ -39,6 +50,8 @@ export function useSignUp(role: AccountRole) {
     setEmail,
     password,
     setPassword,
+    confirmPassword,
+    setConfirmPassword,
     fullName,
     setFullName,
     error,

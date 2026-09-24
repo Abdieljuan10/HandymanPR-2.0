@@ -18,6 +18,10 @@
     "photosFailed_one": "{{count}} photo couldn't be saved. Everything else was — you can add it again by editing.",
     "photosFailed_other": "{{count}} photos couldn't be saved. Everything else was — you can add them again by editing.",
     "messageError": "Couldn't open the chat. {{error}}",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "passwordMismatch": "Passwords don't match.",
+    "changePassword": "Change Password",
     "ok": "OK"
   },
   "welcome": {
@@ -46,6 +50,7 @@
     "fullName": "Full Name",
     "email": "Email",
     "password": "Password",
+    "confirmPassword": "Confirm Password",
     "submit": "Create Client Account",
     "confirmationSent": "We sent a confirmation link to {{email}}. Confirm it, then come back and log in.",
     "back": "Back"
@@ -55,6 +60,7 @@
     "fullName": "Full Name",
     "email": "Email",
     "password": "Password",
+    "confirmPassword": "Confirm Password",
     "hint": "You'll pick your trades and the pueblos you work in from your profile after signing up.",
     "submit": "Create Handyman Account",
     "confirmationSent": "We sent a confirmation link to {{email}}. Confirm it, then come back and log in.",
@@ -454,6 +460,7 @@
     "editCertification": "Edit Certification",
     "clientProfile": "Client Profile",
     "settings": "Settings",
+    "changePassword": "Change Password",
     "yourTrades": "Your Trades",
     "yourPueblos": "Your Pueblos",
     "editJob": "Edit Job",
@@ -517,5 +524,16 @@
     "promotionExpires": "Featured on Browse until {{date}}",
     "promotionNoExpiration": "Featured on Browse, no expiration date",
     "adminManaged": "Subscriptions are activated by the HandymanPR team. Contact us to subscribe."
+  },
+  "changePassword": {
+    "current": "Current Password",
+    "new": "New Password",
+    "confirm": "Confirm New Password",
+    "submit": "Change Password",
+    "samePassword": "The new password must be different from the current one.",
+    "wrongCurrentPassword": "That current password isn't correct.",
+    "noEmail": "Couldn't verify your account. Log out and back in, then try again.",
+    "successTitle": "Password Changed",
+    "successMessage": "Your password was changed successfully."
   }
 }

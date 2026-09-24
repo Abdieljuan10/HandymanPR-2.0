@@ -18,6 +18,10 @@
     "photosFailed_one": "No se pudo guardar {{count}} foto. Todo lo demás sí — puedes añadirla de nuevo editando.",
     "photosFailed_other": "No se pudieron guardar {{count}} fotos. Todo lo demás sí — puedes añadirlas de nuevo editando.",
     "messageError": "No se pudo abrir la conversación. {{error}}",
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña",
+    "passwordMismatch": "Las contraseñas no coinciden.",
+    "changePassword": "Cambiar Contraseña",
     "ok": "OK"
   },
   "welcome": {
@@ -46,6 +50,7 @@
     "fullName": "Nombre Completo",
     "email": "Correo Electrónico",
     "password": "Contraseña",
+    "confirmPassword": "Confirmar Contraseña",
     "submit": "Crear Cuenta de Cliente",
     "confirmationSent": "Enviamos un enlace de confirmación a {{email}}. Confírmalo y luego regresa a iniciar sesión.",
     "back": "Atrás"
@@ -55,6 +60,7 @@
     "fullName": "Nombre Completo",
     "email": "Correo Electrónico",
     "password": "Contraseña",
+    "confirmPassword": "Confirmar Contraseña",
     "hint": "Podrás elegir tus oficios y los pueblos donde trabajas desde tu perfil después de registrarte.",
     "submit": "Crear Cuenta de Técnico",
     "confirmationSent": "Enviamos un enlace de confirmación a {{email}}. Confírmalo y luego regresa a iniciar sesión.",
@@ -454,6 +460,7 @@
     "editCertification": "Editar Certificación",
     "clientProfile": "Perfil del Cliente",
     "settings": "Configuración",
+    "changePassword": "Cambiar Contraseña",
     "yourTrades": "Tus Oficios",
     "yourPueblos": "Tus Pueblos",
     "editJob": "Editar Trabajo",
@@ -517,5 +524,16 @@
     "promotionExpires": "Destacado en Buscar hasta el {{date}}",
     "promotionNoExpiration": "Destacado en Buscar, sin fecha de vencimiento",
     "adminManaged": "Las suscripciones las activa el equipo de HandymanPR. Contáctanos para suscribirte."
+  },
+  "changePassword": {
+    "current": "Contraseña Actual",
+    "new": "Contraseña Nueva",
+    "confirm": "Confirmar Contraseña Nueva",
+    "submit": "Cambiar Contraseña",
+    "samePassword": "La contraseña nueva debe ser diferente a la actual.",
+    "wrongCurrentPassword": "La contraseña actual no es correcta.",
+    "noEmail": "No se pudo verificar tu cuenta. Cierra sesión y vuelve a entrar, luego intenta de nuevo.",
+    "successTitle": "Contraseña Cambiada",
+    "successMessage": "Tu contraseña se cambió correctamente."
   }
 }

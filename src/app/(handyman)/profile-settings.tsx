@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
@@ -35,6 +35,7 @@ function isActive(flag: boolean, expiresAt: string | null): boolean {
 
 export default function HandymanSettingsScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const { session } = useSession();
   const [subscription, setSubscription] = useState<SubscriptionRow | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -119,6 +120,11 @@ export default function HandymanSettingsScreen() {
 
       <ThemedText type="smallBold">{t('common.language')}</ThemedText>
       <LanguageToggle />
+      <PrimaryButton
+        label={t('common.changePassword')}
+        variant="secondary"
+        onPress={() => router.push('/change-password')}
+      />
       <PrimaryButton label={t('common.logOut')} onPress={signOutAndUnregister} />
     </PlaceholderScreen>
   );

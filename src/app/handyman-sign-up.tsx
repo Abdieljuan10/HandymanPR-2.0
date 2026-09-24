@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
 import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
+import { PasswordField } from '@/components/password-field';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -18,6 +19,8 @@ export default function HandymanSignUpScreen() {
     setEmail,
     password,
     setPassword,
+    confirmPassword,
+    setConfirmPassword,
     fullName,
     setFullName,
     error,
@@ -49,11 +52,16 @@ export default function HandymanSignUpScreen() {
                 keyboardType="email-address"
                 textContentType="emailAddress"
               />
-              <FormField
+              <PasswordField
                 label={t('handymanSignUp.password')}
                 value={password}
                 onChangeText={setPassword}
-                secureTextEntry
+                textContentType="newPassword"
+              />
+              <PasswordField
+                label={t('handymanSignUp.confirmPassword')}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
                 textContentType="newPassword"
               />
 

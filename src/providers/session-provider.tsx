@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 import { registerForPushNotifications } from '@/lib/push-notifications';
@@ -100,11 +100,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     });
   }, [session, applyRole]);
 
+  // Tracks whose session is currently active, imperatively -- NOT the
+  // `session` state variable, which this effect (mount-only deps) would
+  // otherwise read as a stale closure over its very first value forever.
+  const currentUserId = useRef<string | null>(null);
+
   useEffect(() => {
     let isMounted = true;
 
     supabase.auth.getSession().then(async ({ data }) => {
       if (!isMounted) return;
+      currentUserId.current = data.session?.user.id ?? null;
       setSession(data.session);
       const result = data.session ? await ensureProfile(data.session) : null;
       if (!isMounted) return;
@@ -119,6 +125,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       if (!isMounted) return;
+
+      // A same-user event -- SIGNED_IN from a re-auth check (e.g. change
+      // password verifying the current one), TOKEN_REFRESHED, or
+      // USER_UPDATED -- isn't a new session needing role re-resolution. The
+      // root layout blanks the WHOLE app (including whatever screen
+      // triggered this) while `isLoading` is true, so running the full
+      // reset here tore down screens mid-action for no reason -- most
+      // visibly, change-password's own screen getting unmounted while its
+      // submit was still in flight. Just refresh the mirrored session and
+      // stop; role/profile can't have changed from an event like this.
+      if (nextSession && nextSession.user.id === currentUserId.current) {
+        setSession(nextSession);
+        return;
+      }
+
+      currentUserId.current = nextSession?.user.id ?? null;
       setIsLoading(true);
       setSession(nextSession);
       const result = nextSession ? await ensureProfile(nextSession) : null;

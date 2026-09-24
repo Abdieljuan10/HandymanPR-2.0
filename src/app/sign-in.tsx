@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/form-field';
 import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
+import { PasswordField } from '@/components/password-field';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -47,11 +48,10 @@ export default function SignInScreen() {
             keyboardType="email-address"
             textContentType="emailAddress"
           />
-          <FormField
+          <PasswordField
             label={t('signIn.password')}
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
             textContentType="password"
           />
 

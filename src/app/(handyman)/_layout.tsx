@@ -19,6 +19,7 @@ export default function HandymanLayout() {
       <Stack.Screen name="certifications/[id]" options={{ title: t('headers.editCertification') }} />
       <Stack.Screen name="client/[id]" options={{ title: t('headers.clientProfile') }} />
       <Stack.Screen name="profile-settings" options={{ title: t('headers.settings') }} />
+      <Stack.Screen name="change-password" options={{ title: t('headers.changePassword') }} />
     </Stack>
   );
 }
