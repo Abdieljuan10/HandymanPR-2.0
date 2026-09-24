@@ -151,8 +151,8 @@ nav B, header C, map B. Built in this order, **not yet phone-tested**:
    secondary top-right toggle (archived/saved) moved that toggle to its own
    right-aligned row below the header. Handyman Profile keeps its own name
    in large text as page content, separate from the header's "Tu Perfil".
-4. **Bottom nav B (floating translucent) — DONE, not yet phone-tested,
-   Android is a known partial implementation (read before testing).**
+4. **Bottom nav B (floating translucent) — DONE, confirmed on-device
+   2026-09-24. Android is a known partial implementation (see below).**
    New `expo-blur` dependency (`~57.0.3`) -- **a new native module, so the
    existing installed dev client needs a fresh EAS build
    (`eas build --profile development`) before this renders at all; on the
@@ -194,11 +194,24 @@ nav B, header C, map B. Built in this order, **not yet phone-tested**:
    `contentContainerStyle` (7 files). Client Profile (short, non-scrolling
    content) was left alone -- its content sits well clear of the bar
    without help.
-   **Phone test, in order:** (1) confirm the new dev client build actually
-   installed (a stale one will show a solid or missing bar, not a crash);
-   (2) scroll every tab screen to its true end and confirm the last item
-   clears the floating bar; (3) the active tab's pill highlight and the
-   blur/translucency itself, iOS vs Android.
+   **Confirmed on-device 2026-09-24**, both client and handyman sides:
+   - **Android bands/shadow bug:** the bar showed visible gray bands instead
+     of one smooth surface. Cause: `elevation: 8` draws its shadow UNDER the
+     (translucent) bar, so the shadow itself showed through. Android now
+     gets `elevation: 0` + a hairline border instead; iOS keeps its shadow.
+   - **Android legibility:** expo-blur's flat-tint fallback (~62% opaque at
+     these settings) let content behind the bar show through sharply enough
+     to make tab labels hard to read (client's example: "Publicar"). Android
+     now renders a plain ~92% opaque tint instead of the expo-blur fallback;
+     iOS is untouched, still the real blur.
+   - **Icon/label vertical centering:** react-navigation's default tab
+     button stacks icon+label from the TOP of the fixed-height item, leaving
+     empty space below the label. New `CenteredTabBarButton`
+     (`src/components/centered-tab-bar-button.tsx`, wraps the same
+     `PlatformPressable` react-navigation uses) centers it — exact at any
+     font scale, unlike a hand-tuned `paddingTop`.
+   All three confirmed good by the client; pill highlight and navigation
+   itself also confirmed working on both sides.
 
 ### Filter panel scroll — REAL fix 2026-09-24
 The 2026-09-23 fix (`506c8b3`, filter panel moved into the FlatList's
@@ -246,6 +259,78 @@ existing convention — see browse.tsx) — was previously rendered unbounded on
 the public profile. Now capped to the 3 most recent with a "Show all N
 reviews" / "Show fewer reviews" toggle. No migration; the RPC already orders
 newest-first, so the visible 3 are always current.
+
+### Scroll indicator hidden everywhere — DONE 2026-09-24, confirmed
+Purely cosmetic: `showsVerticalScrollIndicator={false}` added to all 28
+vertical `FlatList`/`SectionList`/`ScrollView` instances across the app
+(client reported it as a gray line on the right edge of My Bids, but it was
+present on every scrollable screen). Horizontal photo strips already hid
+theirs. No functional change. Confirmed by the client on-device.
+
+### Sexier archive/delete (swipe + dialogs) — DONE 2026-09-24, confirmed
+Client asked for a nicer feel on the swipe-to-archive/delete rows (client
+Home, My Bids, both Messages lists) and on the plain OS confirm/alert
+popups. Scoped to JS-only (no native module, no EAS build needed):
+1. **Spring animation.** `react-native-gesture-handler`'s own default swipe
+   spring (mass 2 / damping 1000 / stiffness 700) is so overdamped it reads
+   as a linear slide. New shared `SWIPE_SPRING` (mass 0.8 / damping 18 /
+   stiffness 180) + `SWIPE_OVERSHOOT_FRICTION` give it a small, quick
+   overshoot; dragging past the buttons is now rubbery instead of 1:1.
+2. **Icon + color per action.** New shared `src/components/swipe-action.tsx`
+   (`SwipeAction`) replaces the three copy-pasted swipe buttons: archive
+   (archive-box icon, teal), unarchive (undo arrow, gray), hide/"Ocultar" in
+   Messages (crossed-out eye, red — not a trash can, since it hides the chat
+   rather than deleting it). Fades and scales in as the row opens; in
+   Messages the second button (Ocultar) pops in a beat after the first.
+3. **Haptics — deliberately held.** Would need `expo-haptics`, a new native
+   module (another EAS build + the lockfile regen-and-verify step). Also,
+   swiping today only *reveals* the buttons — there's no tap-independent
+   "threshold crossed" moment to attach a haptic to; making a full swipe
+   trigger the action directly is a bigger, riskier change (especially for
+   delete) and wasn't asked for. Do this the next time a native build is
+   needed for something else anyway.
+4. **Themed dialogs.** New `src/components/dialog-host.tsx` (`DialogHost`,
+   mounted once in the root layout) replaces every `Alert.alert` /
+   `window.alert` / `window.confirm` with the app's own rounded card: app
+   colors, dark-mode aware, spring pop-in, red confirm button when
+   destructive. `src/lib/confirm.ts`'s public API (`notify` /
+   `confirmAsync` / `confirmDestructive`) didn't change, so its 10 call
+   sites needed no edits — it now calls a presenter `DialogHost` registers
+   on mount, falling back to the OS popup only in the brief window before
+   that mount (e.g. the splash/loading screen). New `common.ok` i18n key for
+   the notify dialog's single button. Backdrop tap and Android back both
+   count as Cancel, same as the OS dialog did; a dialog survives the screen
+   behind it navigating away. Long messages scroll inside the card.
+   **Fixed after client feedback:** a long confirm label ("Publicar de Todas
+   Formas") was wrapping to two lines left-aligned instead of centered —
+   both dialog buttons now center their text.
+
+**Lag investigation (client-reported, archive/unarchive specifically):**
+measured with a temporary instrumented build (removed before this commit)
+— tap-to-next-frame was ~50–90ms, list re-render ~5–35ms. A stripped-down
+comparison version of `SwipeAction` (no icon, no fade-in) showed the *same*
+timing on the Messages screen, which rules out this pass's swipe-button
+richness as the cause. The real cost is `SectionList` re-rendering when an
+item moves between sections (open/archived) — pre-existing, not something
+this pass made worse. ~60ms in this dev build (an unoptimized build is
+always slower than a release build); **left as-is per the client's call**
+(not worth a slide/fade-between-sections animation for this). Revisit only
+if it's still noticeable in a release build.
+
+**Caught and fixed during the investigation:** the temporary stripped-down
+comparison button collapsed to a visual sliver (client: "like two l's
+thick"). Cause: it put the button's fixed 88px width and its
+fill-and-center flex style on the *same* node, which is a direct flex child
+of `ReanimatedSwipeable`'s own row container — mixing an explicit `width`
+with `flex: 1` there collapses the node instead of respecting the width.
+The shipped `SwipeAction` avoids this by construction (two nested nodes:
+outer fixed-width, inner `flex: 1` to fill it), matching the pattern that
+was already confirmed working. Worth remembering if this component is ever
+restructured.
+
+All verified on the phone: bounce, icons/colors, all three dialog cancel
+paths (backdrop / Android back / Cancel button), button text centering,
+navigation and archive/unarchive still work correctly end to end.
 
 ### Known, not fixed (small)
 - `enforce_bid_insert` runs before RLS, so a bid insert on any job id
