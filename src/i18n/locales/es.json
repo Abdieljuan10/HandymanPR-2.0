@@ -504,5 +504,17 @@
     "title": "No se pudo cargar tu cuenta",
     "message": "Revisa tu conexión e inténtalo de nuevo. Tu cuenta y tus datos están a salvo.",
     "retry": "Intentar de Nuevo"
+  },
+  "handymanSettings": {
+    "subscriptionTitle": "Suscripción",
+    "subscribed": "Suscrito",
+    "free": "Gratis",
+    "subscriptionExpires": "Activa hasta el {{date}}",
+    "subscriptionNoExpiration": "Activa, sin fecha de vencimiento",
+    "freeDescription": "Estás en el plan gratuito — los técnicos suscritos ven los trabajos nuevos 15 minutos antes que tú.",
+    "promoted": "Destacado",
+    "promotionExpires": "Destacado en Buscar hasta el {{date}}",
+    "promotionNoExpiration": "Destacado en Buscar, sin fecha de vencimiento",
+    "adminManaged": "Las suscripciones las activa el equipo de HandymanPR. Contáctanos para suscribirte."
   }
 }

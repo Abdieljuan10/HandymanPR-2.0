@@ -504,5 +504,17 @@
     "title": "Couldn't load your account",
     "message": "Check your connection and try again. Your account and data are safe.",
     "retry": "Try Again"
+  },
+  "handymanSettings": {
+    "subscriptionTitle": "Subscription",
+    "subscribed": "Subscribed",
+    "free": "Free",
+    "subscriptionExpires": "Active until {{date}}",
+    "subscriptionNoExpiration": "Active, no expiration date",
+    "freeDescription": "You're on the free tier — subscribed handymen see new jobs 15 minutes before you do.",
+    "promoted": "Featured",
+    "promotionExpires": "Featured on Browse until {{date}}",
+    "promotionNoExpiration": "Featured on Browse, no expiration date",
+    "adminManaged": "Subscriptions are activated by the HandymanPR team. Contact us to subscribe."
   }
 }

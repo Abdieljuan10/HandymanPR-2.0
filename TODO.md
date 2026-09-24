@@ -1461,12 +1461,20 @@ can be confirmed on its own first.
       image) both done. `is_verified` stays locked to admin-only edits
       (Table Editor), matching the existing verification pattern on
       `handyman_profiles.is_verified`.
-- [ ] Subscription status on Settings: `handyman_profiles.is_subscribed` /
-      `subscription_expires_at` / `is_promoted` / `promotion_expires_at`
-      exist and are already admin-only-writable and already enforced by the
-      15-minute-head-start logic — no Settings UI reads or displays them
-      yet, and no actual purchase flow exists (activation is manual via
-      Table Editor per `supabase/README.md`).
+- [x] **Subscription status on Settings — built 2026-09-24, not yet
+      phone-tested.** Read-only, per the client's call — no purchase flow yet
+      (still manual via Table Editor). Shows Subscribed/Free and, if
+      promoted, a Featured line, computed from `is_subscribed`/
+      `subscription_expires_at`/`is_promoted`/`promotion_expires_at` using
+      the exact same "flag AND not expired" condition as the 15-minute
+      head-start enforcement itself (`enforce_bid_insert`/`jobs_select`) and
+      Browse's `isPromotedNow()` — not the raw admin flag, which can lag past
+      its own expiry since nothing clears it automatically. No migration:
+      `handyman_profiles_select` has been `using (true)` since the initial
+      schema, unaffected by the client_profiles lockdown. Refetches on
+      focus, since this is admin-managed and can change while the app is
+      open. One-line note that subscriptions are activated by the
+      HandymanPR team.
 - [x] **Built 2026-09-23** (see handoff at top). Direct-invite flow: `jobs.visibility = 'invite_only'` and
       `invited_handyman_id` already exist and are enforced everywhere
       (RLS, `enforce_bid_insert`) — no UI to actually post one. Needs
