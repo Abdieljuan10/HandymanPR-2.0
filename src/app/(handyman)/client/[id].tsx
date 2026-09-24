@@ -22,6 +22,7 @@ export default function ClientProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [profile, setProfile] = useState<ClientProfileRow | null | undefined>(undefined);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -32,8 +33,16 @@ export default function ClientProfileScreen() {
       .select('full_name, avatar_url')
       .eq('id', id)
       .maybeSingle()
-      .then(({ data }) => {
-        if (isMounted) setProfile((data as ClientProfileRow | null) ?? null);
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+        // Genuinely "not found" is expected here when there's no connection
+        // to this client (client_profiles RLS, 20261012000000) -- but a failed
+        // query must still say it failed.
+        if (error) {
+          console.error('Client profile failed to load:', error.message);
+          setLoadError(error.message);
+        }
+        setProfile(error ? null : ((data as ClientProfileRow | null) ?? null));
       });
 
     return () => {
@@ -55,7 +64,9 @@ export default function ClientProfileScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
-          <ThemedText type="default">{t('clientProfile.notFound')}</ThemedText>
+          <ThemedText type="default">
+            {loadError !== null ? t('common.loadError', { error: loadError }) : t('clientProfile.notFound')}
+          </ThemedText>
         </SafeAreaView>
       </ThemedView>
     );

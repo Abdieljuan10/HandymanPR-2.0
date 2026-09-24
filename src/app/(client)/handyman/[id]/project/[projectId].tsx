@@ -29,6 +29,8 @@ export default function PortfolioProjectDetailScreen() {
   const [project, setProject] = useState<ProjectDetail | null | undefined>(undefined);
   const [photos, setPhotos] = useState<ProjectPhoto[]>([]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  // A failed load used to read as "not found"; failed photos, as no photos.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
@@ -39,8 +41,13 @@ export default function PortfolioProjectDetailScreen() {
       .select('id, title, description, trades(name_es, name_en), pueblos(name)')
       .eq('id', projectId)
       .maybeSingle()
-      .then(({ data }) => {
-        if (isMounted) setProject((data as ProjectDetail | null) ?? null);
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+        if (error) {
+          console.error('Portfolio project failed to load:', error.message);
+          setLoadError(error.message);
+        }
+        setProject(error ? null : ((data as unknown as ProjectDetail | null) ?? null));
       });
 
     supabase
@@ -48,8 +55,14 @@ export default function PortfolioProjectDetailScreen() {
       .select('id, photo_url, sort_order')
       .eq('project_id', projectId)
       .order('sort_order')
-      .then(({ data }) => {
-        if (isMounted) setPhotos(data ?? []);
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+        if (error) {
+          console.error('Portfolio photos failed to load:', error.message);
+          setLoadError(error.message);
+          return;
+        }
+        setPhotos(data ?? []);
       });
 
     return () => {
@@ -71,7 +84,9 @@ export default function PortfolioProjectDetailScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
-          <ThemedText type="default">{t('handymanPublicProfile.notFound')}</ThemedText>
+          <ThemedText type="default">
+            {loadError !== null ? t('common.loadError', { error: loadError }) : t('handymanPublicProfile.notFound')}
+          </ThemedText>
         </SafeAreaView>
       </ThemedView>
     );
@@ -91,6 +106,11 @@ export default function PortfolioProjectDetailScreen() {
             </ThemedText>
           )}
           {project.description && <ThemedText type="default">{project.description}</ThemedText>}
+          {loadError !== null && (
+            <ThemedText type="small" themeColor="textSecondary">
+              {t('common.loadError', { error: loadError })}
+            </ThemedText>
+          )}
 
           <View style={styles.photoGrid}>
             {photos.map((photo, index) => (

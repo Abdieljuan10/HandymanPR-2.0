@@ -28,6 +28,7 @@ export default function HandymanProfileScreen() {
   const { session } = useSession();
   const [profile, setProfile] = useState<OwnProfile | null>(null);
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Refetch on focus (not just mount) so coming back from Edit Profile shows
   // the change immediately, without needing a whole list/pull-to-refresh setup.
@@ -41,8 +42,17 @@ export default function HandymanProfileScreen() {
         .select('full_name, bio, years_experience, avatar_url, is_verified')
         .eq('id', session.user.id)
         .maybeSingle()
-        .then(({ data }) => {
-          if (isMounted) setProfile((data as OwnProfile | null) ?? null);
+        .then(({ data, error }) => {
+          if (!isMounted) return;
+          // A failure used to leave the name reading "Loading..." forever.
+          // Keep whatever was shown before and say what went wrong.
+          if (error) {
+            console.error('Own profile failed to load:', error.message);
+            setLoadError(error.message);
+            return;
+          }
+          setLoadError(null);
+          setProfile((data as OwnProfile | null) ?? null);
         });
 
       return () => {
@@ -69,7 +79,7 @@ export default function HandymanProfileScreen() {
               </View>
             )}
             <View style={styles.headerText}>
-              <ThemedText type="subtitle">{profile?.full_name ?? t('common.loading')}</ThemedText>
+              <ThemedText type="subtitle">{profile?.full_name ?? (loadError !== null ? '' : t('common.loading'))}</ThemedText>
               {profile?.is_verified && (
                 <ThemedText type="small" themeColor="tint">
                   {t('handymanPublicProfile.verified')}
@@ -83,9 +93,15 @@ export default function HandymanProfileScreen() {
             </View>
           </View>
 
-          <ThemedText type="default" themeColor={profile?.bio ? 'text' : 'textSecondary'}>
-            {profile?.bio || t('handymanProfile.noBio')}
-          </ThemedText>
+          {loadError !== null ? (
+            <ThemedText type="small" style={styles.error}>
+              {t('common.loadError', { error: loadError })}
+            </ThemedText>
+          ) : (
+            <ThemedText type="default" themeColor={profile?.bio ? 'text' : 'textSecondary'}>
+              {profile?.bio || t('handymanProfile.noBio')}
+            </ThemedText>
+          )}
 
           <View style={styles.actions}>
             <Link href="/profile-edit" asChild>
@@ -154,5 +170,8 @@ const styles = StyleSheet.create({
   actions: {
     gap: Spacing.two,
     marginTop: Spacing.two,
+  },
+  error: {
+    color: '#d64545',
   },
 });

@@ -82,6 +82,26 @@ export default function HandymanJobDetailScreen() {
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Side queries that failed, shown as one notice instead of rendering as
+  // empty: a failed reviews load used to offer "Leave a review" for a
+  // review already written, and a failed address load hid it from the hired
+  // handyman.
+  const [partialErrors, setPartialErrors] = useState<Record<string, string>>({});
+  // Separate from partialErrors: if we can't tell whether this handyman
+  // already bid, the bid form must not be shown at all -- it used to appear
+  // as if they never had.
+  const [bidLoadError, setBidLoadError] = useState<string | null>(null);
+  const [messageError, setMessageError] = useState<string | null>(null);
+
+  const notePartial = useCallback((key: string, message: string | null) => {
+    if (message) console.error(`Job detail: ${key} failed to load:`, message);
+    setPartialErrors((prev) => {
+      const next = { ...prev };
+      if (message) next[key] = message;
+      else delete next[key];
+      return next;
+    });
+  }, []);
 
   const fetchJob = useCallback(async () => {
     if (!id) return null;
@@ -90,11 +110,22 @@ export default function HandymanJobDetailScreen() {
     return error ? null : ((data as JobDetailRow | null) ?? null);
   }, [id]);
 
+  // For refreshes after an action: keeps the job on screen if the refresh
+  // fails, instead of fetchJob()'s null turning a successful action into
+  // "not found".
+  const refreshJob = useCallback(async () => {
+    if (!id) return;
+    const { data, error } = await supabase.from('jobs').select(JOB_SELECT).eq('id', id).maybeSingle();
+    notePartial('job', error ? error.message : null);
+    if (!error) setJob((data as JobDetailRow | null) ?? null);
+  }, [id, notePartial]);
+
   const fetchReviews = useCallback(async () => {
-    if (!id) return [];
-    const { data } = await supabase.from('reviews').select(REVIEW_SELECT).eq('job_id', id);
-    return (data as ReviewRow[] | null) ?? [];
-  }, [id]);
+    if (!id) return;
+    const { data, error } = await supabase.from('reviews').select(REVIEW_SELECT).eq('job_id', id);
+    notePartial('reviews', error ? error.message : null);
+    if (!error) setReviews((data as ReviewRow[] | null) ?? []);
+  }, [id, notePartial]);
 
   useFocusEffect(
     useCallback(() => {
@@ -105,17 +136,17 @@ export default function HandymanJobDetailScreen() {
         if (isMounted) setJob(data);
       });
 
-      fetchReviews().then((data) => {
-        if (isMounted) setReviews(data);
-      });
+      fetchReviews();
 
       supabase
         .from('job_photos')
         .select('photo_url')
         .eq('job_id', id)
         .order('sort_order')
-        .then(({ data }) => {
-          if (isMounted) setPhotos(data ?? []);
+        .then(({ data, error }) => {
+          if (!isMounted) return;
+          notePartial('photos', error ? error.message : null);
+          if (!error) setPhotos(data ?? []);
         });
 
       supabase
@@ -123,8 +154,10 @@ export default function HandymanJobDetailScreen() {
         .select('full_address')
         .eq('job_id', id)
         .maybeSingle()
-        .then(({ data }) => {
-          if (isMounted) setAddress(data?.full_address ?? null);
+        .then(({ data, error }) => {
+          if (!isMounted) return;
+          notePartial('address', error ? error.message : null);
+          if (!error) setAddress(data?.full_address ?? null);
         });
 
       supabase
@@ -133,14 +166,21 @@ export default function HandymanJobDetailScreen() {
         .eq('job_id', id)
         .eq('handyman_id', session.user.id)
         .maybeSingle()
-        .then(({ data }) => {
-          if (isMounted) setMyBid((data as MyBidRow | null) ?? null);
+        .then(({ data, error }) => {
+          if (!isMounted) return;
+          if (error) {
+            console.error('Job detail: own bid failed to load:', error.message);
+            setBidLoadError(error.message);
+            return;
+          }
+          setBidLoadError(null);
+          setMyBid((data as MyBidRow | null) ?? null);
         });
 
       return () => {
         isMounted = false;
       };
-    }, [id, session])
+    }, [id, session, fetchJob, fetchReviews, notePartial])
   );
 
   function confirmMissingNote(): Promise<boolean> {
@@ -236,19 +276,29 @@ export default function HandymanJobDetailScreen() {
       setCancelError(`${t('jobDelete.error')} (${error.message})`);
       return;
     }
-    setJob(await fetchJob());
+    await refreshJob();
   }
 
+  // Every failure path here used to just stop, so the button did nothing.
   async function handleMessage() {
     if (!id || !session || !job) return;
     setMessaging(true);
+    setMessageError(null);
 
-    const { data: existing } = await supabase
+    const { data: existing, error: lookupError } = await supabase
       .from('job_conversations')
       .select('id')
       .eq('job_id', id)
       .eq('handyman_id', session.user.id)
       .maybeSingle();
+
+    // Don't guess "no conversation yet" from a failed lookup -- creating one
+    // would hit the (job, handyman) unique key and fail anyway.
+    if (lookupError) {
+      setMessageError(lookupError.message);
+      setMessaging(false);
+      return;
+    }
 
     let conversationId = existing?.id as string | undefined;
 
@@ -260,6 +310,7 @@ export default function HandymanJobDetailScreen() {
         .single();
 
       if (error || !created) {
+        setMessageError(error?.message ?? t('common.nothingChanged'));
         setMessaging(false);
         return;
       }
@@ -270,7 +321,7 @@ export default function HandymanJobDetailScreen() {
     router.push(`/conversation/${conversationId}`);
   }
 
-  if (job === undefined || myBid === undefined) {
+  if (job === undefined || (myBid === undefined && bidLoadError === null)) {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
@@ -320,6 +371,12 @@ export default function HandymanJobDetailScreen() {
             {formatRelativeTime(job.created_at, t)}
           </ThemedText>
 
+          {Object.keys(partialErrors).length > 0 && (
+            <ThemedText type="small" style={styles.error}>
+              {t('common.partialLoadError', { error: Object.values(partialErrors).join('; ') })}
+            </ThemedText>
+          )}
+
           <ThemedText type="default">{job.description}</ThemedText>
 
           <PrimaryButton
@@ -328,6 +385,11 @@ export default function HandymanJobDetailScreen() {
             loading={messaging}
             onPress={handleMessage}
           />
+          {messageError && (
+            <ThemedText type="small" style={styles.error}>
+              {t('common.messageError', { error: messageError })}
+            </ThemedText>
+          )}
 
           {address && (
             <ThemedView type="backgroundElement" style={styles.addressBox}>
@@ -347,7 +409,7 @@ export default function HandymanJobDetailScreen() {
               proposedDate={job.proposed_date}
               proposedBy={job.proposed_by}
               otherPartyLabel={job.client_profiles?.full_name ?? t('jobDate.theClient')}
-              onChanged={async () => setJob(await fetchJob())}
+              onChanged={refreshJob}
             />
           )}
 
@@ -360,8 +422,7 @@ export default function HandymanJobDetailScreen() {
               completionMarkedBy={job.completion_marked_by}
               otherPartyLabel={job.client_profiles?.full_name ?? t('jobDate.theClient')}
               onChanged={async () => {
-                setJob(await fetchJob());
-                setReviews(await fetchReviews());
+                await Promise.all([refreshJob(), fetchReviews()]);
               }}
             />
           )}
@@ -375,7 +436,11 @@ export default function HandymanJobDetailScreen() {
             />
           )}
 
-          {myBid ? (
+          {bidLoadError !== null ? (
+            <ThemedText type="small" style={styles.error}>
+              {t('common.loadError', { error: bidLoadError })}
+            </ThemedText>
+          ) : myBid ? (
             <ThemedView type="backgroundElement" style={styles.bidStatusBox}>
               <ThemedText type="smallBold">{t('myBid.title')}</ThemedText>
               <ThemedText type="default">${myBid.price.toFixed(2)}</ThemedText>

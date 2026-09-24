@@ -22,14 +22,22 @@ export async function hideConversation(conversationId: string): Promise<{ error:
   });
   if (error) return { error: error.message };
 
+  // The bonus cleanup. Its failures are logged, not returned: the user's
+  // action (hiding the chat) already succeeded, and the 90-day cron is the
+  // backstop for anything left behind here.
   if (deletable) {
-    const { data: files } = await supabase.storage.from('chat-photos').list(conversationId);
+    const { data: files, error: listError } = await supabase.storage.from('chat-photos').list(conversationId);
+    if (listError) console.warn('Chat cleanup: listing photos failed:', listError.message);
     if (files && files.length > 0) {
-      await supabase.storage.from('chat-photos').remove(files.map((file) => `${conversationId}/${file.name}`));
+      const { error: removeError } = await supabase.storage
+        .from('chat-photos')
+        .remove(files.map((file) => `${conversationId}/${file.name}`));
+      if (removeError) console.warn('Chat cleanup: removing photos failed:', removeError.message);
     }
     // The job_conversations_delete policy re-checks chat_conversation_deletable()
     // itself, so this can't succeed unless it's actually still true.
-    await supabase.from('job_conversations').delete().eq('id', conversationId);
+    const { error: deleteError } = await supabase.from('job_conversations').delete().eq('id', conversationId);
+    if (deleteError) console.warn('Chat cleanup: deleting conversation failed:', deleteError.message);
   }
 
   return { error: null };

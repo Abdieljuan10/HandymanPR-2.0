@@ -234,7 +234,8 @@
     "discard": "Discard",
     "errors": {
       "title": "Enter a project title"
-    }
+    },
+    "notFound": "Project not found."
   },
   "certifications": {
     "title": "Certifications",
@@ -262,7 +263,8 @@
     "errors": {
       "title": "Enter a title",
       "photo": "Choose a photo of your certification"
-    }
+    },
+    "notFound": "Certification not found."
   },
   "profileEdit": {
     "title": "Edit Profile",

@@ -102,6 +102,7 @@ export default function NewPortfolioProjectScreen() {
     }
 
     let sortOrder = 0;
+    let failedPhotos = 0;
     for (const asset of photos) {
       try {
         const compressed = await compressJobPhoto(asset.uri, asset.width, asset.height);
@@ -113,18 +114,34 @@ export default function NewPortfolioProjectScreen() {
           .from('portfolio-photos')
           .upload(path, arrayBuffer, { contentType: compressed.mimeType });
         if (uploadError) {
-          setSubmitError(uploadError.message);
+          console.warn('Photo upload failed:', uploadError.message);
+          failedPhotos += 1;
           continue;
         }
 
         const { data: publicUrl } = supabase.storage.from('portfolio-photos').getPublicUrl(path);
-        await supabase
+        const { error: rowError } = await supabase
           .from('handyman_portfolio_photos')
           .insert({ project_id: project.id, photo_url: publicUrl.publicUrl, sort_order: sortOrder });
+        if (rowError) {
+          console.warn('Photo record failed:', rowError.message);
+          failedPhotos += 1;
+          continue;
+        }
         sortOrder += 1;
       } catch (photoError) {
-        setSubmitError(photoError instanceof Error ? photoError.message : String(photoError));
+        console.warn('Photo upload failed:', photoError);
+        failedPhotos += 1;
       }
+    }
+
+    // Photo failures used to go into submitError right before router.back()
+    // closed this screen, so nobody ever saw them. notify() survives it.
+    if (failedPhotos > 0) {
+      notify({
+        title: t('common.photosFailedTitle'),
+        message: t('common.photosFailed', { count: failedPhotos }),
+      });
     }
 
     setSubmitting(false);

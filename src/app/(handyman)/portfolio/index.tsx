@@ -64,18 +64,33 @@ export default function PortfolioProjectsScreen() {
       confirmLabel: t('portfolio.delete'),
       cancelLabel: t('portfolio.cancel'),
       onConfirm: async () => {
-        // The DB row cascade-deletes its photo rows on its own, but
-        // nothing deletes the actual Storage files without this step --
-        // the same class of bug job-photos hit before its own cleanup
-        // was added (a DB-only delete leaving orphaned files behind).
+        setError(null);
+        // Row first, confirmed with .select() (an RLS-skipped delete returns
+        // 0 rows and no error): this used to drop the project from the list
+        // whether or not it was deleted, so it came back on the next visit.
+        const { data: deleted, error: deleteError } = await supabase
+          .from('handyman_portfolio_projects')
+          .delete()
+          .eq('id', project.id)
+          .select('id');
+        if (deleteError || !deleted || deleted.length === 0) {
+          setError(t('common.deleteError', { error: deleteError?.message ?? t('common.nothingChanged') }));
+          return;
+        }
+        setProjects((prev) => (prev ?? []).filter((p) => p.id !== project.id));
+        // The row cascade-deletes its photo rows, but nothing deletes the
+        // actual Storage files without this step. After the row, not before:
+        // portfolio-photos is keyed by the handyman's own folder, so this
+        // doesn't need the row, and a leftover file is invisible -- whereas
+        // files-first then a failed row delete left a project with broken
+        // photos.
         const paths = project.handyman_portfolio_photos
           .map((p) => storagePathFromPortfolioUrl(p.photo_url))
           .filter((p): p is string => !!p);
         if (paths.length > 0) {
-          await supabase.storage.from('portfolio-photos').remove(paths);
+          const { error: storageError } = await supabase.storage.from('portfolio-photos').remove(paths);
+          if (storageError) console.warn('Portfolio photo file cleanup failed:', storageError.message);
         }
-        await supabase.from('handyman_portfolio_projects').delete().eq('id', project.id);
-        setProjects((prev) => (prev ?? []).filter((p) => p.id !== project.id));
       },
     });
   }

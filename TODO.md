@@ -54,10 +54,9 @@
   name only, never linked.
 
 ### Open — waiting on the client
-1. **Migration 9** (`20261008000000_job_invite_notify.sql`, push to the
-   handyman named on a new private invite) — **never confirmed run.** The
-   check query from 2026-09-23 answers it (`migration_9_applied`).
-2. **Invitation test step 4** (third account).
+1. ~~Migration 9~~ **DONE, verified 2026-09-23**: `notify_invited_handyman`
+   exists, `trg_notify_invited_handyman` enabled (`O`).
+2. ~~Invitation test step 4~~ **closed by the client 2026-09-23.**
 3. ~~Vault step~~ **DONE, verified 2026-09-23**: exactly one
    `service_role_key` secret, a JWT whose role is `service_role` (not anon),
    cron `cleanup-expired-conversations` active at `0 5 * * *`, last run
@@ -70,6 +69,45 @@
    updated_at from push_tokens where user_id = '<client id>'`).
 5. **Date-proposal identity mixup** (older, under investigation, see its
    section below) — still waiting on a fresh repro.
+
+### Swallowed-errors audit — DONE 2026-09-23 (built, not yet phone-tested)
+Every Supabase call (~146, 32 files) checked for "what does the person see if
+this fails". Fixed, worst first:
+1. **App launch**: failed role lookup read as "no profile" → tried to create
+   one, and session-without-role matched no route guard → blank screen, no
+   way out. Now: errors reported, first-login duplicate-insert race retried
+   as a lookup, `AccountLoadErrorScreen` overlay (Try Again / Log Out),
+   overlaid on the Stack (not an early return — the splash is hidden by
+   AnimatedSplashOverlay and the root must keep its navigator). Deep links
+   wait for a role.
+2. **Pueblos/Trades save** was delete-all-then-insert → a failed insert wiped
+   them (handyman vanishes from feeds). Now upsert-first, then delete the
+   deselected. Failed load shows an error (was an endless spinner).
+3. **Post Job**: address insert failing left a live address-less job and a
+   retry posted a duplicate → job rolled back. (Its new-job push has already
+   gone out — only a server-side job+address RPC would make it atomic.)
+4. **Your Jobs** list: "no jobs yet" / "0 bids" on failure → error / no count.
+5. **Client job detail**: bids/photos/address/reviews failures rendered empty
+   ("no bids yet"), failed refresh after accept/cancel/renew → "not found".
+   One `applyResult()` keeps what's shown + a notice. Delete confirms a row.
+6. **Handyman job detail**: own-bid failure showed the bid form as if never
+   bid; reviews/address/photos failures; Message button silently did nothing.
+7. **Job edit / portfolio edit**: failed load opened a blank form. Portfolio
+   edit's second pueblo query could null out the pueblo on save — removed.
+8. **Deletes that navigated back regardless**: portfolio (list + detail),
+   certification. Now row first with `.select()` to confirm, files after
+   (both buckets are keyed by the owner's folder, not the row).
+9. **Photo steps** (post, job edit, portfolio new/edit) now counted and
+   reported via notify() — portfolio-new's errors were set right before
+   router.back() closed the screen, so never seen.
+10–11. Certification detail endless "Loading…"; profile tab, public handyman
+   profile (sections vanished), project detail, client screen — errors now
+   distinct from "not found".
+Not changed on purpose: language-provider read (documented cached fallback),
+archive/unarchive (already revert + log), chat bonus cleanup (now logs; 90-day
+cron is the backstop). **Not fixed:** updates without `.select()` that RLS
+could silently skip (accept bid, withdraw bid) — the refresh after shows the
+real state, so it's visible, just not explained.
 
 ### Known, not fixed (small)
 - `enforce_bid_insert` runs before RLS, so a bid insert on any job id
@@ -1423,13 +1461,8 @@ can be confirmed on its own first.
   view," not a real delete, since bids stay tied to job history.
 - Sorting/filtering on the handyman job feed beyond pueblo/trade (added
   2026-09-19) — e.g. sort by price/date.
-- **Audit of every Supabase query for swallowed errors.** The completion
-  migration bug and the earlier cancellation-guard bug (both above) were
-  caused by the same pattern — a query result's `.error` field never
-  checked, so a real Postgres/PostgREST failure rendered identically to
-  "not found" or silently did nothing. Both known instances are fixed, but
-  the codebase hasn't been swept for the same pattern elsewhere. Flagged
-  by the client, not yet scheduled against the priority list above.
+- ~~Audit of every Supabase query for swallowed errors~~ — **DONE 2026-09-23**,
+  see "Swallowed-errors audit" in the handoff at the top.
 
 ## Done (for context, not a task list)
 

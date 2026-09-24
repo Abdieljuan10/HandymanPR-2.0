@@ -234,7 +234,8 @@
     "discard": "Descartar",
     "errors": {
       "title": "Ingresa un título para el proyecto"
-    }
+    },
+    "notFound": "Proyecto no encontrado."
   },
   "certifications": {
     "title": "Certificaciones",
@@ -262,7 +263,8 @@
     "errors": {
       "title": "Ingresa un título",
       "photo": "Elige una foto de tu certificación"
-    }
+    },
+    "notFound": "Certificación no encontrada."
   },
   "profileEdit": {
     "title": "Editar Perfil",

@@ -30,6 +30,7 @@ export default function EditCertificationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [issuingOrg, setIssuingOrg] = useState('');
   const [isVerified, setIsVerified] = useState(false);
@@ -49,17 +50,26 @@ export default function EditCertificationScreen() {
       .select('title, issuing_org, is_verified, file_url')
       .eq('id', id)
       .maybeSingle()
-      .then(async ({ data }: { data: CertificationRow | null }) => {
-        if (!isMounted || !data) return;
-        setTitle(data.title);
-        setIssuingOrg(data.issuing_org ?? '');
-        setIsVerified(data.is_verified);
-        setFileUrl(data.file_url);
+      .then(async ({ data, error }) => {
+        if (!isMounted) return;
+        // This used to return early on any failure without ever clearing
+        // `loading`, so the screen sat on "Loading..." forever.
+        if (error || !data) {
+          if (error) console.error('Certification failed to load:', error.message);
+          setLoadError(error?.message ?? t('certifications.notFound'));
+          return;
+        }
+        const row = data as CertificationRow;
+        setTitle(row.title);
+        setIssuingOrg(row.issuing_org ?? '');
+        setIsVerified(row.is_verified);
+        setFileUrl(row.file_url);
 
-        if (data.file_url) {
-          const { data: signed } = await supabase.storage
+        if (row.file_url) {
+          const { data: signed, error: signError } = await supabase.storage
             .from('certifications')
-            .createSignedUrl(data.file_url, 3600);
+            .createSignedUrl(row.file_url, 3600);
+          if (signError) console.warn('Certification image link failed:', signError.message);
           if (isMounted && signed) setSignedPhotoUrl(signed.signedUrl);
         }
 
@@ -69,7 +79,7 @@ export default function EditCertificationScreen() {
     return () => {
       isMounted = false;
     };
-  }, [id]);
+  }, [id, t]);
 
   function validate(): FieldErrors {
     const errors: FieldErrors = {};
@@ -110,13 +120,38 @@ export default function EditCertificationScreen() {
       confirmLabel: t('certifications.remove'),
       cancelLabel: t('certifications.cancel'),
       onConfirm: async () => {
-        if (fileUrl) {
-          await supabase.storage.from('certifications').remove([fileUrl]);
+        setSubmitError(null);
+        // Row first, confirmed with .select() (an RLS-skipped delete returns
+        // 0 rows and no error) -- this used to navigate back as if removed
+        // no matter what. The file after: the certifications bucket is keyed
+        // by the handyman's own folder, not the row, and a leftover private
+        // file is invisible to everyone.
+        const { data: deleted, error: deleteError } = await supabase
+          .from('handyman_certifications')
+          .delete()
+          .eq('id', id)
+          .select('id');
+        if (deleteError || !deleted || deleted.length === 0) {
+          setSubmitError(t('common.deleteError', { error: deleteError?.message ?? t('common.nothingChanged') }));
+          return;
         }
-        await supabase.from('handyman_certifications').delete().eq('id', id);
+        if (fileUrl) {
+          const { error: storageError } = await supabase.storage.from('certifications').remove([fileUrl]);
+          if (storageError) console.warn('Certification file cleanup failed:', storageError.message);
+        }
         router.back();
       },
     });
+  }
+
+  if (loadError !== null) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
+          <ThemedText type="default">{t('common.loadError', { error: loadError })}</ThemedText>
+        </SafeAreaView>
+      </ThemedView>
+    );
   }
 
   if (loading) {

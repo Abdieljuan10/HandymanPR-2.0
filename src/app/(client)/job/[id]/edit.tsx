@@ -59,6 +59,7 @@ export default function EditJobScreen() {
   const justSavedRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
@@ -119,6 +120,19 @@ export default function EditJobScreen() {
       supabase.from('job_photos').select('id, photo_url').eq('job_id', id).order('sort_order'),
     ]).then(([jobResult, locationResult, photosResult]) => {
       if (!isMounted) return;
+      // Never open the form half-empty: a failed (or missing) load used to
+      // show a blank title/description/address and no photos, inviting the
+      // client to retype over a job that was actually fine.
+      const failure =
+        jobResult.error?.message ??
+        locationResult.error?.message ??
+        photosResult.error?.message ??
+        (jobResult.data ? null : t('jobDetail.notFound'));
+      if (failure) {
+        console.error('Job edit: failed to load:', failure);
+        setLoadError(failure);
+        return;
+      }
       const job = jobResult.data;
       const loadedTitle = job?.title ?? '';
       const loadedDescription = job?.description ?? '';
@@ -149,7 +163,7 @@ export default function EditJobScreen() {
     return () => {
       isMounted = false;
     };
-  }, [id, pueblos]);
+  }, [id, pueblos, t]);
 
   async function handlePickPhotos() {
     if (totalPhotoCount >= MAX_JOB_PHOTOS) {
@@ -266,21 +280,36 @@ export default function EditJobScreen() {
     }
 
     // Core fields saved — now apply the queued photo removals and additions.
-    await applyPhotoChanges(id);
+    const failedPhotos = await applyPhotoChanges(id);
+    if (failedPhotos > 0) {
+      notify({
+        title: t('common.photosFailedTitle'),
+        message: t('common.photosFailed', { count: failedPhotos }),
+      });
+    }
 
     setSubmitting(false);
     justSavedRef.current = true;
     router.back();
   }
 
-  async function applyPhotoChanges(jobId: string) {
+  // Returns how many photo changes didn't take, so Save can say so instead
+  // of every failure here being console-only.
+  async function applyPhotoChanges(jobId: string): Promise<number> {
+    let failed = 0;
     for (const photo of existingPhotos) {
       if (!removedPhotoIds.has(photo.id)) continue;
       const path = storagePathFromJobPhotoUrl(photo.photo_url);
       if (path) {
-        await supabase.storage.from('job-photos').remove([path]);
+        // A leftover file with no row is invisible to everyone -- log only.
+        const { error: storageError } = await supabase.storage.from('job-photos').remove([path]);
+        if (storageError) console.warn('Photo file removal failed:', storageError.message);
       }
-      await supabase.from('job_photos').delete().eq('id', photo.id);
+      const { error: rowError } = await supabase.from('job_photos').delete().eq('id', photo.id);
+      if (rowError) {
+        console.warn('Photo removal failed:', rowError.message);
+        failed += 1;
+      }
     }
 
     let nextSortOrder = visibleExistingPhotos.length;
@@ -297,26 +326,34 @@ export default function EditJobScreen() {
 
         if (uploadError) {
           console.warn('Photo upload failed:', uploadError.message);
+          failed += 1;
           continue;
         }
 
         const { data: publicUrl } = supabase.storage.from('job-photos').getPublicUrl(path);
-        await supabase
+        const { error: rowError } = await supabase
           .from('job_photos')
           .insert({ job_id: jobId, photo_url: publicUrl.publicUrl, sort_order: nextSortOrder });
+        if (rowError) {
+          console.warn('Photo record failed:', rowError.message);
+          failed += 1;
+          continue;
+        }
         nextSortOrder += 1;
       } catch (photoError) {
         console.warn('Photo upload failed:', photoError);
+        failed += 1;
       }
     }
+    return failed;
   }
 
-  if (pueblosError) {
+  if (pueblosError || loadError !== null) {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
           <ThemedText type="small" style={styles.error}>
-            {t('common.loadError', { error: pueblosError })}
+            {t('common.loadError', { error: pueblosError ?? loadError })}
           </ThemedText>
         </SafeAreaView>
       </ThemedView>

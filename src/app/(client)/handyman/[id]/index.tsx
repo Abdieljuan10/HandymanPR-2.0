@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -69,6 +69,21 @@ export default function PublicHandymanProfileScreen() {
   // hidden then, rather than wrongly claiming "No reviews yet".
   const [reviews, setReviews] = useState<ReviewRow[] | null>(null);
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Sections that failed to load. They used to just disappear, which on a
+  // page clients use to decide who to hire reads as "no reviews", "no
+  // portfolio", "no certifications".
+  const [partialErrors, setPartialErrors] = useState<Record<string, string>>({});
+
+  const notePartial = useCallback((key: string, message: string | null) => {
+    if (message) console.error(`Handyman profile: ${key} failed to load:`, message);
+    setPartialErrors((prev) => {
+      const next = { ...prev };
+      if (message) next[key] = message;
+      else delete next[key];
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!id || !session) return;
@@ -112,24 +127,34 @@ export default function PublicHandymanProfileScreen() {
       .select('id, full_name, bio, years_experience, avatar_url, is_verified, instagram_url, facebook_url')
       .eq('id', id)
       .maybeSingle()
-      .then(({ data }) => {
-        if (isMounted) setProfile((data as HandymanProfileRow | null) ?? null);
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+        // A failure used to read as "Handyman not found".
+        if (error) {
+          console.error('Handyman profile failed to load:', error.message);
+          setLoadError(error.message);
+        }
+        setProfile(error ? null : ((data as HandymanProfileRow | null) ?? null));
       });
 
     supabase
       .from('handyman_trades')
       .select('trades(name_es, name_en)')
       .eq('handyman_id', id)
-      .then(({ data }) => {
-        if (isMounted) setTrades((data as TradeRow[] | null) ?? []);
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+        notePartial('trades', error?.message ?? null);
+        if (!error) setTrades((data as unknown as TradeRow[] | null) ?? []);
       });
 
     supabase
       .from('handyman_pueblos')
       .select('pueblos(name)')
       .eq('handyman_id', id)
-      .then(({ data }) => {
-        if (isMounted) setPueblos((data as PuebloRow[] | null) ?? []);
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+        notePartial('pueblos', error?.message ?? null);
+        if (!error) setPueblos((data as unknown as PuebloRow[] | null) ?? []);
       });
 
     supabase
@@ -139,8 +164,10 @@ export default function PublicHandymanProfileScreen() {
       )
       .eq('handyman_id', id)
       .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (isMounted) setProjects((data as ProjectRow[] | null) ?? []);
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+        notePartial('portfolio', error?.message ?? null);
+        if (!error) setProjects((data as unknown as ProjectRow[] | null) ?? []);
       });
 
     // Row metadata is public (title/org/verified) even though the
@@ -156,8 +183,10 @@ export default function PublicHandymanProfileScreen() {
       .eq('handyman_id', id)
       .eq('is_verified', true)
       .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (isMounted) setCertifications(data ?? []);
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+        notePartial('certifications', error?.message ?? null);
+        if (!error) setCertifications(data ?? []);
       });
 
     // Published client reviews of this handyman, with the reviewer's FIRST
@@ -169,17 +198,15 @@ export default function PublicHandymanProfileScreen() {
     // reviewer's profile.
     supabase.rpc('handyman_public_reviews', { p_handyman_id: id }).then(({ data, error }) => {
       if (!isMounted) return;
-      if (error) {
-        console.error('Failed to load reviews:', error.message);
-        return;
-      }
+      notePartial('reviews', error?.message ?? null);
+      if (error) return;
       setReviews((data as ReviewRow[] | null) ?? []);
     });
 
     return () => {
       isMounted = false;
     };
-  }, [id]);
+  }, [id, notePartial]);
 
   if (profile === undefined) {
     return (
@@ -195,7 +222,9 @@ export default function PublicHandymanProfileScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
-          <ThemedText type="default">{t('handymanPublicProfile.notFound')}</ThemedText>
+          <ThemedText type="default">
+            {loadError !== null ? t('common.loadError', { error: loadError }) : t('handymanPublicProfile.notFound')}
+          </ThemedText>
         </SafeAreaView>
       </ThemedView>
     );
@@ -264,6 +293,12 @@ export default function PublicHandymanProfileScreen() {
               </Pressable>
             )}
           </View>
+
+          {Object.keys(partialErrors).length > 0 && (
+            <ThemedText type="small" style={styles.errorText}>
+              {t('common.partialLoadError', { error: Object.values(partialErrors).join('; ') })}
+            </ThemedText>
+          )}
 
           <PrimaryButton
             label={t('handymanPublicProfile.inviteToQuote')}
@@ -467,6 +502,9 @@ const styles = StyleSheet.create({
   cardText: {
     flex: 1,
     gap: Spacing.half,
+  },
+  errorText: {
+    color: '#d64545',
   },
   ratingRow: {
     flexDirection: 'row',

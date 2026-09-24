@@ -48,6 +48,7 @@ export default function EditPortfolioProjectScreen() {
   const justSavedRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tradeIds, setTradeIds] = useState<number[]>([]);
@@ -86,8 +87,12 @@ export default function EditPortfolioProjectScreen() {
     });
   });
 
+  // Waits for the pueblo list (same as job/[id]/edit.tsx) so pueblo_id can be
+  // turned into a slug right here. This used to re-query pueblo_id in a
+  // second effect and ignore its errors, so a failure left the pueblo blank
+  // and Save then wrote null over the real one.
   useEffect(() => {
-    if (!id) return;
+    if (!id || !pueblos) return;
     let isMounted = true;
 
     Promise.all([
@@ -95,15 +100,28 @@ export default function EditPortfolioProjectScreen() {
       supabase.from('handyman_portfolio_photos').select('id, photo_url').eq('project_id', id).order('sort_order'),
     ]).then(([projectResult, photosResult]) => {
       if (!isMounted) return;
+      // Never open the form half-empty: a failed (or missing) load used to
+      // show a blank project, and saving that would overwrite the real one.
+      const failure =
+        projectResult.error?.message ??
+        photosResult.error?.message ??
+        (projectResult.data ? null : t('portfolio.notFound'));
+      if (failure) {
+        console.error('Portfolio edit: failed to load:', failure);
+        setLoadError(failure);
+        return;
+      }
       const project = projectResult.data;
       const loadedTitle = project?.title ?? '';
       const loadedDescription = project?.description ?? '';
       const loadedTradeIds = project?.trade_id ? [project.trade_id] : [];
-      const loadedPuebloSlugs: string[] = [];
+      const loadedSlug = project?.pueblo_id ? pueblos.find((p) => p.id === project.pueblo_id)?.slug : undefined;
+      const loadedPuebloSlugs = loadedSlug ? [loadedSlug] : [];
 
       setTitle(loadedTitle);
       setDescription(loadedDescription);
       setTradeIds(loadedTradeIds);
+      setPuebloSlugs(loadedPuebloSlugs);
       setExistingPhotos(photosResult.data ?? []);
       setInitial({
         title: loadedTitle,
@@ -111,40 +129,13 @@ export default function EditPortfolioProjectScreen() {
         tradeIds: loadedTradeIds,
         puebloSlugs: loadedPuebloSlugs,
       });
-      // pueblo_id -> slug needs the pueblos list, resolved in the effect
-      // below once it's loaded.
       setLoading(false);
     });
 
     return () => {
       isMounted = false;
     };
-  }, [id]);
-
-  // pueblo_id on the project only resolves to a slug once usePueblos() has
-  // loaded -- runs once both the project and the pueblo list are ready.
-  useEffect(() => {
-    if (!id || !pueblos) return;
-    let isMounted = true;
-
-    supabase
-      .from('handyman_portfolio_projects')
-      .select('pueblo_id')
-      .eq('id', id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!isMounted || !data?.pueblo_id) return;
-        const slug = pueblos.find((p) => p.id === data.pueblo_id)?.slug;
-        if (slug) {
-          setPuebloSlugs([slug]);
-          setInitial((prev) => (prev ? { ...prev, puebloSlugs: [slug] } : prev));
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [id, pueblos]);
+  }, [id, pueblos, t]);
 
   async function handlePickPhotos() {
     if (totalPhotoCount >= MAX_PROJECT_PHOTOS) {
@@ -192,13 +183,29 @@ export default function EditPortfolioProjectScreen() {
       confirmLabel: t('portfolio.delete'),
       cancelLabel: t('portfolio.cancel'),
       onConfirm: async () => {
+        setSubmitError(null);
+        // Row first, confirmed with .select() (an RLS-skipped delete returns 0
+        // rows and no error): this used to navigate back as if deleted no
+        // matter what. Files after -- portfolio-photos is keyed by the
+        // handyman's own folder, not the row, and a leftover file is
+        // invisible, whereas deleting files first and then failing on the row
+        // left a project with broken photos.
+        const { data: deleted, error: deleteError } = await supabase
+          .from('handyman_portfolio_projects')
+          .delete()
+          .eq('id', id)
+          .select('id');
+        if (deleteError || !deleted || deleted.length === 0) {
+          setSubmitError(t('common.deleteError', { error: deleteError?.message ?? t('common.nothingChanged') }));
+          return;
+        }
         const paths = existingPhotos
           .map((p) => storagePathFromPortfolioUrl(p.photo_url))
           .filter((p): p is string => !!p);
         if (paths.length > 0) {
-          await supabase.storage.from('portfolio-photos').remove(paths);
+          const { error: storageError } = await supabase.storage.from('portfolio-photos').remove(paths);
+          if (storageError) console.warn('Portfolio photo file cleanup failed:', storageError.message);
         }
-        await supabase.from('handyman_portfolio_projects').delete().eq('id', id);
         justSavedRef.current = true;
         router.back();
       },
@@ -237,21 +244,35 @@ export default function EditPortfolioProjectScreen() {
       return;
     }
 
-    await applyPhotoChanges(session.user.id);
+    const failedPhotos = await applyPhotoChanges(session.user.id);
+    if (failedPhotos > 0) {
+      notify({
+        title: t('common.photosFailedTitle'),
+        message: t('common.photosFailed', { count: failedPhotos }),
+      });
+    }
 
     setSubmitting(false);
     justSavedRef.current = true;
     router.back();
   }
 
-  async function applyPhotoChanges(userId: string) {
+  // Returns how many photo changes didn't take, so Save can say so.
+  async function applyPhotoChanges(userId: string): Promise<number> {
+    let failed = 0;
     for (const photo of existingPhotos) {
       if (!removedPhotoIds.has(photo.id)) continue;
       const path = storagePathFromPortfolioUrl(photo.photo_url);
       if (path) {
-        await supabase.storage.from('portfolio-photos').remove([path]);
+        // A leftover file with no row is invisible to everyone -- log only.
+        const { error: storageError } = await supabase.storage.from('portfolio-photos').remove([path]);
+        if (storageError) console.warn('Photo file removal failed:', storageError.message);
       }
-      await supabase.from('handyman_portfolio_photos').delete().eq('id', photo.id);
+      const { error: rowError } = await supabase.from('handyman_portfolio_photos').delete().eq('id', photo.id);
+      if (rowError) {
+        console.warn('Photo removal failed:', rowError.message);
+        failed += 1;
+      }
     }
 
     let nextSortOrder = visibleExistingPhotos.length;
@@ -267,26 +288,34 @@ export default function EditPortfolioProjectScreen() {
           .upload(path, arrayBuffer, { contentType: compressed.mimeType });
         if (uploadError) {
           console.warn('Photo upload failed:', uploadError.message);
+          failed += 1;
           continue;
         }
 
         const { data: publicUrl } = supabase.storage.from('portfolio-photos').getPublicUrl(path);
-        await supabase
+        const { error: rowError } = await supabase
           .from('handyman_portfolio_photos')
           .insert({ project_id: id, photo_url: publicUrl.publicUrl, sort_order: nextSortOrder });
+        if (rowError) {
+          console.warn('Photo record failed:', rowError.message);
+          failed += 1;
+          continue;
+        }
         nextSortOrder += 1;
       } catch (photoError) {
         console.warn('Photo upload failed:', photoError);
+        failed += 1;
       }
     }
+    return failed;
   }
 
-  if (pueblosError) {
+  if (pueblosError || loadError !== null) {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
           <ThemedText type="small" style={styles.error}>
-            {t('common.loadError', { error: pueblosError })}
+            {t('common.loadError', { error: pueblosError ?? loadError })}
           </ThemedText>
         </SafeAreaView>
       </ThemedView>
