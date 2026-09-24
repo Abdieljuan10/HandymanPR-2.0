@@ -24,16 +24,40 @@ async function getOrCreateDeviceId(): Promise<string> {
   return id;
 }
 
+// The session provider calls registration from two places that both fire on
+// every login at the same instant (its startup getSession() and the auth
+// listener's INITIAL_SESSION/SIGNED_IN event), and the listener fires again
+// on every hourly token refresh. Two simultaneous registrations raced into
+// a duplicate-key error on push_tokens' token index (fixed server-side too,
+// 20261013010000). So: one registration in flight at a time, and once per
+// account per app launch.
+let inFlight: { userId: string; promise: Promise<void> } | null = null;
+let registeredUserId: string | null = null;
+
+export function registerForPushNotifications(userId: string): Promise<void> {
+  if (registeredUserId === userId) return Promise.resolve();
+  if (inFlight?.userId === userId) return inFlight.promise;
+
+  const promise = registerDevice().then((ok) => {
+    if (ok) registeredUserId = userId;
+  });
+  inFlight = { userId, promise };
+  return promise.finally(() => {
+    if (inFlight?.promise === promise) inFlight = null;
+  });
+}
+
 // Silently does nothing in Expo Go, on a simulator/emulator, before an EAS
 // project is linked (no projectId yet), or if the user declines the
 // permission prompt — none of those are errors worth surfacing to a
-// screen, they just mean this device won't receive pushes yet.
-export async function registerForPushNotifications(): Promise<void> {
-  if (isExpoGo) return;
-  if (!Device.isDevice) return;
+// screen, they just mean this device won't receive pushes yet. Resolves true
+// only when a token was actually saved.
+async function registerDevice(): Promise<boolean> {
+  if (isExpoGo) return false;
+  if (!Device.isDevice) return false;
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-  if (!projectId) return;
+  if (!projectId) return false;
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- must stay deferred, see isExpoGo comment above
   const Notifications = require('expo-notifications') as typeof import('expo-notifications');
@@ -51,7 +75,7 @@ export async function registerForPushNotifications(): Promise<void> {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
-  if (finalStatus !== 'granted') return;
+  if (finalStatus !== 'granted') return false;
 
   const { data: expoPushToken } = await Notifications.getExpoPushTokenAsync({ projectId });
   const deviceId = await getOrCreateDeviceId();
@@ -73,7 +97,9 @@ export async function registerForPushNotifications(): Promise<void> {
   // support" from the outside.
   if (error) {
     console.error('Failed to save push token:', error.message);
+    return false;
   }
+  return true;
 }
 
 // Stops this device receiving the current account's pushes. Must run
@@ -91,6 +117,11 @@ export async function unregisterPushToken(): Promise<void> {
 // device's push token registered, so a logged-out phone kept receiving (and
 // displaying) that account's notifications.
 export async function signOutAndUnregister(): Promise<void> {
+  // The row is about to be deleted, so logging back in -- even as the same
+  // account, in this same app launch -- must register again rather than be
+  // skipped as "already registered".
+  registeredUserId = null;
+  inFlight = null;
   try {
     await unregisterPushToken();
   } catch (err) {

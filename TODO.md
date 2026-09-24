@@ -114,8 +114,17 @@ leak (logged-out phone kept showing that account's message previews). Fix:
 token, unique index on `expo_push_token`, and `register_push_token()` RPC
 that hands the device to whoever logged in last. App: registration uses the
 RPC; both Log out buttons call `signOutAndUnregister()` (deletes this
-device's row before signing out). Until the migration runs, registration
-logs an error and old rows keep working — nothing breaks.
+device's row before signing out). **Migration 15 run 2026-09-23** — cleanup
+confirmed (one row per token), and switching accounts now only delivers the
+logged-in account's pushes.
+Follow-up bug, same day: login logged "duplicate key … 
+push_tokens_expo_push_token_key". Not stale code — a race: registration
+fires twice at once on every login (getSession + the auth listener's
+INITIAL_SESSION/SIGNED_IN), and ON CONFLICT only absorbs the arbiter
+constraint, not the token index. Fixed both ends: migration 16
+`20261013010000_push_token_register_race.sql` (**not yet run**) adds a
+per-token advisory lock; app dedupes in-flight registrations and registers
+once per account per launch (reset on logout).
 
 **Standing rule (2026-09-23):** every migration that changes who can see or
 do what ships with a plain-language abuse review ("what could a malicious or
