@@ -107,7 +107,9 @@
     "hideFilters": "Ocultar Filtros",
     "filtersActive": "Filtros (activos)",
     "clearFilters": "Quitar Filtros",
-    "invitedYou": "Te invitaron a cotizar"
+    "invitedYou": "Te invitaron a cotizar",
+    "showResults_one": "Ver {{count}} trabajo",
+    "showResults_other": "Ver {{count}} trabajos"
   },
   "myBids": {
     "empty": "Todavía no has enviado ninguna oferta.",
@@ -176,7 +178,9 @@
     "showSaved": "Guardados ({{count}})",
     "showAll": "Ver Todos",
     "emptySaved": "Todavía no has guardado a nadie. Toca el corazón en el perfil de un técnico para guardarlo.",
-    "savedBadge": "Guardado"
+    "savedBadge": "Guardado",
+    "showResults_one": "Ver {{count}} técnico",
+    "showResults_other": "Ver {{count}} técnicos"
   },
   "messages": {
     "title": "Mensajes",

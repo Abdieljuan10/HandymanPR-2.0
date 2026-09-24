@@ -46,6 +46,11 @@ export function PuebloList({ selected, onToggle }: PuebloListProps) {
         data={filtered}
         keyExtractor={(item) => item.slug}
         style={styles.list}
+        // Scrolls inside its fixed maxHeight while the picker sits in a
+        // scrolling screen (Post Job, the filter panels). Without this,
+        // Android gives every drag to the outer ScrollView and this list
+        // can't be scrolled at all. No effect on iOS.
+        nestedScrollEnabled
         renderItem={({ item }) => {
           const isSelected = selected.has(item.slug);
           return (

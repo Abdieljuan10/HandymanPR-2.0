@@ -107,7 +107,9 @@
     "hideFilters": "Hide Filters",
     "filtersActive": "Filters (active)",
     "clearFilters": "Clear Filters",
-    "invitedYou": "Invited you to quote"
+    "invitedYou": "Invited you to quote",
+    "showResults_one": "Show {{count}} job",
+    "showResults_other": "Show {{count}} jobs"
   },
   "myBids": {
     "empty": "You haven't submitted any bids yet.",
@@ -176,7 +178,9 @@
     "showSaved": "Saved ({{count}})",
     "showAll": "Show All",
     "emptySaved": "You haven't saved anyone yet. Tap the heart on a handyman's profile to save them.",
-    "savedBadge": "Saved"
+    "savedBadge": "Saved",
+    "showResults_one": "Show {{count}} handyman",
+    "showResults_other": "Show {{count}} handymen"
   },
   "messages": {
     "title": "Messages",

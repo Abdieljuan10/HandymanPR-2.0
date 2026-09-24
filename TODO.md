@@ -109,6 +109,23 @@ cron is the backstop). **Not fixed:** updates without `.select()` that RLS
 could silently skip (accept bid, withdraw bid) — the refresh after shows the
 real state, so it's visible, just not explained.
 
+### Filter panel scroll — REAL fix 2026-09-24 (not yet phone-tested)
+The 2026-09-23 fix (`506c8b3`, filter panel moved into the FlatList's
+`ListHeaderComponent`) never worked on Android — the client re-reported it
+on the handyman job feed. It was verified by `tsc` only, never on a device.
+Likely causes, all Android-specific: TradePicker is itself a FlatList nested
+in a FlatList; PuebloList is an inner scroller without `nestedScrollEnabled`;
+drags starting on the SVG map's pressable Paths get swallowed. Fix: with
+filters open, the feed and Browse render a plain **ScrollView** holding the
+panel (the structure Post Job uses, which scrolls on-device) plus a "Show N
+jobs/handymen" button back to results; `nestedScrollEnabled` added to
+PuebloList. **Lesson: a scroll/gesture fix isn't done until it's been
+scrolled on the phone.**
+Same pass found an **audit miss**: the handyman job feed's main jobs query
+still ignored its error ("no open jobs match" on failure) — skipped because
+the file had been edited earlier that day. Fixed; a codebase-wide grep for
+error-less result destructures now comes back clean.
+
 ### Known, not fixed (small)
 - `enforce_bid_insert` runs before RLS, so a bid insert on any job id
   returns its status/"full" message — minor status oracle, no personal data.
