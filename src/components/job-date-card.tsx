@@ -119,7 +119,15 @@ export function JobDateCard({
           onPress={() => setProposing(true)}
         />
       ) : (
-        <ThemedView style={styles.proposeForm}>
+        // Explicit type -- ThemedView with none defaults to theme.background
+        // (plain white), not this card's own backgroundElement gray. That
+        // mismatch was the actual source of one of the two white patches
+        // reported 2026-09-24 (DateInput's own wrapper now also paints its
+        // own gray explicitly, so this alone wouldn't have shown through
+        // today, but it's the real bug either way -- worth fixing at the
+        // source rather than leaving it as a landmine for the next edit
+        // here).
+        <ThemedView type="backgroundElement" style={styles.proposeForm}>
           <DateInput onChange={setPendingDate} />
           <PrimaryButton label={t('jobDate.submitProposal')} loading={submitting} onPress={handlePropose} />
           <PrimaryButton
@@ -140,6 +148,14 @@ const styles = StyleSheet.create({
   card: {
     padding: Spacing.three,
     borderRadius: Spacing.two,
+    // NOT overflow: 'hidden' -- combined with borderRadius, Android fails to
+    // paint this View's OWN background in areas with no opaque child sitting
+    // directly on top (empty padding, a plain wrapper with no color of its
+    // own), showing the page's white through instead of this card's gray
+    // (client report 2026-09-24, two separate spots). A View's own
+    // background always respects its own borderRadius regardless of
+    // overflow, so dropping this loses nothing -- nothing here actually
+    // needs child content clipped to the curve.
     gap: Spacing.one,
     marginTop: Spacing.two,
   },

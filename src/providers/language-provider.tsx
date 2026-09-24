@@ -1,11 +1,34 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useState } from 'react';
+import { LocaleConfig } from 'react-native-calendars';
 
 import i18n from '@/i18n';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
 
 export type Language = 'es' | 'en';
+
+// react-native-calendars (DateInput) reads month/day names from its OWN
+// locale table, separate from i18next -- 'en' is its built-in default, so
+// only 'es' needs registering. Kept centralized here, alongside the ONLY
+// two places that ever change the active language, rather than in
+// DateInput itself: DateInput could be mounted deep in a screen that opens
+// well after this provider, but never BEFORE it (it's rendered once at the
+// app root) -- so `defaultLocale` set here is guaranteed correct before any
+// calendar's first render, without a mount-order race. A useEffect INSIDE
+// DateInput doesn't have that guarantee (it runs after that same render),
+// and React Compiler's purity rules reject mutating this kind of external,
+// un-hooked global directly in a component's render body.
+LocaleConfig.locales.es = {
+  monthNames: [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+  ],
+  monthNamesShort: ['Ene.', 'Feb.', 'Mar.', 'Abr.', 'May.', 'Jun.', 'Jul.', 'Ago.', 'Sep.', 'Oct.', 'Nov.', 'Dic.'],
+  dayNames: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+  dayNamesShort: ['Dom.', 'Lun.', 'Mar.', 'Mié.', 'Jue.', 'Vie.', 'Sáb.'],
+  today: 'Hoy',
+};
 
 const STORAGE_KEY = 'app-language';
 
@@ -58,6 +81,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
     resolveLanguage().then((resolved) => {
       if (!isMounted) return;
+      LocaleConfig.defaultLocale = resolved;
       i18n.changeLanguage(resolved).finally(() => {
         if (!isMounted) return;
         setLanguageState(resolved);
@@ -73,6 +97,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   function setLanguage(nextLanguage: Language) {
     setLanguageState(nextLanguage);
+    LocaleConfig.defaultLocale = nextLanguage;
     i18n.changeLanguage(nextLanguage);
     AsyncStorage.setItem(STORAGE_KEY, nextLanguage);
 

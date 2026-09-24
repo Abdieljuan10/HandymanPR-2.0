@@ -316,10 +316,7 @@
     "proposeDifferent": "Proponer una Fecha Diferente",
     "submitProposal": "Enviar Propuesta",
     "cancelPropose": "No, mejor no",
-    "month": "Mes",
-    "day": "Día",
-    "year": "Año",
-    "invalidDate": "Esa no es una fecha válida.",
+    "selectDate": "Selecciona una fecha",
     "theClient": "El cliente",
     "theHandyman": "El técnico"
   },

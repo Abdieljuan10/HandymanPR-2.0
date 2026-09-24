@@ -316,10 +316,7 @@
     "proposeDifferent": "Propose a Different Date",
     "submitProposal": "Submit Proposal",
     "cancelPropose": "Never Mind",
-    "month": "Month",
-    "day": "Day",
-    "year": "Year",
-    "invalidDate": "That's not a valid date.",
+    "selectDate": "Select a date",
     "theClient": "The client",
     "theHandyman": "The handyman"
   },
