@@ -1,155 +1,80 @@
 # Roadmap
 
-## Start here — session handoff, 2026-09-23 (evening)
+## Start here — session handoff, end of 2026-09-23
 
-**Browse Handymen + direct invites — built, pushed, not yet tested.**
-Migration 9 `20261008000000_job_invite_notify.sql` **not yet run**.
-- **Browse tab** (`src/app/(client)/(tabs)/browse.tsx`): name search +
-  multi trade/pueblo filters (same panel as the handyman job feed, "match
-  any", filtered client-side — fine at pilot scale, move server-side if the
-  list grows). Sorted: live promotion first (`is_promoted` +
-  `promotion_expires_at`, badge "Featured"), then verified, then name. Tap →
-  the existing public profile.
-- **Invite to quote**: button on the public profile → `invite/[handymanId]`
-  → the Post Job form (now a shared `src/components/post-job-form.tsx`) in
-  invite mode: banner naming the handyman, no bid-cap stepper, posts
-  `visibility: 'invite_only'` + `invited_handyman_id`. Existing RLS / bid
-  guard already enforce it; nothing about invites needed schema.
-- **Migration 9** pushes "You've been invited to quote" to the invited
-  handyman on post and on renewal from expired (every existing new-job push
-  skips invite-only jobs). Without it the invite still works, just silently.
-- **Handyman feed** pins their invites to the top with "Invited you to
-  quote", exempt from their trade/pueblo filters.
-- **Client job detail** shows "Private invite — only X can see…" linking to
-  that handyman's profile.
-- "Wait for them to bid on a posted job" needs nothing new — a public job
-  already reaches every handyman matching its pueblo + trade.
+**Standing rules (client, 2026-09-23):**
+- Every migration that changes who can see or do what ships with a
+  plain-language abuse review ("what could a malicious or careless user
+  do") before the client runs it.
+- Test plans run on the **phone app for both sides** — no browser testing.
+- New DB functions: revoke from anon/public (see CLAUDE.md).
 
-**Invitations to already-posted public jobs — built 2026-09-23, not yet
-tested.** Migration 10 `20261009000000_job_invitations.sql` **not yet run.**
-- New `job_invitations (job_id, handyman_id)` table. The job stays public;
-  an invitation additionally grants that handyman visibility of the job
-  while it's open (new `jobs_select` branch via `auth_is_invited_to_job()`)
-  and lets them bid past pueblo/trade, head start **and max_bids** (client's
-  call: full job still takes an invited bid). Address stays hidden until
-  hired, same as every bidder.
-- Rules in the insert trigger: owner only (checked first — see abuse review),
-  job open + public, not a handyman who already bid, max 10 per job, one per
-  handyman per job (PK). **No revoke** by design (delete + re-insert = push
-  spam). Push on insert.
-- App: profile "Invite to Quote" → chooser `invite/[handymanId]` (your open
-  public jobs with Invite / Invited / Already bid, or "New private job" →
-  `invite/[handymanId]/new`, the old invite form). Handyman feed pins and
-  labels these too; client job detail lists "Invited: …".
-- Invitations are fetched in separate fail-soft queries on the job detail
-  and feed, never embedded in the main job query — an embed error there
-  reads as "job not found" (the CLAUDE.md completion-migration lesson).
-- **Known, pre-existing, not fixed:** `enforce_bid_insert` runs before RLS,
-  so a bid insert on any job id returns its status/"full" message — minor
-  status oracle (no personal data). Worth a caller check someday.
+### Security thread — DONE, all verified 2026-09-23
+- **`client_profiles` lockdown** (migration 13, `20261012000000`): was
+  `using (true)`, any signed-in account read every client's name/phone/avatar.
+  Now own row, or a handyman connected by a bid, conversation, private invite
+  or job invitation. Phones (client + handyman) moved to owner-only
+  `profile_private`. Verified with a rolled-back impersonation test (connected
+  handyman sees 1 of 2 clients; client sees only self; 0 phone columns left).
+  Untested edge: a handyman with zero connections (none exist in the data).
+- **Anonymous push exploit** (migration 14, `20261012010000`): anyone,
+  signed out, could call `send_push_to_users` via REST and push any text to
+  any user; also the cron sweeps + get_user_language. All revoked; check
+  query returned no rows; every `cron.job` runs as `postgres`.
+- **Cross-account push leak** (migration 15, `20261013000000`): a phone got
+  every account's pushes (logout never removed the token; rows unique per
+  user+device, not per token). One owner per token now; logout deletes the
+  row first (`signOutAndUnregister()`). Verified by switching accounts.
+- **Registration race** (migration 16, `20261013010000`): duplicate-key
+  error on login from two simultaneous registrations. Per-token advisory
+  lock server-side + app-side in-flight dedupe. Verified over several
+  login/switch cycles.
+- **Reviewer first names** (migration 12): RPC splits server-side, last name
+  never leaves the DB. Run 2026-09-23.
+- Push tokens seen after the fix: 2 client rows with different device ids
+  and tokens — explained as phone + browser by the client, but **web can't
+  register** (platform check is ios/android only, and registration fails on
+  web before saving), so the second row is a second phone or a stale row
+  from an earlier install. Harmless (one owner per token); a stale token
+  just fails at Expo. Worth a look — see open items.
 
-**Saved handymen — built 2026-09-23, not yet tested.** Migration 11
-`20261010000000_saved_handymen.sql` **not yet run.** Private per-client
-bookmark list (`client_saved_handymen`, own-rows-only RLS, no push, the
-handyman never sees it). Heart on the public profile (hidden until its state
-loads, so it never shows a wrong state); Browse gets a "Saved (n)" / "Show
-All" toggle in its title row and a small heart on saved cards. The saved list
-is fetched separately and fails soft. Not added to the client Profile tab —
-Browse covers "find them again" in one tap.
+### Built 2026-09-23 — built, awaiting on-phone tests
+- **Browse Handymen** (search + trade/pueblo filters, promoted/verified
+  sort) and the **filter-panel scroll fix** (Browse + handyman job feed —
+  pickers were cut off below the screen).
+- **Invites**: private invite-only job ("New private job") and invitations
+  to an existing public job (migration 10, `job_invitations`: visibility +
+  bid bypass incl. past max_bids, push, pinned in feed, max 10/job, no
+  revoke by design). Client ran steps 1–3 of the invitation test;
+  **step 4 (third account sees it as a normal job, no invite label) not
+  yet confirmed.**
+- **Saved handymen** (migration 11): heart on profile, "Saved (n)" toggle on
+  Browse.
+- **Reviews on the public profile**: average + count + list, reviewer first
+  name only, never linked.
 
-**Reviews on the handyman public profile — built 2026-09-23, not yet tested.**
-Migration 11 (saved handymen) confirmed run the same day. The screen had never
-queried reviews at all (DB was fine — Juan Ríos had 2 published, avg 5.0).
-Now: stars + "5.0 · 2 reviews" under the name, and a Reviews section (stars,
-comment, date) above the portfolio, "No reviews yet." when empty. Published
-client reviews only — filtered on `published_at` explicitly, because
-`reviews_select` still lets an author read their own unpublished review.
-**Reviewer first names added (client's call 2026-09-23)**: first name only,
-plain text, never linked to the reviewer. Migration 12
-`20261011000000_handyman_public_reviews.sql` (**not yet run**) — an RPC that
-splits `full_name` server-side so the last name never reaches the device
-(`client_profiles` has no `first_name` column, and `reviews.author_id` has no
-FK to embed through). Returns no author/job ids. Execute revoked from
-anon/public. Until it's run the Reviews section is hidden (not "No reviews
-yet"). Not on Browse cards yet.
+### Open — waiting on the client
+1. **Migration 9** (`20261008000000_job_invite_notify.sql`, push to the
+   handyman named on a new private invite) — **never confirmed run.** The
+   check query from 2026-09-23 answers it (`migration_9_applied`).
+2. **Invitation test step 4** (third account).
+3. **Vault step** for the 90-day chat cron — never confirmed. Until done the
+   cron cleans nothing (harmless).
+4. **The second client push-token row** — confirm it's a second phone, not a
+   stale install (query: `select device_id, platform, created_at,
+   updated_at from push_tokens where user_id = '<client id>'`).
+5. **Date-proposal identity mixup** (older, under investigation, see its
+   section below) — still waiting on a fresh repro.
 
-Migration 12 confirmed run 2026-09-23.
-
-**SECURITY FIXES — built 2026-09-23. BOTH RUN + VERIFIED.** #2 confirmed
-2026-09-23: final check returned no rows (all seven locked), every
-`cron.job` row runs as `postgres`. Still to confirm: a chat message push
-arrives on the phone (client testing it now).
-1. **Run and verified 2026-09-23** via the rolled-back impersonation test:
-   0 phone columns left; connected handyman sees exactly 1 of 2 clients (their
-   chat client); client sees only self; no one else's `profile_private` rows.
-   Not directly tested: a handyman with zero connections (none exist in the
-   data — every handyman has one). Same rule, but worth one check with a
-   fresh handyman account.
-   `20261012000000_lock_down_client_profiles.sql` — `client_profiles_select`
-   was `using (true)`: any signed-in account could read every client's name,
-   phone and avatar. Now: own row, or a handyman connected by a bid (any
-   status), a conversation, a private invite, or a `job_invitations` row
-   (`auth_handyman_connected_to_client()`). Phone numbers (client AND
-   handyman) moved to owner-only `profile_private`, copy verified before the
-   old columns are dropped. Handyman profiles stay public (they advertise).
-   No app change needed — every screen showing a client name is reached via
-   a connection, and all use `?.` fallbacks. Verify with the rolled-back RLS
-   impersonation test handed over in chat.
-2. `20261012010000_lock_down_internal_functions.sql` — **anyone, signed out,
-   could call `send_push_to_users` through the REST API** and push any text
-   to any user (Supabase grants EXECUTE to anon by default; only grants were
-   ever written, never revokes). Also get_user_language and the five cron
-   sweeps. All revoked from public/anon/authenticated; every in-DB caller
-   verified SECURITY DEFINER first. The migration ends with a check query
-   that must return no rows.
-Rule for this going forward is now in CLAUDE.md.
-
-**Push tokens: one phone got BOTH accounts' pushes (found on-device
-2026-09-23) — fix built, migration 15 NOT YET RUN.** Causes: logout was a
-bare `signOut()` that never removed the device's `push_tokens` row, and rows
-were unique on (user, device) not on the Expo token, so each account that
-logged in on a phone added another row with the same token. Also a privacy
-leak (logged-out phone kept showing that account's message previews). Fix:
-`20261013000000_push_token_one_owner.sql` — keeps only the newest row per
-token, unique index on `expo_push_token`, and `register_push_token()` RPC
-that hands the device to whoever logged in last. App: registration uses the
-RPC; both Log out buttons call `signOutAndUnregister()` (deletes this
-device's row before signing out). **Migration 15 run 2026-09-23** — cleanup
-confirmed (one row per token), and switching accounts now only delivers the
-logged-in account's pushes.
-Follow-up bug, same day: login logged "duplicate key … 
-push_tokens_expo_push_token_key". Not stale code — a race: registration
-fires twice at once on every login (getSession + the auth listener's
-INITIAL_SESSION/SIGNED_IN), and ON CONFLICT only absorbs the arbiter
-constraint, not the token index. Fixed both ends: migration 16
-`20261013010000_push_token_register_race.sql` (**not yet run**) adds a
-per-token advisory lock; app dedupes in-flight registrations and registers
-once per account per launch (reset on logout).
-
-**Standing rule (2026-09-23):** every migration that changes who can see or
-do what ships with a plain-language abuse review ("what could a malicious or
-careless user do") before the client runs it.
-
-**Waiting on the client:**
-0. **Run migration 10** (job_invitations) — handed over with its abuse review.
-1. **Run migration 9** (handed over as chat text) — not confirmed yet.
-2. **Test — all on the phone app, both sides** (client's call 2026-09-23:
-   no browser testing, it caused the Alert.alert bug hunt):
-   a. Browse + filters (scrolls to pueblos now) + search.
-   b. Private invite: profile → Invite to Quote → New private job → the
-      handyman gets the push; a third handyman does NOT see the job at all.
-   c. Invitation to an existing public job: profile → Invite to Quote → pick
-      an open job → switches to "Invited" → handyman gets the push, job pinned
-      in feed → their bid goes through even outside their pueblo/trade or past
-      the bid cap → a third handyman sees it as a normal job (only if it
-      matches their pueblo/trade and isn't full), never labelled as an invite.
-3. **Vault step** for the 90-day chat cron — still not confirmed. Project
-   Settings → API → copy `service_role` key → Project Settings → Vault → New
-   secret named exactly `service_role_key`. Until then the cron logs a
-   `NOTICE` daily and cleans nothing (harmless).
-4. **Renewal test** for chat `archived_at` (the rolled-back `do $$` block
-   handed over 2026-09-23) — never run. Optional; the trigger is recreated by
-   migration 8 either way.
+### Known, not fixed (small)
+- `enforce_bid_insert` runs before RLS, so a bid insert on any job id
+  returns its status/"full" message — minor status oracle, no personal data.
+- A few older app RPCs were granted to `authenticated` but never revoked from
+  `anon`; each already refuses a signed-out caller. Cleanup, not a hole.
+- Avatar image files are public-by-URL in Storage even when the profile row
+  is hidden.
+- Stale push tokens (uninstalled apps) are never pruned — Expo's
+  `DeviceNotRegistered` response isn't acted on.
 
 **Chat delete/archive batch — DONE, confirmed on-device 2026-09-23** (delete,
 archive, resurface-as-fresh-conversation, photos). Migration 8 is live.
