@@ -58,8 +58,13 @@
    handyman named on a new private invite) — **never confirmed run.** The
    check query from 2026-09-23 answers it (`migration_9_applied`).
 2. **Invitation test step 4** (third account).
-3. **Vault step** for the 90-day chat cron — never confirmed. Until done the
-   cron cleans nothing (harmless).
+3. ~~Vault step~~ **DONE, verified 2026-09-23**: exactly one
+   `service_role_key` secret, a JWT whose role is `service_role` (not anon),
+   cron `cleanup-expired-conversations` active at `0 5 * * *`, last run
+   succeeded. Caveat: "succeeded" is reported even when the key is missing,
+   and no conversation is anywhere near 90 days past its job's end yet, so
+   the first real deletion (and proof the Storage call works) is ~3 months
+   out.
 4. **The second client push-token row** — confirm it's a second phone, not a
    stale install (query: `select device_id, platform, created_at,
    updated_at from push_tokens where user_id = '<client id>'`).
