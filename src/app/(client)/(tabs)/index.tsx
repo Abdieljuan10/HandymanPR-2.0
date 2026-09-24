@@ -24,6 +24,7 @@ type ClientJobRow = {
   title: string;
   status: JobStatus;
   created_at: string;
+  expires_at: string;
   pueblos: { name: string } | null;
 };
 
@@ -38,7 +39,7 @@ const STATUS_COLORS: Record<Exclude<JobStatus, 'open'>, string> = {
   expired: '#9a9a9a',
 };
 
-const JOBS_SELECT = 'id, title, status, created_at, pueblos(name)';
+const JOBS_SELECT = 'id, title, status, created_at, expires_at, pueblos(name)';
 
 export default function ClientHomeScreen() {
   const { t } = useTranslation();
@@ -234,7 +235,7 @@ export default function ClientHomeScreen() {
                         {item.status === 'open' && bidCounts
                           ? ` · ${t('clientHome.bidCount', { count: bidCounts[item.id] ?? 0 })}`
                           : ''}{' '}
-                        · {formatRelativeTime(item.created_at, t)}
+                        · {formatRelativeTime(item.status === 'expired' ? item.expires_at : item.created_at, t)}
                       </ThemedText>
                     </ThemedView>
                   </Pressable>
