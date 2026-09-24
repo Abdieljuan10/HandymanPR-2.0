@@ -1,7 +1,7 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, View } from 'react-native';
 // The root-export Swipeable is deprecated in favor of this Reanimated-backed
 // one (react-native-reanimated is already a dependency here).
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -253,43 +253,59 @@ export default function MyBidsScreen() {
           />
         </View>
 
-        {filtersOpen && (
-          <ThemedView type="backgroundElement" style={styles.filterPanel}>
-            <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
-            <TradePicker mode="multi" selected={filterTradeIds} onChange={setFilterTradeIds} />
+        {/* With filters open, the screen becomes a plain ScrollView holding
+            the panel -- the same structure Post Job uses for these pickers,
+            which scrolls on-device. A fixed panel above the list (the
+            previous shape here) doesn't scroll on Android: TradePicker is
+            itself a FlatList nested in a FlatList/SectionList, PuebloList is
+            an inner scroller Android won't hand drags to without
+            nestedScrollEnabled, and drags starting on the SVG map's
+            pressable shapes get swallowed. See job feed / Browse for the
+            same fix. */}
+        {filtersOpen ? (
+          <ScrollView contentContainerStyle={styles.filterScroll} keyboardShouldPersistTaps="handled">
+            <ThemedView type="backgroundElement" style={styles.filterPanel}>
+              <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
+              <TradePicker mode="multi" selected={filterTradeIds} onChange={setFilterTradeIds} />
 
-            <ThemedText type="smallBold">{t('postJob.puebloLabel')}</ThemedText>
-            <PuebloPicker mode="multi" selected={filterPuebloSlugs} onChange={setFilterPuebloSlugs} />
+              <ThemedText type="smallBold">{t('postJob.puebloLabel')}</ThemedText>
+              <PuebloPicker mode="multi" selected={filterPuebloSlugs} onChange={setFilterPuebloSlugs} />
 
-            <ThemedText type="smallBold">{t('myBids.statusLabel')}</ThemedText>
-            {SECTION_DEFS.map((def) => {
-              const isSelected = filterStatusKeys.includes(def.key);
-              return (
-                <Pressable
-                  key={def.key}
-                  onPress={() => toggleStatusFilter(def.key)}
-                  style={[styles.statusRow, { backgroundColor: isSelected ? theme.backgroundSelected : 'transparent' }]}>
-                  <ThemedText type="default">{t(def.titleKey)}</ThemedText>
-                  {isSelected && <ThemedText type="smallBold">✓</ThemedText>}
-                </Pressable>
-              );
-            })}
+              <ThemedText type="smallBold">{t('myBids.statusLabel')}</ThemedText>
+              {SECTION_DEFS.map((def) => {
+                const isSelected = filterStatusKeys.includes(def.key);
+                return (
+                  <Pressable
+                    key={def.key}
+                    onPress={() => toggleStatusFilter(def.key)}
+                    style={[
+                      styles.statusRow,
+                      { backgroundColor: isSelected ? theme.backgroundSelected : 'transparent' },
+                    ]}>
+                    <ThemedText type="default">{t(def.titleKey)}</ThemedText>
+                    {isSelected && <ThemedText type="smallBold">✓</ThemedText>}
+                  </Pressable>
+                );
+              })}
 
-            {hasActiveFilters && (
-              <PrimaryButton
-                label={t('myBids.clearFilters')}
-                variant="secondary"
-                onPress={() => {
-                  setFilterTradeIds([]);
-                  setFilterPuebloSlugs([]);
-                  setFilterStatusKeys([]);
-                }}
-              />
-            )}
-          </ThemedView>
-        )}
-
-        {loadError ? (
+              {hasActiveFilters && (
+                <PrimaryButton
+                  label={t('myBids.clearFilters')}
+                  variant="secondary"
+                  onPress={() => {
+                    setFilterTradeIds([]);
+                    setFilterPuebloSlugs([]);
+                    setFilterStatusKeys([]);
+                  }}
+                />
+              )}
+            </ThemedView>
+            <PrimaryButton
+              label={t('myBids.showResults', { count: sections.reduce((sum, s) => sum + s.data.length, 0) })}
+              onPress={() => setFiltersOpen(false)}
+            />
+          </ScrollView>
+        ) : loadError ? (
           <ThemedText type="small" style={styles.error}>
             {t('common.loadError', { error: loadError })}
           </ThemedText>
@@ -387,6 +403,10 @@ const styles = StyleSheet.create({
   },
   controlButton: {
     flex: 1,
+  },
+  filterScroll: {
+    gap: Spacing.three,
+    paddingBottom: Spacing.six,
   },
   filterPanel: {
     padding: Spacing.three,

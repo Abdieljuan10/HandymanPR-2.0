@@ -109,7 +109,7 @@ cron is the backstop). **Not fixed:** updates without `.select()` that RLS
 could silently skip (accept bid, withdraw bid) — the refresh after shows the
 real state, so it's visible, just not explained.
 
-### Filter panel scroll — REAL fix 2026-09-24 (not yet phone-tested)
+### Filter panel scroll — REAL fix 2026-09-24
 The 2026-09-23 fix (`506c8b3`, filter panel moved into the FlatList's
 `ListHeaderComponent`) never worked on Android — the client re-reported it
 on the handyman job feed. It was verified by `tsc` only, never on a device.
@@ -119,12 +119,30 @@ drags starting on the SVG map's pressable Paths get swallowed. Fix: with
 filters open, the feed and Browse render a plain **ScrollView** holding the
 panel (the structure Post Job uses, which scrolls on-device) plus a "Show N
 jobs/handymen" button back to results; `nestedScrollEnabled` added to
-PuebloList. **Lesson: a scroll/gesture fix isn't done until it's been
-scrolled on the phone.**
+PuebloList. **Confirmed on-device 2026-09-24** on the handyman job feed
+(scrolled through every trade + map + pueblo list, reached "Ver 3 trabajos")
+and on Browse + Pueblos (client side). **Lesson: a scroll/gesture fix isn't
+done until it's been scrolled on the phone.**
+
+**Fourth screen, same bug, found by the client 2026-09-24: My Bids
+("Mis Ofertas")** — its own filter panel (trade/pueblo/status, same fixed-
+panel-above-a-SectionList shape) wasn't touched by the original sweep at
+all. Fixed the same way (ScrollView + "Show N bids" button), **not yet
+phone-tested.** This one was missed because the original sweep went by
+screens already known to have filters, not by searching for the pattern
+itself. Re-grepped `filterPanel|filtersOpen` across `src` afterward: only
+Browse, the job feed and My Bids match, so all three known instances are now
+fixed and none remain.
+
 Same pass found an **audit miss**: the handyman job feed's main jobs query
 still ignored its error ("no open jobs match" on failure) — skipped because
 the file had been edited earlier that day. Fixed; a codebase-wide grep for
 error-less result destructures now comes back clean.
+
+**Separate, not urgent:** the Puerto Rico map in the pueblo picker renders
+correctly but at very low contrast (faint white municipio outlines on light
+gray) — confirmed by the client as a contrast issue, not a rendering bug.
+Fold into the eventual visual/color pass, not on its own.
 
 ### Known, not fixed (small)
 - `enforce_bid_insert` runs before RLS, so a bid insert on any job id

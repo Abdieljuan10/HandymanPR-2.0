@@ -133,7 +133,9 @@
     "statusLabel": "Estado",
     "sortLabel": "Ordenar",
     "sortNewest": "Más Recientes Primero",
-    "sortOldest": "Más Antiguos Primero"
+    "sortOldest": "Más Antiguos Primero",
+    "showResults_one": "Ver {{count}} oferta",
+    "showResults_other": "Ver {{count}} ofertas"
   },
   "postJob": {
     "title": "Publicar un Trabajo",

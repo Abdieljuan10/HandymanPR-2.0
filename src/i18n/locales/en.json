@@ -133,7 +133,9 @@
     "statusLabel": "Status",
     "sortLabel": "Sort",
     "sortNewest": "Newest First",
-    "sortOldest": "Oldest First"
+    "sortOldest": "Oldest First",
+    "showResults_one": "Show {{count}} bid",
+    "showResults_other": "Show {{count}} bids"
   },
   "postJob": {
     "title": "Post a Job",
