@@ -79,6 +79,9 @@ export default function JobDetailScreen() {
   const [renewError, setRenewError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Parts of the screen that failed to (re)load, shown as a notice instead of
+  // letting them render as empty (see applyResult).
+  const [partialError, setPartialError] = useState<string | null>(null);
   // Handymen invited by name to this PUBLIC job (job_invitations). Fetched
   // on its own, not embedded in JOB_SELECT: an embed error fails the whole
   // job query, and this screen treats that as "job not found" -- so a
@@ -97,17 +100,50 @@ export default function JobDetailScreen() {
     return { jobResult, photosResult, addressResult, bidsResult, reviewsResult };
   }, [id]);
 
+  // One place that applies a fetchAll() result, for the first load and every
+  // refresh after an action. A failed part never overwrites what's on
+  // screen with an empty value -- a failed bids query used to read as "no
+  // bids yet" (a client could delete a job people had bid on), and a failed
+  // refresh right after accepting/cancelling/renewing used to show "not
+  // found". Failures are listed in partialError instead.
+  type FetchAllResult = NonNullable<Awaited<ReturnType<typeof fetchAll>>>;
+  const applyResult = useCallback((result: FetchAllResult, isRefresh: boolean) => {
+    const failures: string[] = [];
+
+    if (result.jobResult.error) {
+      if (isRefresh) {
+        failures.push(result.jobResult.error.message);
+      } else {
+        setLoadError(result.jobResult.error.message);
+        setJob(null);
+      }
+    } else {
+      setLoadError(null);
+      setJob((result.jobResult.data as JobDetailRow | null) ?? null);
+    }
+
+    if (result.photosResult.error) failures.push(result.photosResult.error.message);
+    else setPhotos(result.photosResult.data ?? []);
+
+    if (result.addressResult.error) failures.push(result.addressResult.error.message);
+    else setAddress(result.addressResult.data?.full_address ?? null);
+
+    if (result.bidsResult.error) failures.push(result.bidsResult.error.message);
+    else setBids((result.bidsResult.data as unknown as BidRow[] | null) ?? []);
+
+    if (result.reviewsResult.error) failures.push(result.reviewsResult.error.message);
+    else setReviews((result.reviewsResult.data as ReviewRow[] | null) ?? []);
+
+    if (failures.length > 0) console.error('Job detail: some data failed to load:', failures);
+    setPartialError(failures.length > 0 ? failures.join('; ') : null);
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
       fetchAll().then((result) => {
         if (!isMounted || !result) return;
-        setLoadError(result.jobResult.error ? result.jobResult.error.message : null);
-        setJob(result.jobResult.error ? null : ((result.jobResult.data as JobDetailRow | null) ?? null));
-        setPhotos(result.photosResult.data ?? []);
-        setAddress(result.addressResult.data?.full_address ?? null);
-        setBids((result.bidsResult.data as BidRow[] | null) ?? []);
-        setReviews((result.reviewsResult.data as ReviewRow[] | null) ?? []);
+        applyResult(result, false);
       });
       supabase
         .from('job_invitations')
@@ -128,7 +164,7 @@ export default function JobDetailScreen() {
       return () => {
         isMounted = false;
       };
-    }, [fetchAll, id])
+    }, [fetchAll, applyResult, id])
   );
 
   async function confirmAccept(bid: BidRow) {
@@ -157,11 +193,7 @@ export default function JobDetailScreen() {
     }
 
     const result = await fetchAll();
-    if (result) {
-      setJob((result.jobResult.data as JobDetailRow | null) ?? null);
-      setAddress(result.addressResult.data?.full_address ?? null);
-      setBids((result.bidsResult.data as BidRow[] | null) ?? []);
-    }
+    if (result) applyResult(result, true);
   }
 
   function confirmRemoveJob() {
@@ -245,11 +277,13 @@ export default function JobDetailScreen() {
       }
     }
 
-    const { error } = await supabase.from('jobs').delete().eq('id', id);
+    // .select() so a delete the RLS policy silently skips (0 rows, no error)
+    // is caught instead of navigating back as if it worked.
+    const { data: deleted, error } = await supabase.from('jobs').delete().eq('id', id).select('id');
     setRemoving(false);
 
-    if (error) {
-      setRemoveError(`${t('jobDelete.error')} (${error.message})`);
+    if (error || !deleted || deleted.length === 0) {
+      setRemoveError(`${t('jobDelete.error')} (${error?.message ?? t('common.nothingChanged')})`);
       return;
     }
     router.back();
@@ -268,10 +302,7 @@ export default function JobDetailScreen() {
       return;
     }
     const result = await fetchAll();
-    if (result) {
-      setJob((result.jobResult.data as JobDetailRow | null) ?? null);
-      setBids((result.bidsResult.data as BidRow[] | null) ?? []);
-    }
+    if (result) applyResult(result, true);
   }
 
   async function handleRenew() {
@@ -287,9 +318,7 @@ export default function JobDetailScreen() {
       return;
     }
     const result = await fetchAll();
-    if (result) {
-      setJob((result.jobResult.data as JobDetailRow | null) ?? null);
-    }
+    if (result) applyResult(result, true);
   }
 
   if (job === undefined) {
@@ -341,6 +370,12 @@ export default function JobDetailScreen() {
             {formatRelativeTime(job.created_at, t)}
           </ThemedText>
 
+          {partialError && (
+            <ThemedText type="small" style={styles.partialError}>
+              {t('common.partialLoadError', { error: partialError })}
+            </ThemedText>
+          )}
+
           {job.visibility === 'invite_only' && job.invited_handyman && (
             <Link href={`/handyman/${job.invited_handyman.id}`} asChild>
               <Pressable>
@@ -384,9 +419,7 @@ export default function JobDetailScreen() {
               }
               onChanged={async () => {
                 const result = await fetchAll();
-                if (result) {
-                  setJob((result.jobResult.data as JobDetailRow | null) ?? null);
-                }
+                if (result) applyResult(result, true);
               }}
             />
           )}
@@ -445,10 +478,7 @@ export default function JobDetailScreen() {
               }
               onChanged={async () => {
                 const result = await fetchAll();
-                if (result) {
-                  setJob((result.jobResult.data as JobDetailRow | null) ?? null);
-                  setReviews((result.reviewsResult.data as ReviewRow[] | null) ?? []);
-                }
+                if (result) applyResult(result, true);
               }}
             />
           )}
@@ -515,6 +545,9 @@ export default function JobDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  partialError: {
+    color: '#d64545',
   },
   safeArea: {
     flex: 1,

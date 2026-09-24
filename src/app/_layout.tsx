@@ -3,10 +3,11 @@ import '@/i18n';
 import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef } from 'react';
-import { useColorScheme } from 'react-native';
+import { StyleSheet, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 
+import { AccountLoadErrorScreen } from '@/components/account-load-error-screen';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { LanguageProvider, useLanguage } from '@/providers/language-provider';
 import { SessionProvider, useSession } from '@/providers/session-provider';
@@ -105,10 +106,12 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const colorScheme = useColorScheme();
-  const { session, role, isLoading: isSessionLoading } = useSession();
+  const { session, role, roleError, retryRole, isLoading: isSessionLoading } = useSession();
   const { isLoading: isLanguageLoading } = useLanguage();
 
-  useNotificationDeepLinking(!isSessionLoading && !isLanguageLoading && !!session);
+  // Needs a role too: with a session but no role (see accountLoadFailed below)
+  // no protected route is mounted, so a deep link would have nowhere to go.
+  useNotificationDeepLinking(!isSessionLoading && !isLanguageLoading && !!session && !!role);
 
   // Keep the native splash screen up (we never call hideAsync until this
   // point) so nobody sees a flash of the wrong screen/language while we
@@ -116,6 +119,13 @@ function RootNavigator() {
   if (isSessionLoading || isLanguageLoading) {
     return null;
   }
+
+  // Signed in but the account's role couldn't be determined (e.g. a network
+  // failure at launch). No route guard below matches that state, so without
+  // this the app renders a blank screen with no way out. Overlaid on the
+  // Stack, NOT an early return: AnimatedSplashOverlay below is what hides the
+  // native splash, and the root layout must keep its navigator mounted.
+  const accountLoadFailed = !!session && !role;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -139,6 +149,11 @@ function RootNavigator() {
               <Stack.Screen name="(handyman)" />
             </Stack.Protected>
           </Stack>
+          {accountLoadFailed && (
+            <View style={StyleSheet.absoluteFill}>
+              <AccountLoadErrorScreen error={roleError} onRetry={retryRole} />
+            </View>
+          )}
         </ThemeProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>

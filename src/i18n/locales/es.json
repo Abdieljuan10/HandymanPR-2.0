@@ -10,7 +10,14 @@
     "spanish": "Español",
     "english": "English",
     "loadError": "No se pudo cargar. {{error}}",
-    "imageLoadError": "La imagen no se pudo cargar"
+    "imageLoadError": "La imagen no se pudo cargar",
+    "partialLoadError": "Parte de esto no se pudo cargar, así que puede faltar información o estar desactualizada. {{error}}",
+    "nothingChanged": "no se cambió nada",
+    "deleteError": "No se pudo eliminar. {{error}}",
+    "photosFailedTitle": "Algunas fotos no se guardaron",
+    "photosFailed_one": "No se pudo guardar {{count}} foto. Todo lo demás sí — puedes añadirla de nuevo editando.",
+    "photosFailed_other": "No se pudieron guardar {{count}} fotos. Todo lo demás sí — puedes añadirlas de nuevo editando.",
+    "messageError": "No se pudo abrir la conversación. {{error}}"
   },
   "welcome": {
     "tagline": "Encuentra ayuda local de confianza, o encuentra trabajo cerca de ti.",
@@ -484,5 +491,10 @@
     "inviting": "Invitando…",
     "invited": "Invitado",
     "alreadyBid": "Ya cotizó"
+  },
+  "accountLoadError": {
+    "title": "No se pudo cargar tu cuenta",
+    "message": "Revisa tu conexión e inténtalo de nuevo. Tu cuenta y tus datos están a salvo.",
+    "retry": "Intentar de Nuevo"
   }
 }

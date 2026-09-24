@@ -10,7 +10,14 @@
     "spanish": "Español",
     "english": "English",
     "loadError": "Couldn't load this. {{error}}",
-    "imageLoadError": "Image failed to load"
+    "imageLoadError": "Image failed to load",
+    "partialLoadError": "Some of this couldn't load, so parts may be missing or out of date. {{error}}",
+    "nothingChanged": "nothing was changed",
+    "deleteError": "Couldn't delete. {{error}}",
+    "photosFailedTitle": "Some photos were not saved",
+    "photosFailed_one": "{{count}} photo couldn't be saved. Everything else was — you can add it again by editing.",
+    "photosFailed_other": "{{count}} photos couldn't be saved. Everything else was — you can add them again by editing.",
+    "messageError": "Couldn't open the chat. {{error}}"
   },
   "welcome": {
     "tagline": "Find trusted local help, or find work near you.",
@@ -484,5 +491,10 @@
     "inviting": "Inviting…",
     "invited": "Invited",
     "alreadyBid": "Already bid"
+  },
+  "accountLoadError": {
+    "title": "Couldn't load your account",
+    "message": "Check your connection and try again. Your account and data are safe.",
+    "retry": "Try Again"
   }
 }

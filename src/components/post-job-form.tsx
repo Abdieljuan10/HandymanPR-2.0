@@ -157,11 +157,18 @@ export function PostJobForm({ invite }: { invite?: Invite }) {
       .insert({ job_id: job.id, full_address: address.trim() });
 
     if (locationError) {
+      // Roll the job back: left in place it's a live job with no address
+      // that handymen can already see and bid on, and "try again" would post
+      // a duplicate. (Its new-job push has already gone out -- a job and its
+      // address can only be made atomic server-side.)
+      const { error: rollbackError } = await supabase.from('jobs').delete().eq('id', job.id);
+      if (rollbackError) console.error('Failed to roll back job without address:', rollbackError.message);
       setSubmitError(locationError.message);
       setSubmitting(false);
       return;
     }
 
+    let failedPhotos = 0;
     for (const [index, photo] of photos.entries()) {
       try {
         const compressed = await compressJobPhoto(photo.uri, photo.width, photo.height);
@@ -175,16 +182,31 @@ export function PostJobForm({ invite }: { invite?: Invite }) {
 
         if (uploadError) {
           console.warn('Photo upload failed:', uploadError.message);
+          failedPhotos += 1;
           continue;
         }
 
         const { data: publicUrl } = supabase.storage.from('job-photos').getPublicUrl(path);
-        await supabase
+        const { error: photoRowError } = await supabase
           .from('job_photos')
           .insert({ job_id: job.id, photo_url: publicUrl.publicUrl, sort_order: index });
+        if (photoRowError) {
+          console.warn('Photo record failed:', photoRowError.message);
+          failedPhotos += 1;
+        }
       } catch (photoError) {
         console.warn('Photo upload failed:', photoError);
+        failedPhotos += 1;
       }
+    }
+
+    // The job itself is posted either way; say so rather than letting
+    // missing photos look like the post went through complete.
+    if (failedPhotos > 0) {
+      notify({
+        title: t('common.photosFailedTitle'),
+        message: t('common.photosFailed', { count: failedPhotos }),
+      });
     }
 
     setSubmitting(false);

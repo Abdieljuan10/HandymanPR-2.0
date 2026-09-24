@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 import { registerForPushNotifications } from '@/lib/push-notifications';
@@ -10,27 +10,42 @@ type SessionContextValue = {
   session: Session | null;
   role: AccountRole | null;
   isLoading: boolean;
+  // Set when there IS a session but its role couldn't be determined (a
+  // failed lookup, or a profile that couldn't be created). The root layout
+  // shows a retry/log-out screen for it -- with a session and no role, no
+  // route guard matches and the app would otherwise render a blank screen
+  // with no way out.
+  roleError: string | null;
+  retryRole: () => void;
 };
 
 const SessionContext = createContext<SessionContextValue>({
   session: null,
   role: null,
   isLoading: true,
+  roleError: null,
+  retryRole: () => {},
 });
 
 export function useSession() {
   return useContext(SessionContext);
 }
 
-async function lookUpRole(userId: string): Promise<AccountRole | null> {
-  const [{ data: client }, { data: handyman }] = await Promise.all([
+type RoleResult = { role: AccountRole | null; error: string | null };
+
+// A failed lookup must never read as "no profile": ensureProfile() would
+// then try to create one from the sign-up metadata. Errors are returned, not
+// swallowed.
+async function lookUpRole(userId: string): Promise<RoleResult> {
+  const [clientResult, handymanResult] = await Promise.all([
     supabase.from('client_profiles').select('id').eq('id', userId).maybeSingle(),
     supabase.from('handyman_profiles').select('id').eq('id', userId).maybeSingle(),
   ]);
 
-  if (client) return 'client';
-  if (handyman) return 'handyman';
-  return null;
+  if (clientResult.data) return { role: 'client', error: null };
+  if (handymanResult.data) return { role: 'handyman', error: null };
+  const error = clientResult.error ?? handymanResult.error;
+  return { role: null, error: error ? error.message : null };
 }
 
 // Sign-up screens stash { pending_role, full_name } in the auth user's own
@@ -41,28 +56,49 @@ async function lookUpRole(userId: string): Promise<AccountRole | null> {
 // ever see a session for this user with no matching profile row yet, we
 // create it here from that stashed metadata. Works whether or not email
 // confirmation is turned on.
-async function ensureProfile(session: Session): Promise<AccountRole | null> {
-  const existingRole = await lookUpRole(session.user.id);
-  if (existingRole) return existingRole;
+async function ensureProfile(session: Session): Promise<RoleResult> {
+  const existing = await lookUpRole(session.user.id);
+  if (existing.role || existing.error) return existing;
 
   const pendingRole = session.user.user_metadata?.pending_role as AccountRole | undefined;
-  if (!pendingRole) return null;
+  if (!pendingRole) return { role: null, error: 'No profile found for this account.' };
 
   const fullName = (session.user.user_metadata?.full_name as string | undefined) ?? '';
   const table = pendingRole === 'client' ? 'client_profiles' : 'handyman_profiles';
   const { error } = await supabase.from(table).insert({ id: session.user.id, full_name: fullName });
 
   if (error) {
+    // Usually a race, not a real failure: registration runs ensureProfile()
+    // twice at once on login (getSession + the auth listener), so on a
+    // brand-new account both can find no profile and both insert -- one hits
+    // the primary key. If the profile exists now, that's success.
+    const retry = await lookUpRole(session.user.id);
+    if (retry.role) return retry;
     console.warn('Could not create profile from pending sign-up metadata:', error.message);
-    return null;
+    return { role: null, error: error.message };
   }
-  return pendingRole;
+  return { role: pendingRole, error: null };
 }
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AccountRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [roleError, setRoleError] = useState<string | null>(null);
+
+  const applyRole = useCallback((result: RoleResult | null) => {
+    setRole(result?.role ?? null);
+    setRoleError(result?.error ?? null);
+  }, []);
+
+  const retryRole = useCallback(() => {
+    if (!session) return;
+    setIsLoading(true);
+    ensureProfile(session).then((result) => {
+      applyRole(result);
+      setIsLoading(false);
+    });
+  }, [session, applyRole]);
 
   useEffect(() => {
     let isMounted = true;
@@ -70,9 +106,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!isMounted) return;
       setSession(data.session);
-      const nextRole = data.session ? await ensureProfile(data.session) : null;
+      const result = data.session ? await ensureProfile(data.session) : null;
       if (!isMounted) return;
-      setRole(nextRole);
+      applyRole(result);
       setIsLoading(false);
       if (data.session) {
         registerForPushNotifications(data.session.user.id).catch((err) =>
@@ -85,9 +121,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (!isMounted) return;
       setIsLoading(true);
       setSession(nextSession);
-      const nextRole = nextSession ? await ensureProfile(nextSession) : null;
+      const result = nextSession ? await ensureProfile(nextSession) : null;
       if (!isMounted) return;
-      setRole(nextRole);
+      applyRole(result);
       setIsLoading(false);
       if (nextSession) {
         registerForPushNotifications(nextSession.user.id).catch((err) =>
@@ -100,10 +136,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       isMounted = false;
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [applyRole]);
 
   return (
-    <SessionContext.Provider value={{ session, role, isLoading }}>
+    <SessionContext.Provider value={{ session, role, isLoading, roleError, retryRole }}>
       {children}
     </SessionContext.Provider>
   );

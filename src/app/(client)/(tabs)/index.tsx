@@ -43,7 +43,10 @@ export default function ClientHomeScreen() {
   const theme = useTheme();
   const { session } = useSession();
   const [jobs, setJobs] = useState<ClientJobRow[] | null>(null);
-  const [bidCounts, setBidCounts] = useState<Record<string, number>>({});
+  // null = the count query failed -- the "N bids" line is left off rather
+  // than showing a false "0 bids".
+  const [bidCounts, setBidCounts] = useState<Record<string, number> | null>({});
+  const [loadError, setLoadError] = useState<string | null>(null);
   // Archiving only ever applies to completed jobs here (see
   // 20260930010000_job_archives.sql) -- cancelled/expired jobs already have
   // a real delete option, and the client's own call was that completed jobs
@@ -56,14 +59,24 @@ export default function ClientHomeScreen() {
   const load = useCallback(async () => {
     if (!session) return;
 
-    const [{ data }, { data: archivesData }] = await Promise.all([
+    const [{ data, error }, { data: archivesData, error: archivesError }] = await Promise.all([
       supabase.from('jobs').select(JOBS_SELECT).eq('client_id', session.user.id).order('created_at', {
         ascending: false,
       }),
       supabase.from('job_archives').select('job_id').eq('user_id', session.user.id),
     ]);
 
-    const jobsData = (data as ClientJobRow[] | null) ?? [];
+    // A failed load must not read as "you haven't posted a job yet".
+    if (error) {
+      console.error('Failed to load jobs:', error.message);
+      setLoadError(error.message);
+      setJobs([]);
+      return;
+    }
+    setLoadError(null);
+    if (archivesError) console.error('Failed to load archived jobs:', archivesError.message);
+
+    const jobsData = (data as unknown as ClientJobRow[] | null) ?? [];
     setJobs(jobsData);
     setArchivedJobIds(new Set((archivesData ?? []).map((row) => row.job_id as string)));
 
@@ -73,11 +86,19 @@ export default function ClientHomeScreen() {
       return;
     }
 
-    const { data: bidsData } = await supabase
+    const { data: bidsData, error: bidsError } = await supabase
       .from('bids')
       .select('job_id')
       .in('job_id', openJobIds)
       .neq('status', 'withdrawn');
+
+    // Unknown, not zero: a failed count leaves the line off rather than
+    // telling the client nobody has bid.
+    if (bidsError) {
+      console.error('Failed to load bid counts:', bidsError.message);
+      setBidCounts(null);
+      return;
+    }
 
     const counts: Record<string, number> = {};
     for (const row of bidsData ?? []) {
@@ -181,7 +202,7 @@ export default function ClientHomeScreen() {
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         ) : sections.length === 0 ? (
           <ThemedText type="default" themeColor="textSecondary">
-            {t('clientHome.empty')}
+            {loadError !== null ? t('common.loadError', { error: loadError }) : t('clientHome.empty')}
           </ThemedText>
         ) : (
           <SectionList
@@ -207,7 +228,7 @@ export default function ClientHomeScreen() {
                       </View>
                       <ThemedText type="small" themeColor="textSecondary">
                         {item.pueblos?.name} · {t(`jobStatus.${item.status}`)}
-                        {item.status === 'open'
+                        {item.status === 'open' && bidCounts
                           ? ` · ${t('clientHome.bidCount', { count: bidCounts[item.id] ?? 0 })}`
                           : ''}{' '}
                         · {formatRelativeTime(item.created_at, t)}
