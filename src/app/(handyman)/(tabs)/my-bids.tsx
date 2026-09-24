@@ -264,7 +264,7 @@ export default function MyBidsScreen() {
             pressable shapes get swallowed. See job feed / Browse for the
             same fix. */}
         {filtersOpen ? (
-          <ScrollView contentContainerStyle={styles.filterScroll} keyboardShouldPersistTaps="handled">
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterScroll} keyboardShouldPersistTaps="handled">
             <ThemedView type="backgroundElement" style={styles.filterPanel}>
               <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
               <TradePicker mode="multi" selected={filterTradeIds} onChange={setFilterTradeIds} />
@@ -318,6 +318,7 @@ export default function MyBidsScreen() {
           </ThemedText>
         ) : (
           <SectionList
+            showsVerticalScrollIndicator={false}
             sections={sections}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}

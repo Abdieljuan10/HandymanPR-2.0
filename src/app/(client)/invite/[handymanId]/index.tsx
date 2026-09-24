@@ -106,6 +106,7 @@ export default function InviteChooserScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
         <FlatList
+          showsVerticalScrollIndicator={false}
           data={jobs}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}

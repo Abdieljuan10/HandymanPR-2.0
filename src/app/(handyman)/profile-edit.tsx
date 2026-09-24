@@ -291,7 +291,7 @@ export default function HandymanProfileEditScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingScreen>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             <Pressable style={styles.avatarWrapper} onPress={handlePickAvatar}>
               {displayAvatarUri ? (
                 <Image source={{ uri: displayAvatarUri }} style={styles.avatar} />

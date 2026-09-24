@@ -207,6 +207,7 @@ export default function ClientHomeScreen() {
           </ThemedText>
         ) : (
           <SectionList
+            showsVerticalScrollIndicator={false}
             sections={sections}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}

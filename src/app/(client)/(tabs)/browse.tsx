@@ -162,7 +162,7 @@ export default function BrowseHandymenScreen() {
             pressable shapes are swallowed. The search box stays in the list
             header (as an element, not a component, so it keeps focus). */}
         {filtersOpen ? (
-          <ScrollView contentContainerStyle={styles.filterScroll} keyboardShouldPersistTaps="handled">
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterScroll} keyboardShouldPersistTaps="handled">
             {filtersButton}
             <ThemedView type="backgroundElement" style={styles.filterPanel}>
               <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
@@ -189,6 +189,7 @@ export default function BrowseHandymenScreen() {
           </ScrollView>
         ) : (
           <FlatList
+            showsVerticalScrollIndicator={false}
             data={visibleHandymen ?? []}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}

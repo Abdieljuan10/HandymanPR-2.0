@@ -53,6 +53,7 @@ export function TradePicker({ mode, selected, onChange }: TradePickerProps) {
 
   return (
     <FlatList
+      showsVerticalScrollIndicator={false}
       data={trades}
       keyExtractor={(item) => String(item.id)}
       scrollEnabled={false}

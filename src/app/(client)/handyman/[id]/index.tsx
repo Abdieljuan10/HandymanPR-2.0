@@ -250,7 +250,7 @@ export default function PublicHandymanProfileScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.headerRow}>
             {profile.avatar_url ? (
               <Pressable onPress={() => setAvatarViewerOpen(true)}>

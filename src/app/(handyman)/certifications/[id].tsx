@@ -168,7 +168,7 @@ export default function EditCertificationScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingScreen>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             {isVerified && (
               <ThemedText type="small" themeColor="textSecondary">
                 {t('certifications.verifiedEditNotice')}

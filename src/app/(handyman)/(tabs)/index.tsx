@@ -146,7 +146,7 @@ export default function HandymanJobFeedScreen() {
             nestedScrollEnabled, and drags that start on the SVG map's
             pressable shapes are swallowed. */}
         {filtersOpen ? (
-          <ScrollView contentContainerStyle={styles.filterScroll} keyboardShouldPersistTaps="handled">
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterScroll} keyboardShouldPersistTaps="handled">
             {filtersButton}
             <ThemedView type="backgroundElement" style={styles.filterPanel}>
               <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
@@ -175,6 +175,7 @@ export default function HandymanJobFeedScreen() {
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         ) : (
           <FlatList
+            showsVerticalScrollIndicator={false}
             data={filteredJobs}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}

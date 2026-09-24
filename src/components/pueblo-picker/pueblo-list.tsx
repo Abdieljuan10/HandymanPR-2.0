@@ -43,6 +43,7 @@ export function PuebloList({ selected, onToggle }: PuebloListProps) {
         ]}
       />
       <FlatList
+        showsVerticalScrollIndicator={false}
         data={filtered}
         keyExtractor={(item) => item.slug}
         style={styles.list}

@@ -98,7 +98,7 @@ export default function PortfolioProjectDetailScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <ThemedText type="subtitle">{project.title}</ThemedText>
           {subtitle.length > 0 && (
             <ThemedText type="small" themeColor="textSecondary">

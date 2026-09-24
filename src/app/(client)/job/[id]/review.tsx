@@ -49,7 +49,7 @@ export default function ClientReviewScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingScreen>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             <ThemedText type="subtitle">{t('reviews.title')}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {t('reviews.blindNotice')}

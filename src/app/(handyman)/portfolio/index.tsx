@@ -108,7 +108,7 @@ export default function PortfolioProjectsScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <ThemedText type="default" themeColor="textSecondary">
             {t('portfolio.intro')}
           </ThemedText>

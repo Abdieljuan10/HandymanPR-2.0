@@ -68,7 +68,7 @@ export default function HandymanProfileScreen() {
         <AppHeader pageTitle={t('handymanProfile.title')} />
       </SafeAreaView>
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.headerRow}>
             {profile?.avatar_url ? (
               <Pressable onPress={() => setAvatarViewerOpen(true)}>

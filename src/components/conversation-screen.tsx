@@ -304,6 +304,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
           </View>
 
           <FlatList
+            showsVerticalScrollIndicator={false}
             ref={listRef}
             data={messages}
             keyExtractor={(item) => item.id}

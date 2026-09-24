@@ -374,7 +374,7 @@ export default function EditJobScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingScreen>
-        <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
+        <ScrollView showsVerticalScrollIndicator={false} ref={scrollRef} contentContainerStyle={styles.scrollContent}>
           <FormField
             label={t('postJob.titleLabel')}
             value={title}

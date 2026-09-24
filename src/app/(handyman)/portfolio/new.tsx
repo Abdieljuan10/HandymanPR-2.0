@@ -164,7 +164,7 @@ export default function NewPortfolioProjectScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingScreen>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             <FormField
               label={t('portfolio.titleLabel')}
               value={title}

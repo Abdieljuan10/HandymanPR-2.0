@@ -256,7 +256,7 @@ export function PostJobForm({ invite }: { invite?: Invite }) {
       )}
       <SafeAreaView {...(!invite ? { edges: ['left', 'right', 'bottom'] as const } : {})} style={styles.safeArea}>
         <KeyboardAvoidingScreen>
-        <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
+        <ScrollView showsVerticalScrollIndicator={false} ref={scrollRef} contentContainerStyle={styles.scrollContent}>
           {invite && <ThemedText type="subtitle">{t('postJob.inviteTitle')}</ThemedText>}
           {invite && (
             <ThemedView type="backgroundElement" style={styles.inviteBanner}>

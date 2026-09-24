@@ -143,7 +143,7 @@ export default function CertificationsScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingScreen>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             <ThemedText type="default" themeColor="textSecondary">
               {t('certifications.intro')}
             </ThemedText>

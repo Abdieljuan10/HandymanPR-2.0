@@ -164,6 +164,7 @@ export function ConversationListScreen({ role }: { role: 'client' | 'handyman' }
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         ) : (
           <SectionList
+            showsVerticalScrollIndicator={false}
             sections={sections}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
