@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CenteredTabBarButton } from '@/components/centered-tab-bar-button';
 import { FloatingTabBarBackground } from '@/components/floating-tab-bar-background';
 import { TabBarIcon } from '@/components/tab-bar-icon';
 import { Colors } from '@/constants/theme';
@@ -24,6 +25,7 @@ export default function HandymanTabsLayout() {
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarLabelStyle: { fontSize: 10.5, fontWeight: '600' },
         tabBarBackground: () => <FloatingTabBarBackground />,
+        tabBarButton: (props) => <CenteredTabBarButton {...props} />,
         tabBarStyle: {
           position: 'absolute',
           left: 16,
