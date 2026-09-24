@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FloatingTabBarBackground } from '@/components/floating-tab-bar-background';
@@ -39,11 +40,16 @@ export default function ClientTabsLayout() {
           bottom: insets.bottom + 16,
           height: 68,
           borderRadius: 24,
-          borderTopWidth: 0,
+          borderTopWidth: Platform.OS === 'android' ? StyleSheet.hairlineWidth : 0,
           paddingTop: 0,
           paddingBottom: 0,
           overflow: 'hidden',
-          elevation: 8,
+          // Android draws an elevation shadow UNDER the view, and this bar is
+          // translucent, so the shadow showed through as grey bands/edges
+          // (phone test 2026-09-24). Android gets a hairline border instead.
+          elevation: Platform.OS === 'android' ? 0 : 8,
+          borderWidth: Platform.OS === 'android' ? StyleSheet.hairlineWidth : 0,
+          borderColor: 'rgba(0,0,0,0.12)',
           shadowColor: '#000000',
           shadowOffset: { width: 0, height: 8 },
           shadowOpacity: 0.12,

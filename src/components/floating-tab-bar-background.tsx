@@ -1,5 +1,5 @@
 import { BlurView } from 'expo-blur';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -14,21 +14,27 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 // Android: expo-blur's Android path has no OS-level "blur whatever's
 // behind me" primitive -- it needs a BlurTargetView wired around each tab
 // screen's own content via a shared ref, threaded through this navigator.
-// Not built yet (see TODO.md) -- `blurMethod="none"` here is one of
-// expo-blur's own supported values for exactly this: not attempted, so
-// Android renders this as a flat translucent tint at the same
-// intensity/tint instead of silently blank or erroring. Still floating,
-// still translucent, just not blurred-through on Android today.
+// Not built (see TODO.md). Without a real blur, expo-blur's own flat-tint
+// fallback (~62% opaque at this intensity) let the content behind show
+// through sharply enough to make the tab labels hard to read (phone test
+// 2026-09-24), so Android gets a plain, mostly-opaque tint instead, using
+// the same colors expo-blur's light/dark tints use.
 export function FloatingTabBarBackground() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
+  if (Platform.OS === 'android') {
+    return (
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: isDark ? 'rgba(25,25,25,0.92)' : 'rgba(249,249,249,0.92)' },
+        ]}
+      />
+    );
+  }
+
   return (
-    <BlurView
-      intensity={80}
-      tint={isDark ? 'dark' : 'light'}
-      blurMethod={Platform.OS === 'android' ? 'none' : undefined}
-      style={StyleSheet.absoluteFill}
-    />
+    <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
   );
 }
