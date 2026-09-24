@@ -144,6 +144,18 @@ correctly but at very low contrast (faint white municipio outlines on light
 gray) — confirmed by the client as a contrast issue, not a rendering bug.
 Fold into the eventual visual/color pass, not on its own.
 
+### Subscription status on handyman Settings — DONE 2026-09-24, confirmed
+Read-only, no purchase flow (see the earlier entry above). Client verified
+the stale-flag-past-expiration case correctly shows Free.
+
+### Reviews list capped — 2026-09-24, not yet phone-tested
+`handyman_public_reviews()` still fetches every published review in one call
+(fine at pilot scale, fetch-all-then-filter/cap client-side is this app's
+existing convention — see browse.tsx) — was previously rendered unbounded on
+the public profile. Now capped to the 3 most recent with a "Show all N
+reviews" / "Show fewer reviews" toggle. No migration; the RPC already orders
+newest-first, so the visible 3 are always current.
+
 ### Known, not fixed (small)
 - `enforce_bid_insert` runs before RLS, so a bid insert on any job id
   returns its status/"full" message — minor status oracle, no personal data.

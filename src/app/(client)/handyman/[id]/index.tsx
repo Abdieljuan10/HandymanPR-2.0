@@ -49,6 +49,13 @@ type ReviewRow = {
   author_first_name: string | null;
 };
 
+// handyman_public_reviews() fetches every published review in one go (fine
+// at pilot scale, same "filter/cap client-side" convention as the rest of
+// this app -- see browse.tsx) -- this is only a render cap, so a popular
+// handyman's profile doesn't grow forever. Ordered newest-first server-side,
+// so the visible ones are always the most recent.
+const REVIEWS_CAP = 3;
+
 export default function PublicHandymanProfileScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
@@ -68,6 +75,7 @@ export default function PublicHandymanProfileScreen() {
   // null = not loaded, or the load failed -- the whole Reviews section is
   // hidden then, rather than wrongly claiming "No reviews yet".
   const [reviews, setReviews] = useState<ReviewRow[] | null>(null);
+  const [showAllReviews, setShowAllReviews] = useState(false);
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   // Sections that failed to load. They used to just disappear, which on a
@@ -348,22 +356,33 @@ export default function PublicHandymanProfileScreen() {
                   {t('handymanPublicProfile.noReviews')}
                 </ThemedText>
               ) : (
-                reviews.map((review) => (
-                  <ThemedView key={review.id} type="backgroundElement" style={styles.reviewCard}>
-                    {/* Plain text on purpose -- never a Link or Pressable to
-                        the reviewer's profile (client's rule). */}
-                    <ThemedText type="smallBold">
-                      {review.author_first_name ?? t('handymanPublicProfile.reviewerFallback')}
-                    </ThemedText>
-                    <View style={styles.ratingRow}>
-                      <StarDisplay rating={review.rating} />
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {formatRelativeTime(review.published_at, t)}
+                <>
+                  {(showAllReviews ? reviews : reviews.slice(0, REVIEWS_CAP)).map((review) => (
+                    <ThemedView key={review.id} type="backgroundElement" style={styles.reviewCard}>
+                      {/* Plain text on purpose -- never a Link or Pressable to
+                          the reviewer's profile (client's rule). */}
+                      <ThemedText type="smallBold">
+                        {review.author_first_name ?? t('handymanPublicProfile.reviewerFallback')}
                       </ThemedText>
-                    </View>
-                    {review.comment && <ThemedText type="default">{review.comment}</ThemedText>}
-                  </ThemedView>
-                ))
+                      <View style={styles.ratingRow}>
+                        <StarDisplay rating={review.rating} />
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {formatRelativeTime(review.published_at, t)}
+                        </ThemedText>
+                      </View>
+                      {review.comment && <ThemedText type="default">{review.comment}</ThemedText>}
+                    </ThemedView>
+                  ))}
+                  {reviews.length > REVIEWS_CAP && (
+                    <Pressable onPress={() => setShowAllReviews((prev) => !prev)}>
+                      <ThemedText type="small" themeColor="tint">
+                        {showAllReviews
+                          ? t('handymanPublicProfile.showFewerReviews')
+                          : t('handymanPublicProfile.showAllReviews', { count: reviews.length })}
+                      </ThemedText>
+                    </Pressable>
+                  )}
+                </>
               )}
             </View>
           )}
