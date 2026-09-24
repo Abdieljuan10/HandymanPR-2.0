@@ -13,7 +13,7 @@ import { PuebloPicker } from '@/components/pueblo-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TradePicker } from '@/components/trade-picker';
-import { Colors, Spacing } from '@/constants/theme';
+import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePueblos } from '@/hooks/use-pueblos';
 import { supabase } from '@/lib/supabase';
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   },
   filterScroll: {
     gap: Spacing.three,
-    paddingBottom: Spacing.six,
+    paddingBottom: BottomTabInset,
   },
   filterPanel: {
     padding: Spacing.three,
@@ -422,6 +422,7 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: Spacing.two,
+    paddingBottom: BottomTabInset,
   },
   sectionHeader: {
     marginTop: Spacing.two,

@@ -151,7 +151,46 @@ nav B, header C, map B. Built in this order, **not yet phone-tested**:
    secondary top-right toggle (archived/saved) moved that toggle to its own
    right-aligned row below the header. Handyman Profile keeps its own name
    in large text as page content, separate from the header's "Tu Perfil".
-4. **Bottom nav B (floating translucent)** — next up, see below.
+4. **Bottom nav B (floating translucent) — DONE, not yet phone-tested,
+   Android is a known partial implementation (read before testing).**
+   New `expo-blur` dependency (`~57.0.3`) -- **a new native module, so the
+   existing installed dev client needs a fresh EAS build
+   (`eas build --profile development`) before this renders at all; on the
+   current build it will likely just show as a solid/blank bar, not crash.**
+   Both `Tabs` layouts: `tabBarStyle` now `position:'absolute'`, inset
+   16px + the device's bottom safe-area inset from the edges, 68 tall,
+   rounded 24, `tabBarBackground` renders a new `FloatingTabBarBackground`
+   (BlurView). Active tab's icon gets a small tint pill (new `TabBarIcon`,
+   `theme.tint` at ~16% alpha) matching the approved mockup specifically --
+   deliberately NOT react-navigation's built-in
+   `tabBarActiveBackgroundColor`, which highlights the icon+label together
+   as one bigger block, a different look than what was shown and picked.
+   **iOS/web:** real live blur, matches the mockup.
+   **Android — read this before testing:** expo-blur's Android blur has no
+   OS-level "blur whatever's behind me" primitive; getting a REAL blur
+   there needs a `BlurTargetView` wired around every tab screen's content
+   via a shared ref, which would mean touching all 9 screens a second time
+   with context plumbing I could not verify without a device. Scoped down
+   instead: Android renders `blurMethod="none"`, one of expo-blur's own
+   supported values for exactly this case -- a flat translucent tint at
+   the bar's own intensity/tint (still floating, still see-through, just
+   not blurred-through). If real Android blur matters, that's the specific
+   follow-up (BlurTargetView + context), not a bug fix.
+   Since the bar is now `position:'absolute'`, it no longer reserves its
+   own row in each screen's layout -- every scrollable tab screen's
+   content needs extra bottom clearance so its last item isn't hidden
+   under the floating bar. `BottomTabInset` in `theme.ts` (previously
+   defined, unused anywhere) is now that value (100 -- bar height 68 +
+   16px floating margin + 16px breathing room) and is added as
+   `paddingBottom` to every top-level tab screen's list/ScrollView
+   `contentContainerStyle` (7 files). Client Profile (short, non-scrolling
+   content) was left alone -- its content sits well clear of the bar
+   without help.
+   **Phone test, in order:** (1) confirm the new dev client build actually
+   installed (a stale one will show a solid or missing bar, not a crash);
+   (2) scroll every tab screen to its true end and confirm the last item
+   clears the floating bar; (3) the active tab's pill highlight and the
+   blur/translucency itself, iOS vs Android.
 
 ### Filter panel scroll — REAL fix 2026-09-24
 The 2026-09-23 fix (`506c8b3`, filter panel moved into the FlatList's

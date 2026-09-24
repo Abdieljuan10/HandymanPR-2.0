@@ -1,28 +1,51 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FloatingTabBarBackground } from '@/components/floating-tab-bar-background';
+import { TabBarIcon } from '@/components/tab-bar-icon';
 import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
+// Visual pass 2026-09-24, option "Nav B -- Floating Translucent" -- see the
+// client tab layout for the full rationale (identical treatment here).
 export default function HandymanTabsLayout() {
   const { t } = useTranslation();
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : (scheme ?? 'light')];
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.text,
+        tabBarActiveTintColor: colors.tint,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: { backgroundColor: colors.background },
+        tabBarLabelStyle: { fontSize: 10.5, fontWeight: '600' },
+        tabBarBackground: () => <FloatingTabBarBackground />,
+        tabBarStyle: {
+          position: 'absolute',
+          left: 16,
+          right: 16,
+          bottom: insets.bottom + 16,
+          height: 68,
+          borderRadius: 24,
+          borderTopWidth: 0,
+          paddingTop: 0,
+          paddingBottom: 0,
+          overflow: 'hidden',
+          elevation: 8,
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.12,
+          shadowRadius: 24,
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: t('tabs.handymanJobs'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabBarIcon name="home" focused={focused} />,
         }}
       />
 
@@ -30,7 +53,7 @@ export default function HandymanTabsLayout() {
         name="my-bids"
         options={{
           title: t('tabs.myBids'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="pricetag" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabBarIcon name="pricetag" focused={focused} />,
         }}
       />
 
@@ -38,7 +61,7 @@ export default function HandymanTabsLayout() {
         name="messages"
         options={{
           title: t('tabs.messages'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabBarIcon name="chatbubble" focused={focused} />,
         }}
       />
 
@@ -46,7 +69,7 @@ export default function HandymanTabsLayout() {
         name="profile"
         options={{
           title: t('tabs.profile'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabBarIcon name="person" focused={focused} />,
         }}
       />
     </Tabs>

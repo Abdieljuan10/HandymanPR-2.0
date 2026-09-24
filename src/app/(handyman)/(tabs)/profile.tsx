@@ -10,7 +10,7 @@ import { PhotoViewer } from '@/components/photo-viewer';
 import { PrimaryButton } from '@/components/primary-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     gap: Spacing.three,
-    paddingBottom: Spacing.six,
+    paddingBottom: BottomTabInset,
   },
   headerRow: {
     flexDirection: 'row',

@@ -1,28 +1,60 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FloatingTabBarBackground } from '@/components/floating-tab-bar-background';
+import { TabBarIcon } from '@/components/tab-bar-icon';
 import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
+// Visual pass 2026-09-24, option "Nav B -- Floating Translucent": inset
+// from the edges, rounded, blurred background (FloatingTabBarBackground)
+// behind it, active tab's icon gets a soft tint pill (TabBarIcon). See
+// TODO.md for the Android blur caveat and the bottom-padding follow-up
+// every tab screen's scrollable content needs now that the bar floats
+// instead of taking up its own row in the layout.
 export default function ClientTabsLayout() {
   const { t } = useTranslation();
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : (scheme ?? 'light')];
+  // The bar is position:'absolute' now, so it no longer reserves its own row
+  // in the layout and its default paddingBottom (which react-navigation
+  // would normally set to insets.bottom) is overridden to 0 below -- this
+  // adds that same clearance back as the bar's floating offset instead, so
+  // it sits above the home indicator / gesture bar, not on top of it.
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.text,
+        tabBarActiveTintColor: colors.tint,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: { backgroundColor: colors.background },
+        tabBarLabelStyle: { fontSize: 10.5, fontWeight: '600' },
+        tabBarBackground: () => <FloatingTabBarBackground />,
+        tabBarStyle: {
+          position: 'absolute',
+          left: 16,
+          right: 16,
+          bottom: insets.bottom + 16,
+          height: 68,
+          borderRadius: 24,
+          borderTopWidth: 0,
+          paddingTop: 0,
+          paddingBottom: 0,
+          overflow: 'hidden',
+          elevation: 8,
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.12,
+          shadowRadius: 24,
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: t('tabs.clientHome'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabBarIcon name="home" focused={focused} />,
         }}
       />
 
@@ -30,9 +62,7 @@ export default function ClientTabsLayout() {
         name="post-job"
         options={{
           title: t('tabs.postJob'),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add-circle" color={color} size={size} />
-          ),
+          tabBarIcon: ({ focused }) => <TabBarIcon name="add-circle" focused={focused} />,
         }}
       />
 
@@ -40,7 +70,7 @@ export default function ClientTabsLayout() {
         name="browse"
         options={{
           title: t('tabs.browse'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabBarIcon name="search" focused={focused} />,
         }}
       />
 
@@ -48,7 +78,7 @@ export default function ClientTabsLayout() {
         name="messages"
         options={{
           title: t('tabs.messages'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabBarIcon name="chatbubble" focused={focused} />,
         }}
       />
 
@@ -56,7 +86,7 @@ export default function ClientTabsLayout() {
         name="profile"
         options={{
           title: t('tabs.profile'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabBarIcon name="person" focused={focused} />,
         }}
       />
     </Tabs>

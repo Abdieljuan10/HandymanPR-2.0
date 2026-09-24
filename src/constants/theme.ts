@@ -82,7 +82,18 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+// Extra bottom padding every top-level tab screen's scrollable content needs
+// so its last item isn't hidden under the floating tab bar (both
+// (client)/(tabs)/_layout.tsx and (handyman)/(tabs)/_layout.tsx, visual
+// pass 2026-09-24, option "Nav B"). The bar is position:'absolute' now, so
+// it no longer reserves its own row in the screen's layout -- add this on
+// top of whatever padding a screen already has, not in place of it.
+// Platform-independent on purpose: each screen's own SafeAreaView already
+// accounts for the device's bottom safe-area inset separately (the bar
+// itself floats `insets.bottom + 16` above that same boundary) -- this is
+// only the bar's own fixed height (68) + its 16px floating margin + 16px of
+// breathing room so content doesn't touch it.
+export const BottomTabInset = 100;
 export const MaxContentWidth = 800;
 
 // Same gold in both themes -- a star rating reads as "rating," not

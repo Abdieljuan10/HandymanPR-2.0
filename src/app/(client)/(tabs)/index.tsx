@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '@/components/app-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Spacing } from '@/constants/theme';
+import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
@@ -288,6 +288,7 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: Spacing.two,
+    paddingBottom: BottomTabInset,
   },
   sectionHeader: {
     marginTop: Spacing.two,

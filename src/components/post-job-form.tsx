@@ -15,7 +15,7 @@ import { PuebloPicker } from '@/components/pueblo-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TradePicker } from '@/components/trade-picker';
-import { Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import { usePueblos } from '@/hooks/use-pueblos';
 import { confirmAsync, notify } from '@/lib/confirm';
 import { compressJobPhoto, jobPhotoStoragePath, MAX_JOB_PHOTOS } from '@/lib/job-photos';
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     gap: Spacing.two,
-    paddingBottom: Spacing.six,
+    paddingBottom: BottomTabInset,
   },
   inviteBanner: {
     padding: Spacing.three,
