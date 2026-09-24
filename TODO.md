@@ -162,8 +162,9 @@ nav B, header C, map B. Built in this order, **not yet phone-tested**:
    expo-blur` had dropped the nested `@expo/config/node_modules/typescript`
    5.9.3 from the lockfile; local npm 11 didn't care, EAS's npm 10 did (see
    the new CLAUDE.md rule). Lockfile fully regenerated, `npm ci` verified
-   under npm 10.9.9, committed, and the build re-queued 2026-09-24 — check
-   `eas build:list` for its status before assuming it finished.
+   under npm 10.9.9, committed (`a461d4d`), re-queued as
+   `f439f851-1b6b-40fb-8af7-3f7fe2d54b13` — FINISHED 2026-09-24 (~53 min
+   free-tier queue, then a normal build). Install that APK before testing.
    Both `Tabs` layouts: `tabBarStyle` now `position:'absolute'`, inset
    16px + the device's bottom safe-area inset from the edges, 68 tall,
    rounded 24, `tabBarBackground` renders a new `FloatingTabBarBackground`
