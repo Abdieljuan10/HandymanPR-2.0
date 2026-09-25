@@ -389,7 +389,7 @@ triggers that reset now; a same-user event (re-auth, token refresh,
 user-updated) just refreshes the mirrored session. Verified end-to-end:
 logged out and back in with the newly-set password.
 
-### Forgot password, end to end — BUILT 2026-09-25, needs dashboard step + on-device test
+### Forgot password, end to end — DONE 2026-09-25, confirmed
 Was broken: `resetPasswordForEmail` had no `redirectTo`, so the (default,
 unbranded) email's link landed on Site URL = `docs/confirmed.html` ("your
 account is confirmed") — and nothing anywhere let the user actually set a
@@ -405,13 +405,13 @@ new password. Now:
   a "request a new one" screen. Embeds the anon key (public by design,
   already in the app bundle; verified it's the `anon` role, not service).
 - App: `forgot-password.tsx` passes `redirectTo` = that page.
-**Client still needs to:** paste the template into Authentication → Email
-Templates → Reset Password (subject: "Restablece tu contraseña —
-HandymanPR"), and add the page URL under URL Configuration → Redirect URLs.
-Then test on the phone: request reset → email branded → set new password →
-log in with it. Caveat: Supabase's built-in SMTP is heavily rate-limited
-(and may only deliver to project team addresses) — custom SMTP needed
-before a real handyman relies on this or on signup emails.
+Client applied the template in Authentication → Email Templates → Reset
+Password (subject: "Restablece tu contraseña — HandymanPR") and
+**confirmed end to end on the phone 2026-09-25**: branded email arrived,
+reset page worked, new password set, logged in with it.
+**Still open:** Supabase's built-in SMTP is heavily rate-limited (and may
+only deliver to project team addresses) — custom SMTP needed before a real
+handyman relies on this or on signup emails.
 
 ### Handyman public profile: avatar fix, social icons, trades/pueblos redesign — DONE 2026-09-25, confirmed
 - **Avatar upload bug, same family as the earlier push-token duplicate-key
