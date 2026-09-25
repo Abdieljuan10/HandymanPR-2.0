@@ -332,6 +332,92 @@ All verified on the phone: bounce, icons/colors, all three dialog cancel
 paths (backdrop / Android back / Cancel button), button text centering,
 navigation and archive/unarchive still work correctly end to end.
 
+### Real calendar date picker — DONE 2026-09-25, confirmed
+Replaced the three-field (month/day/year) `DateInput` with a real
+`react-native-calendars` widget — pure JS, no native module (checked its
+published package for android/ios folders before adding it), no EAS build
+needed. Same file/component name and `onChange(isoDate | null)` contract,
+so `JobDateCard`'s propose/confirm flow needed no changes. Past dates
+disabled (`minDate` = today); Spanish/English month names matched to the
+app's language, set up in `LanguageProvider` (not in `DateInput` itself —
+a `useEffect` there runs too late for the calendar's own first render, and
+mutating the library's global locale setting directly in a render body is
+exactly what this project's React Compiler lint rules reject). New
+`disabledDates` prop on `DateInput`, unused today, for the deferred
+handyman-availability/blackout-dates feature — wiring that up later is
+just passing the array in.
+Two visual bugs found and fixed during testing: a second nested
+rounded/colored box around the calendar (same color as the outer card)
+produced a visible seam at the corners, removed; two white patches inside
+the card traced to `overflow:'hidden'` + `borderRadius`'s known Android
+quirk of not painting a view's background under empty padding, and to
+`proposeForm`'s `ThemedView` defaulting to plain white with no `type` set
+(fixed at the source) — both gone now, one flat gray card top to bottom.
+
+### Auth basics — DONE 2026-09-25, confirmed
+Show/hide password toggle (new `PasswordField`, wraps `FormField`'s new
+optional `rightElement` slot — used on sign-in, both signup screens, and
+change-password), confirm-password on both signup screens (checked
+client-side in the shared `useSignUp` hook before ever calling
+`supabase.auth.signUp`), and a new Change Password screen in Settings
+(shared by both roles, re-verifies the current password via a real
+sign-in call before allowing the change — `updateUser()` doesn't check
+the old password itself, so skipping this would let anyone with an
+unlocked, already-signed-in phone silently change it and lock the real
+owner out; also rejects a new password equal to the current one). All
+JS-only, no migration.
+**Real bug found and fixed:** change password reported success without
+the password actually changing. Root cause was in `SessionProvider`'s
+auth listener, not the change-password screen — it treated every
+Supabase auth event (including change-password's own re-auth sign-in and
+the update itself) as a brand-new login, setting a global loading flag
+that blanks the whole app while it re-resolves the role, tearing down the
+in-progress screen mid-submit. Fixed: only a genuinely new user session
+triggers that reset now; a same-user event (re-auth, token refresh,
+user-updated) just refreshes the mirrored session. Verified end-to-end:
+logged out and back in with the newly-set password.
+
+### Handyman public profile: avatar fix, social icons, trades/pueblos redesign — DONE 2026-09-25, confirmed
+- **Avatar upload bug, same family as the earlier push-token duplicate-key
+  issue:** uploads failed with "resource already exists" / 409
+  `KeyAlreadyExists` on a second upload. Old code deleted the existing
+  `avatar.jpg` then did a plain insert-only upload, but never checked
+  whether the delete actually succeeded before reusing that same key —
+  `upsert: true` was tried before and reverted for a real reason (a
+  genuine RLS violation this bucket's policies don't otherwise hit).
+  Fixed: every upload now goes to a timestamped filename
+  (`avatar-<timestamp>.jpg`, matching how job/portfolio photos already
+  work), so there's nothing to collide with. The old file is cleaned up
+  best-effort *after* the new one is safely uploaded, not before, so a
+  failed upload never leaves the account with no avatar.
+- **Instagram/Facebook** on the public handyman profile: plain text links
+  → their logo icons (Ionicons, already in the app), same tap-to-open
+  behavior.
+- **Trades/pueblos visual redesign**, options proposed as real mockups
+  (design-canvas artifact) before building, client picked: trades →
+  2-column icon grid (new `src/constants/trade-icons.ts`, slug → Ionicons,
+  with a fallback icon); pueblos → new `PuebloMapThumbnail`, a read-only
+  twin of the picker's own map (count + "See list" toggle for full names),
+  replacing both flat comma-separated text lists. "Grouped by category"
+  for trades was ruled out up front — every trade sits under one single
+  category in the DB today, so that layout isn't real yet.
+- **Two more bugs found IN the map itself while building/testing this:**
+  (1) a pueblo's selected-state border was set to the same color as its
+  fill (today's earlier map-contrast fix), so adjacent selected pueblos
+  merged into one seamless blob with no visible boundary between them —
+  fixed in both `PuebloMap` (the picker) and the new
+  `PuebloMapThumbnail` (caught there before it ever shipped) by always
+  using `theme.mapBorder` for stroke, independent of selection.
+  (2) Post Job's pueblo list view logged "VirtualizedLists should never
+  be nested inside plain ScrollViews" — confirmed against the actual
+  installed RN source that `nestedScrollEnabled` (already present) never
+  touches this specific check, which only cares about `scrollEnabled`.
+  `PuebloList` now renders its (≤78, plain-text) rows in a plain
+  `ScrollView` instead of `FlatList`, which isn't subject to the check at
+  all. One shared component, so this fixes every pueblo picker in the app
+  at once (Browse, the handyman feed, My Bids, Post Job, Edit Job,
+  portfolio new/edit), not just Post Job.
+
 ### Known, not fixed (small)
 - `enforce_bid_insert` runs before RLS, so a bid insert on any job id
   returns its status/"full" message — minor status oracle, no personal data.
@@ -1142,16 +1228,23 @@ their pueblo. Needs a **development build** (push doesn't work in Expo Go).
        random suffix per mount, so even a legitimate double-mount (e.g. a
        fast double-tap on a conversation row) can't collide on the same
        channel object again. `npx tsc --noEmit` and `eslint` both clean.
-2. [ ] **Customize the Supabase signup email** — template ready, not yet
-       applied. Branded HTML template committed at
+2. [x] **Customize the Supabase signup email — DONE, applied and confirmed
+       2026-09-25.** Branded HTML template at
        `supabase/email-templates/confirm-signup.html`, Spanish by default
-       (matches the app's default language and "Técnico"/"Cliente" wording).
-       Exact dashboard steps (Auth → Email Templates → Confirm signup, plus a
-       Site URL check on the same page) are in `supabase/README.md`. Colors
-       used (`#1C64F2` / `#F97316`) are a placeholder pair — swap once real
-       brand colors are picked in the visual-polish item below. **Client
-       needs to apply it in the dashboard and confirm a test signup email
-       looks right.**
+       (matches the app's default language and "Técnico"/"Cliente" wording),
+       colors updated to the real Isla palette (`#0E7A82` / `#E8593F`,
+       replacing the original placeholder blue/orange now that brand colors
+       are picked). Client pasted it into Authentication → Email Templates →
+       Confirm signup and confirmed a real signup email arrived correctly
+       branded. Site URL (same dashboard page) also set to a stable page —
+       see the next item.
+       New: `docs/confirmed.html`, a static "your account is confirmed, go
+       back to the app" page in the Isla colors, hosted via GitHub Pages
+       from this repo (`https://abdieljuan10.github.io/HandymanPR-2.0/confirmed.html`)
+       and pointed to by Site URL. Needed because there's no production
+       build or real domain yet, and the dev tunnel URL changes every
+       session — this survives regardless of any dev session being open,
+       and is a one-line Site URL change to swap for a real domain later.
 3. [x] **Per-user language + bilingual notifications — migration run,
        per-account persistence confirmed on-device 2026-09-18** (each
        account keeps its own language setting now). Bilingual push copy
