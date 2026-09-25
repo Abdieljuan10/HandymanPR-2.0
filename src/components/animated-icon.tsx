@@ -33,7 +33,7 @@ export function AnimatedSplashOverlay() {
     },
   });
 
-  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
+  const image = <Image style={styles.image} source={require('@/assets/images/splash-logo.png')} />;
 
   return animate ? (
     <Animated.View
@@ -127,9 +127,13 @@ const styles = StyleSheet.create({
     height: 128,
     zIndex: 100,
   },
+  // Matches splash-logo.png's actual aspect ratio (the H+hammer glyph is
+  // taller than wide) -- the old 76x71 was sized for the square-ish
+  // default Expo logo; reusing it unchanged would have visibly squashed
+  // the new mark.
   image: {
-    width: 76,
-    height: 71,
+    width: 85,
+    height: 96,
   },
   background: {
     borderRadius: 40,
@@ -140,7 +144,10 @@ const styles = StyleSheet.create({
   },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
+    // Must match expo-splash-screen's own backgroundColor in app.json --
+    // this view is what's shown the instant the native splash hides, so a
+    // mismatch here would flash the old color for one frame.
+    backgroundColor: '#0E7A82',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,

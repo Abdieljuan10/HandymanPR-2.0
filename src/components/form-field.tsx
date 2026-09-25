@@ -13,9 +13,15 @@ type FormFieldProps = TextInputProps & {
    * rightElement renders exactly as before.
    */
   rightElement?: React.ReactNode;
+  /**
+   * Overrides the label's color. Only needed on screens whose background is
+   * a fixed, non-themed visual (e.g. sign-in's tools pattern) where the
+   * default theme.text would go white-on-light in dark mode.
+   */
+  labelColor?: string;
 };
 
-export function FormField({ label, error, style, rightElement, ...rest }: FormFieldProps) {
+export function FormField({ label, error, style, rightElement, labelColor, ...rest }: FormFieldProps) {
   const theme = useTheme();
 
   const input = (
@@ -35,7 +41,9 @@ export function FormField({ label, error, style, rightElement, ...rest }: FormFi
 
   return (
     <>
-      <ThemedText type="smallBold">{label}</ThemedText>
+      <ThemedText type="smallBold" style={labelColor && { color: labelColor }}>
+        {label}
+      </ThemedText>
       {rightElement ? (
         <View style={[styles.row, error ? styles.rowMarginError : styles.rowMargin]}>
           {input}

@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +9,7 @@ import { FormField } from '@/components/form-field';
 import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
 import { PasswordField } from '@/components/password-field';
 import { PrimaryButton } from '@/components/primary-button';
+import { ScrollingToolsBackground } from '@/components/scrolling-tools-background';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -34,14 +36,19 @@ export default function SignInScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <ScrollingToolsBackground />
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingScreen style={styles.keyboardScreen}>
-          <ThemedText type="subtitle" style={styles.title}>
+          <Image style={styles.logo} source={require('@/assets/images/icon.png')} />
+
+          <ThemedText type="subtitle" style={[styles.title, styles.lockedText]}>
             {t('signIn.title')}
           </ThemedText>
 
           <FormField
             label={t('signIn.email')}
+            labelColor="#000000"
+            style={styles.fieldBox}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -50,6 +57,8 @@ export default function SignInScreen() {
           />
           <PasswordField
             label={t('signIn.password')}
+            labelColor="#000000"
+            style={styles.fieldBox}
             value={password}
             onChangeText={setPassword}
             textContentType="password"
@@ -68,7 +77,7 @@ export default function SignInScreen() {
           </Link>
 
           <Link href="/welcome" style={styles.link}>
-            <ThemedText type="link" themeColor="textSecondary">
+            <ThemedText type="link" style={styles.lockedTextSecondary}>
               {t('signIn.back')}
             </ThemedText>
           </Link>
@@ -94,6 +103,13 @@ const styles = StyleSheet.create({
   keyboardScreen: {
     justifyContent: 'center',
   },
+  logo: {
+    width: 88,
+    height: 88,
+    borderRadius: 20,
+    alignSelf: 'center',
+    marginBottom: Spacing.three,
+  },
   title: {
     marginBottom: Spacing.four,
   },
@@ -104,5 +120,22 @@ const styles = StyleSheet.create({
   link: {
     marginTop: Spacing.three,
     alignSelf: 'center',
+  },
+  // This screen's background is always the light tools pattern regardless
+  // of device color scheme -- see the matching comment in welcome.tsx.
+  lockedText: {
+    color: '#000000',
+  },
+  lockedTextSecondary: {
+    color: '#60646C',
+  },
+  // The default input fill (theme.backgroundElement, a near-white grey) is
+  // too close in tone to the pattern's own pale mint base to read as a
+  // distinct box -- white + a visible border fixes that on this background
+  // specifically without touching FormField's default look everywhere else.
+  fieldBox: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: 'rgba(14, 122, 130, 0.35)',
   },
 });

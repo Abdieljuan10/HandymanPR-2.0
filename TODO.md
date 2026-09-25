@@ -353,6 +353,18 @@ the card traced to `overflow:'hidden'` + `borderRadius`'s known Android
 quirk of not painting a view's background under empty padding, and to
 `proposeForm`'s `ThemedView` defaulting to plain white with no `type` set
 (fixed at the source) — both gone now, one flat gray card top to bottom.
+**Real crash found after that testing, fixed same day**: opening the
+calendar on any English-language account threw `Cannot read property
+'dayNamesShort' of undefined` from `react-native-calendars`'s `dateutils.js`.
+Root cause: `xdate` (the underlying date lib)'s own built-in English locale
+lives under the key `''` (empty string), not `'en'` — `LanguageProvider` was
+only ever registering `LocaleConfig.locales.es`, on the wrong assumption
+that `'en'` was already a built-in default. `getLocale()` does a plain
+`XDate.locales[XDate.defaultLocale]` lookup with no fallback, so setting
+`defaultLocale = 'en'` with nothing registered under that exact key crashes
+the instant any calendar renders. Fixed by registering a real
+`LocaleConfig.locales.en` table alongside the Spanish one. Confirmed fixed
+in both languages.
 
 ### Auth basics — DONE 2026-09-25, confirmed
 Show/hide password toggle (new `PasswordField`, wraps `FormField`'s new
@@ -493,6 +505,67 @@ count, review list capped at 3 with "show all N" -- same UI/cap/blind-
 review rule as the handyman public profile's own reviews section. Client
 ran the migration and confirmed working on the phone (also where the
 name-overflow bug above was caught, in the client's own screenshot).
+
+### App icon, splash screen, and animated auth background — DONE 2026-09-25, confirmed
+Real branded graphics, replacing the literal default Expo template icon/
+splash held back earlier in the pilot-scope list at the top of this file
+("Resume here: build real icon/splash images..."). Client picked a design
+from a set of Gemini-generated concepts (teal rounded square, white "H"
+monogram with a hammer integrated into the crossbar) rather than a
+from-scratch build here — client's explicit call after rejecting an
+in-house recreation attempt: get the exact source art from Gemini instead
+of approximating it. Gemini's own output came back as a JPEG when pasted
+into chat, which flattens real alpha transparency into a baked-in
+checkerboard — recovered via a luminance-threshold script (checker ~55-115,
+glyph ~240+) before use. New `icon.png`/`android-icon-foreground.png`/
+`android-icon-monochrome.png`/`splash-icon.png`/`splash-logo.png`/
+`favicon.png`, `app.json`'s `adaptiveIcon.backgroundColor` and
+`expo-splash-screen` plugin `backgroundColor` set to the Isla teal
+(`#0E7A82`), old `assets/expo.icon/` Icon Composer bundle removed (plain
+PNG path is enough per the exact versioned Expo v57 docs). New native
+asset, needed a real EAS build — queued, finished, installed, **confirmed
+on-device**: real icon, splash, and adaptive icon all show correctly.
+
+**Login screen also got the icon** (`sign-in.tsx`, above "Iniciar
+Sesión") — pure JS, the full `icon.png` (opaque teal square, not the
+white-on-transparent `splash-logo.png` glyph, which would've been
+invisible against a light screen background) with a `borderRadius` applied
+in-component since the raw asset itself is a plain square.
+
+**Animated tools-pattern background**, added after the icon shipped, on
+all four pre-auth screens (welcome, sign-in, client-sign-up,
+handyman-sign-up): a slow, seamlessly-looping vertical drift of a line-art
+tool-icon pattern (wrench/hammer/screwdriver/level/saw/roller/gear, teal
+outline on a pale mint base) behind the form content. New
+`src/components/scrolling-tools-background.tsx` — stacks enough copies of
+`assets/images/tools-pattern.png` (sized to screen width, aspect-ratio
+preserved) to always cover the viewport, translates the stack down by
+exactly one tile height in an infinite Reanimated loop (UI-thread only, no
+JS-driven re-renders), snapping back to 0 invisibly since a full tile of
+travel looks pixel-identical to the start. Art sourced the same way as the
+icon: a precise Gemini prompt (seamless vertical tile, exact palette/icon
+list, no text/logo/shadow), several opacity iterations shown to the client
+side by side (35% vs 20%), **20% chosen**. Client separately cropped the
+chosen art themselves to fix a tape-measure icon that looked cut off at
+the tile seam — that crop is the version actually in the repo now (opacity
+had to be **re-applied** after swapping it in, since the crop came from an
+un-faded source — caught by the client, fixed same session).
+**Deliberate design call, flagged to the client and accepted**: these four
+screens now always render their light pattern/text regardless of the
+device's system dark/light setting (matches the client's own reference
+mockups, which were light-only) — `lockedText`/`lockedTextSecondary` style
+overrides and a new optional `FormField`/`PasswordField` `labelColor` prop
+force the light palette's colors here specifically, rather than changing
+FormField's default (theme-following) behavior used everywhere else in the
+app. Input boxes on these four screens also changed from the default
+`theme.backgroundElement` fill (nearly the same tone as the pattern's own
+base color, hard to see) to solid white + a soft teal border, via each
+field's existing `style` prop, no FormField API change needed.
+All of the above is pure JS/local-asset work except the icon/splash native
+build — no additional EAS build needed for the login icon or the animated
+background. **Confirmed on-device by the client**, including dark mode
+(input boxes go dark there since only their label color was locked, not
+their fill — client reviewed and accepted this as-is).
 
 ### Known, not fixed (small)
 - `enforce_bid_insert` runs before RLS, so a bid insert on any job id
