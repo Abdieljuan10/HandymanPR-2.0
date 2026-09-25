@@ -75,7 +75,7 @@ export default function HandymanSettingsScreen() {
   const promoted = subscription ? isActive(subscription.is_promoted, subscription.promotion_expires_at) : false;
 
   return (
-    <PlaceholderScreen title={t('common.settings')}>
+    <PlaceholderScreen title={t('common.settings')} edges={['left', 'right', 'bottom']}>
       <ThemedText type="smallBold">{t('handymanSettings.subscriptionTitle')}</ThemedText>
 
       {loadError !== null ? (

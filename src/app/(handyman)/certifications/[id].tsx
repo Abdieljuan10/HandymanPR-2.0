@@ -147,7 +147,7 @@ export default function EditCertificationScreen() {
   if (loadError !== null) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{t('common.loadError', { error: loadError })}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -157,7 +157,7 @@ export default function EditCertificationScreen() {
   if (loading) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -166,7 +166,7 @@ export default function EditCertificationScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <KeyboardAvoidingScreen>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             {isVerified && (

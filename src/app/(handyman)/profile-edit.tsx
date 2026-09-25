@@ -289,7 +289,7 @@ export default function HandymanProfileEditScreen() {
   if (loading) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -300,7 +300,7 @@ export default function HandymanProfileEditScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <KeyboardAvoidingScreen>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             <Pressable style={styles.avatarWrapper} onPress={handlePickAvatar}>

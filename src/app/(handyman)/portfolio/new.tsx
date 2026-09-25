@@ -151,7 +151,7 @@ export default function NewPortfolioProjectScreen() {
   if (pueblosError) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="small" style={styles.error}>
             {t('common.loadError', { error: pueblosError })}
           </ThemedText>
@@ -162,7 +162,7 @@ export default function NewPortfolioProjectScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <KeyboardAvoidingScreen>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             <FormField

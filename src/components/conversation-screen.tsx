@@ -273,7 +273,16 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      {/* No 'top' edge -- this screen already has a native header ("Chat"),
+          which sits in the device's top inset itself. SafeAreaView's
+          default edges pad ALL FOUR sides by the device's real inset
+          regardless of what else is on screen (it has no notion of the
+          header above it), so with the default it was adding a second
+          status-bar-height gap on top of this component's own
+          paddingTop -- the large white gap above the name (client report
+          2026-09-25). Left/right/bottom stay, for notch and home-indicator
+          safety. */}
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <KeyboardAvoidingView
           style={styles.flex}
           behavior="translate-with-padding"
@@ -290,13 +299,20 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
                     </ThemedText>
                   </View>
                 )}
-                <ThemedText type="smallBold">{header.otherPartyName}</ThemedText>
+                {/* flexShrink + numberOfLines stay as a fallback for a name
+                    that alone is still too wide for the line -- not the
+                    primary defense anymore now that it has the full row
+                    width to itself (client call 2026-09-25: stack instead
+                    of splitting one row between name and job title). */}
+                <ThemedText type="smallBold" numberOfLines={1} style={styles.headerNameText}>
+                  {header.otherPartyName}
+                </ThemedText>
               </Pressable>
             </Link>
 
             <Link href={`/job/${header.jobId}`} asChild>
-              <Pressable>
-                <ThemedText type="small" themeColor="textSecondary">
+              <Pressable style={styles.headerJob}>
+                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
                   {header.jobTitle}
                 </ThemedText>
               </Pressable>
@@ -409,18 +425,29 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.four,
     paddingHorizontal: Spacing.four,
   },
+  // Stacked, not side-by-side (client call 2026-09-25): a long name and a
+  // long job title were competing for the same row and visibly crossing
+  // each other. Each now gets its own full-width line, so neither has to
+  // fight the other for space at all -- flexShrink/numberOfLines below are
+  // now just a fallback for a single line that's still too long on its
+  // own, not the primary defense.
   headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: Spacing.two,
-    gap: Spacing.two,
+    gap: Spacing.half,
   },
   headerIdentity: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+  },
+  headerNameText: {
     flexShrink: 1,
+  },
+  headerJob: {
+    flexShrink: 1,
+    // Lines up with the name text, past the avatar -- reads as this row's
+    // subtitle rather than a separate, unrelated line.
+    marginLeft: 40,
   },
   avatar: {
     width: 32,

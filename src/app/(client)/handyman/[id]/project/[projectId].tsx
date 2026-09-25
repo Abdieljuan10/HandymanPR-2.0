@@ -73,7 +73,7 @@ export default function PortfolioProjectDetailScreen() {
   if (project === undefined) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -83,7 +83,7 @@ export default function PortfolioProjectDetailScreen() {
   if (project === null) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">
             {loadError !== null ? t('common.loadError', { error: loadError }) : t('handymanPublicProfile.notFound')}
           </ThemedText>
@@ -97,7 +97,7 @@ export default function PortfolioProjectDetailScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <ThemedText type="subtitle">{project.title}</ThemedText>
           {subtitle.length > 0 && (

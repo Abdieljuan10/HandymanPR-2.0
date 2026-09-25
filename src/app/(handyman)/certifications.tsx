@@ -132,7 +132,7 @@ export default function CertificationsScreen() {
   if (loading) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -141,7 +141,7 @@ export default function CertificationsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <KeyboardAvoidingScreen>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             <ThemedText type="default" themeColor="textSecondary">

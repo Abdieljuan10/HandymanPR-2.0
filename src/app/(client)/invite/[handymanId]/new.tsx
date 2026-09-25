@@ -32,10 +32,22 @@ export default function NewPrivateJobScreen() {
   }, [handymanId]);
 
   if (name === undefined) {
-    return <PlaceholderScreen title={t('postJob.inviteTitle')} description={t('common.loading')} />;
+    return (
+      <PlaceholderScreen
+        title={t('postJob.inviteTitle')}
+        description={t('common.loading')}
+        edges={['left', 'right', 'bottom']}
+      />
+    );
   }
   if (name === null) {
-    return <PlaceholderScreen title={t('postJob.inviteTitle')} description={t('handymanPublicProfile.notFound')} />;
+    return (
+      <PlaceholderScreen
+        title={t('postJob.inviteTitle')}
+        description={t('handymanPublicProfile.notFound')}
+        edges={['left', 'right', 'bottom']}
+      />
+    );
   }
   return <PostJobForm invite={{ handymanId, handymanName: name }} />;
 }

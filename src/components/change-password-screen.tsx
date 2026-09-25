@@ -80,7 +80,7 @@ export function ChangePasswordScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <KeyboardAvoidingScreen style={styles.keyboardScreen}>
           <PasswordField
             label={t('changePassword.current')}

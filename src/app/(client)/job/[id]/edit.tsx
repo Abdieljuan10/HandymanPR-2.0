@@ -351,7 +351,7 @@ export default function EditJobScreen() {
   if (pueblosError || loadError !== null) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="small" style={styles.error}>
             {t('common.loadError', { error: pueblosError ?? loadError })}
           </ThemedText>
@@ -363,7 +363,7 @@ export default function EditJobScreen() {
   if (loading || !pueblos) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -372,7 +372,7 @@ export default function EditJobScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <KeyboardAvoidingScreen>
         <ScrollView showsVerticalScrollIndicator={false} ref={scrollRef} contentContainerStyle={styles.scrollContent}>
           <FormField

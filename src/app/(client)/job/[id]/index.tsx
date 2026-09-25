@@ -324,7 +324,7 @@ export default function JobDetailScreen() {
   if (job === undefined) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -334,7 +334,7 @@ export default function JobDetailScreen() {
   if (job === null) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{loadError ?? t('jobDetail.notFound')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -345,7 +345,7 @@ export default function JobDetailScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {photos.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>

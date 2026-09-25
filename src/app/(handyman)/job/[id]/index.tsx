@@ -324,7 +324,7 @@ export default function HandymanJobDetailScreen() {
   if (job === undefined || (myBid === undefined && bidLoadError === null)) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -334,7 +334,7 @@ export default function HandymanJobDetailScreen() {
   if (job === null) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{loadError ?? t('jobDetail.notFound')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -345,7 +345,7 @@ export default function HandymanJobDetailScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <KeyboardAvoidingScreen>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {photos.length > 0 && (

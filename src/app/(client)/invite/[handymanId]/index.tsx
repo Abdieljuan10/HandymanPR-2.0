@@ -85,7 +85,7 @@ export default function InviteChooserScreen() {
   if (name === undefined || jobs === null) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -95,7 +95,7 @@ export default function InviteChooserScreen() {
   if (name === null) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{t('handymanPublicProfile.notFound')}</ThemedText>
         </SafeAreaView>
       </ThemedView>

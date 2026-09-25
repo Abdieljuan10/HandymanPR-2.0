@@ -95,7 +95,7 @@ export default function HandymanPueblosScreen() {
   if (pueblosError || loadError !== null) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="small" style={styles.error}>
             {t('common.loadError', { error: pueblosError ?? loadError })}
           </ThemedText>
@@ -107,7 +107,7 @@ export default function HandymanPueblosScreen() {
   if (!pueblos || loadingExisting) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -116,7 +116,7 @@ export default function HandymanPueblosScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <ThemedText type="default" themeColor="textSecondary">
           {t('handymanPueblos.intro')}
         </ThemedText>

@@ -12,7 +12,7 @@ export default function ClientSettingsScreen() {
   const router = useRouter();
 
   return (
-    <PlaceholderScreen title={t('common.settings')}>
+    <PlaceholderScreen title={t('common.settings')} edges={['left', 'right', 'bottom']}>
       <ThemedText type="smallBold">{t('common.language')}</ThemedText>
       <LanguageToggle />
       <PrimaryButton

@@ -313,7 +313,7 @@ export default function EditPortfolioProjectScreen() {
   if (pueblosError || loadError !== null) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="small" style={styles.error}>
             {t('common.loadError', { error: pueblosError ?? loadError })}
           </ThemedText>
@@ -325,7 +325,7 @@ export default function EditPortfolioProjectScreen() {
   if (loading || !pueblos) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -334,7 +334,7 @@ export default function EditPortfolioProjectScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <KeyboardAvoidingScreen>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             <FormField

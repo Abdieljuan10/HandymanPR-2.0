@@ -221,7 +221,7 @@ export default function PublicHandymanProfileScreen() {
   if (profile === undefined) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         </SafeAreaView>
       </ThemedView>
@@ -231,7 +231,7 @@ export default function PublicHandymanProfileScreen() {
   if (profile === null) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
           <ThemedText type="default">
             {loadError !== null ? t('common.loadError', { error: loadError }) : t('handymanPublicProfile.notFound')}
           </ThemedText>
@@ -256,7 +256,7 @@ export default function PublicHandymanProfileScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.headerRow}>
             {profile.avatar_url ? (
