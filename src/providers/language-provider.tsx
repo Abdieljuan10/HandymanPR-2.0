@@ -9,16 +9,26 @@ import { useSession } from '@/providers/session-provider';
 export type Language = 'es' | 'en';
 
 // react-native-calendars (DateInput) reads month/day names from its OWN
-// locale table, separate from i18next -- 'en' is its built-in default, so
-// only 'es' needs registering. Kept centralized here, alongside the ONLY
-// two places that ever change the active language, rather than in
-// DateInput itself: DateInput could be mounted deep in a screen that opens
-// well after this provider, but never BEFORE it (it's rendered once at the
-// app root) -- so `defaultLocale` set here is guaranteed correct before any
-// calendar's first render, without a mount-order race. A useEffect INSIDE
-// DateInput doesn't have that guarantee (it runs after that same render),
-// and React Compiler's purity rules reject mutating this kind of external,
-// un-hooked global directly in a component's render body.
+// locale table (xdate's LocaleConfig), separate from i18next. Both 'es'
+// AND 'en' need registering here -- xdate's own built-in English names
+// live under the key '' (empty string, see node_modules/xdate/src/xdate.js),
+// NOT 'en'. Its getLocale() does a plain `XDate.locales[XDate.defaultLocale]`
+// lookup with no fallback (dateutils.js), so setting defaultLocale = 'en'
+// with nothing registered under that exact key throws "Cannot read property
+// 'dayNamesShort' of undefined" the instant any calendar tries to render --
+// a real crash on any English-language account, not a timing issue. (This
+// was wrongly assumed fine before -- 'en' looked like it should be a
+// built-in default, and it never got exercised until an English-language
+// account actually opened the calendar.)
+// Kept centralized here, alongside the ONLY two places that ever change the
+// active language, rather than in DateInput itself: DateInput could be
+// mounted deep in a screen that opens well after this provider, but never
+// BEFORE it (it's rendered once at the app root) -- so `defaultLocale` set
+// here is guaranteed correct before any calendar's first render, without a
+// mount-order race. A useEffect INSIDE DateInput doesn't have that
+// guarantee (it runs after that same render), and React Compiler's purity
+// rules reject mutating this kind of external, un-hooked global directly in
+// a component's render body.
 LocaleConfig.locales.es = {
   monthNames: [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -28,6 +38,16 @@ LocaleConfig.locales.es = {
   dayNames: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
   dayNamesShort: ['Dom.', 'Lun.', 'Mar.', 'Mié.', 'Jue.', 'Vie.', 'Sáb.'],
   today: 'Hoy',
+};
+LocaleConfig.locales.en = {
+  monthNames: [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ],
+  monthNamesShort: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  dayNames: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  dayNamesShort: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  today: 'Today',
 };
 
 const STORAGE_KEY = 'app-language';
