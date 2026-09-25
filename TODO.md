@@ -418,6 +418,82 @@ logged out and back in with the newly-set password.
   at once (Browse, the handyman feed, My Bids, Post Job, Edit Job,
   portfolio new/edit), not just Post Job.
 
+### Chat header + a recurring name-overflow bug — DONE 2026-09-25, confirmed
+Chat header (client report): a long name and a long job title were on the
+same row and visibly crossed each other. RN's `flexShrink` defaults to
+`0`, not `1` like the web -- the job title's `Pressable` had no style at
+all, so it never gave up any width. Client's follow-up: stack them
+instead of sharing a row -- name+avatar on top, job title below, full
+width each.
+
+Same screen, second bug: a large blank gap above the name. This screen
+already has a native header ("Chat"), which itself sits in the device's
+top inset -- `SafeAreaView`'s default edges pad ALL FOUR sides by that
+same inset regardless of what else is on screen (confirmed against the
+installed source: it has no notion of a header rendered above it), so
+content below got a second helping of top padding on top of its own.
+Swept every OTHER pushed screen with a native header for the identical
+bug -- all 19 of them had it, just less noticeable when the first content
+isn't plain text right at the top. `PlaceholderScreen` (shared by two tab
+screens that DO need the real top inset) got a new optional `edges` prop
+rather than a blanket fix.
+
+The same "no bounded width, so a long name just overflows" root cause
+turned out to recur three more times as separate reports through the
+day: the handyman-side client profile screen, then the client's own
+Perfil tab, then (checked proactively once the pattern was named) the
+handyman's own Perfil tab too — turned out to be the original template
+the client one was copied from, carrying the gap forward. All fixed the
+same way (`flex: 1` on the name's container); both "Editar Perfil"
+screens checked and confirmed clean (different layout, name is an
+editable field, not a raw Text next to the avatar). Worth remembering
+this specific pattern (`headerRow`-style avatar+name layouts need
+`flex: 1` on the text side) before adding any new one.
+
+### Archive/saved toggles relocated off their permanent banner — DONE 2026-09-25, confirmed
+Client Home, My Bids, and Browse each had a full-width row -- always
+visible whenever anything was archived/saved -- right under the header.
+Client Home: moved to a `SectionList` `ListFooterComponent`, only shown
+after scrolling past everything else. Browse and My Bids: first pass put
+it as a compact icon sharing the filters/sort row; client feedback was
+that a full-text button crowded My Bids' row and the icon looked
+off-center (real cause: the row had no `alignItems` set). Second pass:
+moved the saved-only toggle (Browse) and the sort-order toggle (My Bids)
+into their filter panels instead, as their own rows alongside
+trade/pueblo/status -- "the heart inside filters." Messages screen's own
+archive-toggle placement was left untouched, per the client's explicit
+call.
+
+### Client Perfil tab: real profile + edit screen — DONE 2026-09-25, confirmed
+Was a stub (session email + a link to Settings, description text
+literally promising "editing comes later"). Real view now, matching the
+handyman side's own profile tab -- avatar + name, then "Editar Perfil" /
+"Configuración". New `(client)/profile-edit.tsx`: same shape as the
+handyman side's (avatar upload incl. the timestamped-filename fix,
+unsaved-changes guard) minus fields `client_profiles` doesn't have (no
+bio/years/trades/pueblos, just `full_name`/`avatar_url`). Same `avatars`
+Storage bucket works unchanged -- its RLS is keyed on `auth.uid()` only,
+not role. End-to-end confirmed: name and photo changes save and persist.
+
+### Client reviews, visible only to handymen — DONE 2026-09-25, confirmed
+Client's call, made earlier: a client's reviews (left by handymen who
+worked with them) are useful to a handyman deciding whether to bid, but
+must never be visible to other clients or publicly. No schema change --
+`reviews` already supports either direction (`author_role` is `'client'`
+or `'handyman'`, `subject_id` is whoever it's about); a handyman review of
+a client was already structurally possible, this just surfaces it. New
+migration `20261014000000_client_public_reviews.sql` mirrors
+`handyman_public_reviews()` (20261011000000) exactly, reversed. The
+"handyman-only" rule is enforced INSIDE the function (an exists-check
+against `handyman_profiles` for the caller), not just by which screen
+calls it -- a client account calling this RPC directly still gets zero
+rows back, no error. Full abuse-review writeup is in the migration file's
+own comment. App side (handyman's `client/[id].tsx`): average rating +
+count, review list capped at 3 with "show all N" -- same UI/cap/blind-
+review rule as the handyman public profile's own reviews section. Client
+ran the migration and confirmed working on the phone (also where the
+name-overflow bug above was caught, in the client's own screenshot).
+
 ### Known, not fixed (small)
 - `enforce_bid_insert` runs before RLS, so a bid insert on any job id
   returns its status/"full" message — minor status oracle, no personal data.
