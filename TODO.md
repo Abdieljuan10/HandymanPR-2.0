@@ -389,6 +389,30 @@ triggers that reset now; a same-user event (re-auth, token refresh,
 user-updated) just refreshes the mirrored session. Verified end-to-end:
 logged out and back in with the newly-set password.
 
+### Forgot password, end to end — BUILT 2026-09-25, needs dashboard step + on-device test
+Was broken: `resetPasswordForEmail` had no `redirectTo`, so the (default,
+unbranded) email's link landed on Site URL = `docs/confirmed.html` ("your
+account is confirmed") — and nothing anywhere let the user actually set a
+new password. Now:
+- `supabase/email-templates/reset-password.html` — branded Isla template,
+  Spanish, same shell as confirm-signup. Links straight to the hosted page
+  with `?token_hash={{ .TokenHash }}&type=recovery` (not
+  `{{ .ConfirmationURL }}`), so an email scanner pre-fetching the link
+  can't spend the one-time token — only the page's JS does.
+- `docs/reset-password.html` (GitHub Pages) — `verifyOtp` → new password +
+  confirm → `updateUser`, then local sign-out. Also accepts the default
+  template's `#access_token` redirect as a fallback; expired/used links get
+  a "request a new one" screen. Embeds the anon key (public by design,
+  already in the app bundle; verified it's the `anon` role, not service).
+- App: `forgot-password.tsx` passes `redirectTo` = that page.
+**Client still needs to:** paste the template into Authentication → Email
+Templates → Reset Password (subject: "Restablece tu contraseña —
+HandymanPR"), and add the page URL under URL Configuration → Redirect URLs.
+Then test on the phone: request reset → email branded → set new password →
+log in with it. Caveat: Supabase's built-in SMTP is heavily rate-limited
+(and may only deliver to project team addresses) — custom SMTP needed
+before a real handyman relies on this or on signup emails.
+
 ### Handyman public profile: avatar fix, social icons, trades/pueblos redesign — DONE 2026-09-25, confirmed
 - **Avatar upload bug, same family as the earlier push-token duplicate-key
   issue:** uploads failed with "resource already exists" / 409

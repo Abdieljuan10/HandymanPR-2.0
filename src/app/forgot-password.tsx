@@ -12,6 +12,8 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 
+const RESET_PASSWORD_URL = 'https://abdieljuan10.github.io/HandymanPR-2.0/reset-password.html';
+
 export default function ForgotPasswordScreen() {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
@@ -22,7 +24,12 @@ export default function ForgotPasswordScreen() {
   async function handleSend() {
     setError(null);
     setLoading(true);
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
+    // A stable hosted page, not the app or a dev tunnel: the branded email
+    // template links there directly; this only matters if the default
+    // template is ever back in place.
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: RESET_PASSWORD_URL,
+    });
     setLoading(false);
     if (resetError) {
       setError(resetError.message);
