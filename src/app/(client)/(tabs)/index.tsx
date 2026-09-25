@@ -193,20 +193,30 @@ export default function ClientHomeScreen() {
         <AppHeader pageTitle={t('clientHome.title')} />
       </SafeAreaView>
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
-        {archivedCount > 0 && (
-          <Pressable onPress={() => setShowArchived((prev) => !prev)} style={styles.archiveToggle}>
-            <ThemedText type="small" themeColor="textSecondary">
-              {showArchived ? t('clientHome.hideArchived') : t('clientHome.showArchived', { count: archivedCount })}
-            </ThemedText>
-          </Pressable>
-        )}
-
+        {/* Was its own permanent banner right under the header, taking a
+            full row whenever there was ANY archived job at all (client
+            call 2026-09-25: wasted space, always there). Now sits at the
+            END of the content instead -- ListFooterComponent below when
+            there's a list to attach it to, or right after the empty
+            message when there isn't (all jobs archived, filter off, so
+            there's no SectionList to give a footer to at all). */}
         {jobs === null ? (
           <ThemedText type="default">{t('common.loading')}</ThemedText>
         ) : sections.length === 0 ? (
-          <ThemedText type="default" themeColor="textSecondary">
-            {loadError !== null ? t('common.loadError', { error: loadError }) : t('clientHome.empty')}
-          </ThemedText>
+          <>
+            <ThemedText type="default" themeColor="textSecondary">
+              {loadError !== null ? t('common.loadError', { error: loadError }) : t('clientHome.empty')}
+            </ThemedText>
+            {archivedCount > 0 && (
+              <Pressable onPress={() => setShowArchived((prev) => !prev)} style={styles.archiveToggle}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {showArchived
+                    ? t('clientHome.hideArchived')
+                    : t('clientHome.showArchived', { count: archivedCount })}
+                </ThemedText>
+              </Pressable>
+            )}
+          </>
         ) : (
           <SectionList
             showsVerticalScrollIndicator={false}
@@ -220,6 +230,17 @@ export default function ClientHomeScreen() {
                 {t(section.titleKey)}
               </ThemedText>
             )}
+            ListFooterComponent={
+              archivedCount > 0 ? (
+                <Pressable onPress={() => setShowArchived((prev) => !prev)} style={styles.archiveToggle}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {showArchived
+                      ? t('clientHome.hideArchived')
+                      : t('clientHome.showArchived', { count: archivedCount })}
+                  </ThemedText>
+                </Pressable>
+              ) : null
+            }
             renderItem={({ item, section }) => {
               const dotColor = item.status === 'open' ? theme.textSecondary : STATUS_COLORS[item.status];
               const row = (

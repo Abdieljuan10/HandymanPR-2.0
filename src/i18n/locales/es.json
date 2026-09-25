@@ -186,6 +186,7 @@
     "puebloCount_other": "Trabaja en {{count}} pueblos",
     "showSaved": "Guardados ({{count}})",
     "showAll": "Ver Todos",
+    "savedOnly": "Solo Guardados ({{count}})",
     "emptySaved": "Todavía no has guardado a nadie. Toca el corazón en el perfil de un técnico para guardarlo.",
     "savedBadge": "Guardado",
     "showResults_one": "Ver {{count}} técnico",

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -226,14 +227,12 @@ export default function MyBidsScreen() {
         <AppHeader pageTitle={t('tabs.myBids')} />
       </SafeAreaView>
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
-        {archivedCount > 0 && (
-          <Pressable onPress={() => setShowArchived((prev) => !prev)} style={styles.archiveToggle}>
-            <ThemedText type="small" themeColor="textSecondary">
-              {showArchived ? t('myBids.hideArchived') : t('myBids.showArchived', { count: archivedCount })}
-            </ThemedText>
-          </Pressable>
-        )}
-
+        {/* Was its own permanent banner above this row (client call
+            2026-09-25: wasted space, always there whenever anything was
+            archived). Now a compact icon sharing the filters row instead.
+            Sort order moved into the filter panel below (was a second
+            button here too, which crowded this row and forced the icon
+            off its vertical center -- see filterPanel for it now). */}
         <View style={styles.controlsRow}>
           <PrimaryButton
             label={
@@ -247,12 +246,17 @@ export default function MyBidsScreen() {
             style={styles.controlButton}
             onPress={() => setFiltersOpen((prev) => !prev)}
           />
-          <PrimaryButton
-            label={sortOrder === 'newest' ? t('myBids.sortNewest') : t('myBids.sortOldest')}
-            variant="secondary"
-            style={styles.controlButton}
-            onPress={() => setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))}
-          />
+          {archivedCount > 0 && (
+            <Pressable
+              onPress={() => setShowArchived((prev) => !prev)}
+              style={[styles.archiveIconButton, { backgroundColor: showArchived ? theme.tint : theme.backgroundElement }]}
+              accessibilityRole="button"
+              accessibilityLabel={
+                showArchived ? t('myBids.hideArchived') : t('myBids.showArchived', { count: archivedCount })
+              }>
+              <Ionicons name="archive-outline" size={20} color={showArchived ? '#ffffff' : theme.textSecondary} />
+            </Pressable>
+          )}
         </View>
 
         {/* With filters open, the screen becomes a plain ScrollView holding
@@ -289,6 +293,19 @@ export default function MyBidsScreen() {
                   </Pressable>
                 );
               })}
+
+              {/* Was its own button sharing the top controls row with
+                  Filtros (client call 2026-09-25: crowded that row and
+                  pushed the archive icon off its vertical center). Not a
+                  "filter" -- doesn't hide anything -- so it sits below the
+                  filters proper, outside hasActiveFilters/clearFilters. */}
+              <ThemedText type="smallBold">{t('myBids.sortLabel')}</ThemedText>
+              <Pressable onPress={() => setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))} style={styles.statusRow}>
+                <ThemedText type="default">
+                  {sortOrder === 'newest' ? t('myBids.sortNewest') : t('myBids.sortOldest')}
+                </ThemedText>
+                <Ionicons name="swap-vertical-outline" size={18} color={theme.textSecondary} />
+              </Pressable>
 
               {hasActiveFilters && (
                 <PrimaryButton
@@ -396,11 +413,16 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.three,
   },
-  archiveToggle: {
-    alignSelf: 'flex-end',
+  archiveIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: Spacing.two,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   controlsRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.two,
   },
   controlButton: {

@@ -186,6 +186,7 @@
     "puebloCount_other": "Serves {{count}} pueblos",
     "showSaved": "Saved ({{count}})",
     "showAll": "Show All",
+    "savedOnly": "Saved Only ({{count}})",
     "emptySaved": "You haven't saved anyone yet. Tap the heart on a handyman's profile to save them.",
     "savedBadge": "Saved",
     "showResults_one": "Show {{count}} handyman",

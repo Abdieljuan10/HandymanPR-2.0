@@ -123,11 +123,15 @@ export default function BrowseHandymenScreen() {
   }, [handymen, search, filterTradeIds, filterPuebloIds, savedOnly, savedIds]);
 
   const hasActiveFilters = filterTradeIds.length > 0 || filterPuebloSlugs.length > 0;
+  // Only for the button's own label -- "saved only" lives inside the panel
+  // now (below), not as a separate control, but the button should still
+  // hint that SOMETHING is active even if that's the only thing on.
+  const filtersButtonActive = hasActiveFilters || savedOnly;
 
   const filtersButton = (
     <PrimaryButton
       label={
-        hasActiveFilters
+        filtersButtonActive
           ? t('handymanJobFeed.filtersActive')
           : filtersOpen
             ? t('handymanJobFeed.hideFilters')
@@ -144,14 +148,6 @@ export default function BrowseHandymenScreen() {
         <AppHeader pageTitle={t('browseHandymen.title')} />
       </SafeAreaView>
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
-        {(savedIds.size > 0 || savedOnly) && (
-          <Pressable onPress={() => setSavedOnly((prev) => !prev)} style={styles.savedToggle}>
-            <ThemedText type="small" themeColor="textSecondary">
-              {savedOnly ? t('browseHandymen.showAll') : t('browseHandymen.showSaved', { count: savedIds.size })}
-            </ThemedText>
-          </Pressable>
-        )}
-
         {/* With filters open, the screen is a plain ScrollView holding the
             panel -- the same structure Post Job uses for these pickers, which
             scrolls on-device. The previous fix put the panel in this
@@ -170,6 +166,22 @@ export default function BrowseHandymenScreen() {
 
               <ThemedText type="smallBold">{t('postJob.puebloLabel')}</ThemedText>
               <PuebloPicker mode="multi" selected={filterPuebloSlugs} onChange={setFilterPuebloSlugs} />
+
+              {/* Was a standalone icon sharing a row with the Filtros button
+                  (client call 2026-09-25: off-center, crowded). Lives inside
+                  the panel now, alongside the other filters, instead of its
+                  own persistent top-row control. */}
+              {savedIds.size > 0 && (
+                <Pressable
+                  onPress={() => setSavedOnly((prev) => !prev)}
+                  style={[styles.savedOnlyRow, { backgroundColor: savedOnly ? theme.backgroundSelected : 'transparent' }]}>
+                  <View style={styles.savedOnlyLabel}>
+                    <Ionicons name="heart" size={18} color={savedOnly ? theme.tint : theme.textSecondary} />
+                    <ThemedText type="default">{t('browseHandymen.savedOnly', { count: savedIds.size })}</ThemedText>
+                  </View>
+                  {savedOnly && <ThemedText type="smallBold">✓</ThemedText>}
+                </Pressable>
+              )}
 
               {hasActiveFilters && (
                 <PrimaryButton
@@ -300,9 +312,18 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.three,
   },
-  savedToggle: {
-    alignSelf: 'flex-end',
-    marginBottom: Spacing.two,
+  savedOnlyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+    borderRadius: Spacing.two,
+  },
+  savedOnlyLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   nameRow: {
     flexDirection: 'row',
