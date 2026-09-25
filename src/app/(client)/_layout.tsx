@@ -14,6 +14,7 @@ export default function ClientLayout() {
       <Stack.Screen name="invite/[handymanId]/index" options={{ title: t('headers.inviteToQuote') }} />
       <Stack.Screen name="invite/[handymanId]/new" options={{ title: t('headers.newPrivateJob') }} />
       <Stack.Screen name="conversation/[id]/index" options={{ title: t('headers.chat') }} />
+      <Stack.Screen name="profile-edit" options={{ title: t('headers.editProfile') }} />
       <Stack.Screen name="profile-settings" options={{ title: t('headers.settings') }} />
       <Stack.Screen name="change-password" options={{ title: t('headers.changePassword') }} />
     </Stack>

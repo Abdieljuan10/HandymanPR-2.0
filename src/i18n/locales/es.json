@@ -205,7 +205,7 @@
   },
   "clientProfile": {
     "title": "Tu Perfil",
-    "description": "Sesión iniciada como {{email}}. Podrás editar tu nombre, teléfono y foto más adelante.",
+    "editProfile": "Editar Perfil",
     "notFound": "Cliente no encontrado."
   },
   "handymanProfile": {

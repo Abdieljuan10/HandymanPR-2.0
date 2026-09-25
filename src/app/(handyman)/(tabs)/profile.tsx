@@ -168,7 +168,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // flex: 1 -- without a bounded width here, a long name has nothing to
+  // wrap against and overflows past the screen edge instead (same bug as
+  // the chat header and the handyman-side client profile, both already
+  // fixed the same way). This screen was the original template the client
+  // Perfil tab was copied from, which is exactly how it carried the same
+  // gap forward.
   headerText: {
+    flex: 1,
     gap: Spacing.half,
   },
   actions: {

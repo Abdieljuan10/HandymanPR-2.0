@@ -205,7 +205,7 @@
   },
   "clientProfile": {
     "title": "Your Profile",
-    "description": "Logged in as {{email}}. Editing your name/phone/photo comes later.",
+    "editProfile": "Edit Profile",
     "notFound": "Client not found."
   },
   "handymanProfile": {
