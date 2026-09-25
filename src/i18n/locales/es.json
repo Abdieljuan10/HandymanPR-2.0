@@ -433,6 +433,16 @@
     "showAllReviews_other": "Ver las {{count}} reseñas",
     "showFewerReviews": "Ver menos reseñas"
   },
+  "clientPublicProfile": {
+    "reviewsTitle": "Reseñas",
+    "noReviews": "Todavía no tiene reseñas.",
+    "ratingSummary_one": "{{average}} · {{count}} reseña",
+    "ratingSummary_other": "{{average}} · {{count}} reseñas",
+    "reviewerFallback": "Un técnico",
+    "showAllReviews_one": "Ver la {{count}} reseña",
+    "showAllReviews_other": "Ver las {{count}} reseñas",
+    "showFewerReviews": "Ver menos reseñas"
+  },
   "handymanPueblos": {
     "intro": "Toca cada pueblo donde trabajas. Te notificaremos sobre trabajos publicados allí.",
     "saveButton_one": "Guardar ({{count}} seleccionado)",
