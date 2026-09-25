@@ -29,7 +29,17 @@ export function PuebloMap({ selected, onToggle }: PuebloMapProps) {
               key={shape.slug}
               d={shape.path}
               fill={isSelected ? theme.tint : theme.mapFill}
-              stroke={isSelected ? theme.tint : theme.mapBorder}
+              // ALWAYS mapBorder, never theme.tint -- the contrast fix
+              // earlier today (20260924, mapFill/mapBorder tokens) matched
+              // stroke to fill when selected, which reads fine for one
+              // isolated selected pueblo but merges neighboring selected
+              // ones into a single blob with no visible seam between them
+              // (client report: 68 of 78 selected showing as one shape).
+              // A stroke distinct from the fill is what actually draws a
+              // boundary between two adjacently-filled shapes -- same
+              // fill as its neighbor is exactly the case this needs to
+              // keep drawing one.
+              stroke={theme.mapBorder}
               strokeWidth={1.25}
               onPress={() => onToggle(shape.slug)}
             />

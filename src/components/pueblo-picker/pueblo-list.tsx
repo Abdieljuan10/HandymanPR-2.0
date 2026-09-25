@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Pressable, StyleSheet, TextInput } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { PUEBLO_SHAPES } from '@/constants/pueblo-shapes';
@@ -42,20 +42,27 @@ export function PuebloList({ selected, onToggle }: PuebloListProps) {
           { color: theme.text, backgroundColor: theme.backgroundElement },
         ]}
       />
-      <FlatList
+      {/* A plain ScrollView, not FlatList -- this always sits inside another
+          scrolling screen (Post Job, the filter panels, portfolio/edit
+          forms), and a FlatList (a VirtualizedList) there prints "should
+          never be nested inside plain ScrollViews" and, per that check's own
+          condition in VirtualizedList.js (`scrollEnabled !== false`), really
+          does lose windowing/functionality -- `nestedScrollEnabled` doesn't
+          touch that check at all, it only fixes Android's native touch
+          handoff, so it never silenced this. 78 plain text rows costs
+          nothing to render unvirtualized, unlike a real data-backed feed. */}
+      <ScrollView
         showsVerticalScrollIndicator={false}
-        data={filtered}
-        keyExtractor={(item) => item.slug}
         style={styles.list}
-        // Scrolls inside its fixed maxHeight while the picker sits in a
-        // scrolling screen (Post Job, the filter panels). Without this,
-        // Android gives every drag to the outer ScrollView and this list
-        // can't be scrolled at all. No effect on iOS.
+        // Still needed on Android so a drag starting on this box scrolls
+        // it, not the outer ScrollView.
         nestedScrollEnabled
-        renderItem={({ item }) => {
+        keyboardShouldPersistTaps="handled">
+        {filtered.map((item) => {
           const isSelected = selected.has(item.slug);
           return (
             <Pressable
+              key={item.slug}
               onPress={() => onToggle(item.slug)}
               style={[
                 styles.row,
@@ -65,8 +72,8 @@ export function PuebloList({ selected, onToggle }: PuebloListProps) {
               {isSelected && <ThemedText type="smallBold">✓</ThemedText>}
             </Pressable>
           );
-        }}
-      />
+        })}
+      </ScrollView>
     </>
   );
 }

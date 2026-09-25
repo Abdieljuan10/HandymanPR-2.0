@@ -8,9 +8,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PhotoViewer } from '@/components/photo-viewer';
 import { PrimaryButton } from '@/components/primary-button';
+import { PuebloMapThumbnail } from '@/components/pueblo-map-thumbnail';
 import { StarDisplay } from '@/components/star-display';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DEFAULT_TRADE_ICON, TRADE_ICONS } from '@/constants/trade-icons';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { saveHandyman, unsaveHandyman } from '@/lib/saved-handymen';
@@ -30,8 +32,8 @@ type HandymanProfileRow = {
   facebook_url: string | null;
 };
 
-type TradeRow = { trades: { name_es: string; name_en: string } | null };
-type PuebloRow = { pueblos: { name: string } | null };
+type TradeRow = { trades: { slug: string; name_es: string; name_en: string } | null };
+type PuebloRow = { pueblos: { slug: string; name: string } | null };
 type ProjectPhoto = { photo_url: string; sort_order: number };
 type ProjectRow = {
   id: string;
@@ -147,7 +149,7 @@ export default function PublicHandymanProfileScreen() {
 
     supabase
       .from('handyman_trades')
-      .select('trades(name_es, name_en)')
+      .select('trades(slug, name_es, name_en)')
       .eq('handyman_id', id)
       .then(({ data, error }) => {
         if (!isMounted) return;
@@ -157,7 +159,7 @@ export default function PublicHandymanProfileScreen() {
 
     supabase
       .from('handyman_pueblos')
-      .select('pueblos(name)')
+      .select('pueblos(slug, name)')
       .eq('handyman_id', id)
       .then(({ data, error }) => {
         if (!isMounted) return;
@@ -240,12 +242,17 @@ export default function PublicHandymanProfileScreen() {
 
   const averageRating =
     reviews && reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
-  const tradeNames = trades
-    .map((row) => (row.trades ? (language === 'en' ? row.trades.name_en : row.trades.name_es) : null))
-    .filter((name): name is string => !!name);
+  const tradeItems = trades
+    .map((row) =>
+      row.trades
+        ? { slug: row.trades.slug, name: language === 'en' ? row.trades.name_en : row.trades.name_es }
+        : null
+    )
+    .filter((item): item is { slug: string; name: string } => !!item);
   const puebloNames = pueblos
     .map((row) => row.pueblos?.name)
     .filter((name): name is string => !!name);
+  const puebloSlugs = new Set(pueblos.map((row) => row.pueblos?.slug).filter((slug): slug is string => !!slug));
 
   return (
     <ThemedView style={styles.container}>
@@ -318,33 +325,46 @@ export default function PublicHandymanProfileScreen() {
           {(profile.instagram_url || profile.facebook_url) && (
             <View style={styles.socialRow}>
               {profile.instagram_url && (
-                <Pressable onPress={() => Linking.openURL(profile.instagram_url!)}>
-                  <ThemedText type="linkPrimary">{t('handymanPublicProfile.instagram')}</ThemedText>
+                <Pressable
+                  onPress={() => Linking.openURL(profile.instagram_url!)}
+                  accessibilityRole="link"
+                  accessibilityLabel={t('handymanPublicProfile.instagram')}>
+                  <Ionicons name="logo-instagram" size={28} color="#E4405F" />
                 </Pressable>
               )}
               {profile.facebook_url && (
-                <Pressable onPress={() => Linking.openURL(profile.facebook_url!)}>
-                  <ThemedText type="linkPrimary">{t('handymanPublicProfile.facebook')}</ThemedText>
+                <Pressable
+                  onPress={() => Linking.openURL(profile.facebook_url!)}
+                  accessibilityRole="link"
+                  accessibilityLabel={t('handymanPublicProfile.facebook')}>
+                  <Ionicons name="logo-facebook" size={28} color="#1877F2" />
                 </Pressable>
               )}
             </View>
           )}
 
-          {tradeNames.length > 0 && (
+          {tradeItems.length > 0 && (
             <View style={styles.section}>
               <ThemedText type="smallBold">{t('handymanPublicProfile.tradesTitle')}</ThemedText>
-              <ThemedText type="default" themeColor="textSecondary">
-                {tradeNames.join(', ')}
-              </ThemedText>
+              <View style={styles.tradeGrid}>
+                {tradeItems.map((item) => (
+                  <View key={item.slug} style={[styles.tradeCard, { backgroundColor: theme.backgroundElement }]}>
+                    <View style={[styles.tradeIconCircle, { backgroundColor: `${theme.tint}22` }]}>
+                      <Ionicons name={TRADE_ICONS[item.slug] ?? DEFAULT_TRADE_ICON} size={18} color={theme.tint} />
+                    </View>
+                    <ThemedText type="small" style={styles.tradeLabel}>
+                      {item.name}
+                    </ThemedText>
+                  </View>
+                ))}
+              </View>
             </View>
           )}
 
           {puebloNames.length > 0 && (
             <View style={styles.section}>
               <ThemedText type="smallBold">{t('handymanPublicProfile.pueblosTitle')}</ThemedText>
-              <ThemedText type="default" themeColor="textSecondary">
-                {puebloNames.join(', ')}
-              </ThemedText>
+              <PuebloMapThumbnail selectedSlugs={puebloSlugs} names={puebloNames} />
             </View>
           )}
 
@@ -503,6 +523,27 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: Spacing.one,
+  },
+  tradeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  tradeCard: {
+    width: '47%',
+    borderRadius: Spacing.two,
+    padding: Spacing.two,
+    gap: Spacing.two,
+  },
+  tradeIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tradeLabel: {
+    fontWeight: '600',
   },
   projectCard: {
     flexDirection: 'row',
