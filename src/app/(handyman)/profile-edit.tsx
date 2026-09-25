@@ -167,24 +167,23 @@ export default function HandymanProfileEditScreen() {
     return errors;
   }
 
-  // Fixed filename per user rather than a timestamped one like job photos --
-  // there's only ever one current avatar, so re-uploading replaces it in
-  // place instead of leaving the old file orphaned in Storage. The `?v=`
-  // query string on the saved URL busts any client-side image cache that
-  // would otherwise keep showing the old file at that same path.
+  // A timestamped filename per upload, like job/portfolio photos already
+  // use, NOT a fixed `avatar.jpg` -- every upload is then a guaranteed-new
+  // key, so there's nothing to conflict with. The previous approach (fixed
+  // filename, `remove()` the old file then a plain insert-only `upload()`)
+  // still hit "The resource already exists" / 409 KeyAlreadyExists on a
+  // second upload for the same account -- `remove()`'s result was never
+  // checked, so there's no direct evidence of why it didn't take effect in
+  // time, but a delete-then-recreate-at-the-same-key round trip is exactly
+  // the kind of thing that races against Storage's own consistency, and
+  // sidestepping the shared key entirely removes the race rather than
+  // explaining it. `upsert: true` was tried before that and rejected for a
+  // real reason (a genuine RLS violation this bucket's policies don't hit
+  // otherwise), so this deliberately isn't going back to that.
   //
-  // Deliberately NOT `upsert: true` here (was, until this caused a real
-  // "new row violates row-level security policy" error that portfolio
-  // photos and certifications -- which never use upsert -- don't hit with
-  // the exact same folder-ownership policy shape). Confirmed it isn't a
-  // path/policy mismatch: portfolio-photos and certifications come from the
-  // same migration file as avatars and are proven working, so avatars'
-  // insert/update/delete policies did apply. `upsert: true` is the one real
-  // difference between avatar's upload call and the two that work, so this
-  // sidesteps whatever Supabase Storage does differently for an upsert
-  // under RLS by using the same plain-insert path already proven to work:
-  // delete any existing file first (a no-op if there isn't one), then a
-  // normal insert-only upload.
+  // Uploading the new file BEFORE removing the old one (not after, like
+  // before) also means a failed upload never leaves the account with no
+  // avatar at all -- worst case on failure is just keeping the old photo.
   async function uploadAvatarIfNeeded(userId: string): Promise<string | null> {
     if (!newAvatar) return avatarUrl;
 
@@ -205,9 +204,7 @@ export default function HandymanProfileEditScreen() {
 
     const response = await fetch(result.uri);
     const arrayBuffer = await response.arrayBuffer();
-    const path = `${userId}/avatar.jpg`;
-
-    await supabase.storage.from('avatars').remove([path]);
+    const path = `${userId}/avatar-${Date.now()}.jpg`;
 
     const { error: uploadError } = await supabase.storage
       .from('avatars')
@@ -221,8 +218,22 @@ export default function HandymanProfileEditScreen() {
       throw new Error(`Avatar upload failed: ${uploadError.message} | ${extra}`);
     }
 
+    // Best-effort cleanup of the previous file, now that the new one is
+    // safely in place -- an old avatar left behind is just a few KB of
+    // orphaned Storage, not a correctness problem, so this never blocks or
+    // fails the save. avatarUrl is whatever this screen loaded at open, in
+    // the exact format this same code has always saved it in (a public URL
+    // ending in `.../avatars/<path>`, optionally with a legacy `?v=`
+    // cache-busting suffix from before this fix), so splitting on
+    // `/avatars/` recovers the storage-relative path reliably.
+    const oldPath = avatarUrl?.split('/avatars/')[1]?.split('?')[0];
+    if (oldPath) {
+      const { error: removeError } = await supabase.storage.from('avatars').remove([oldPath]);
+      if (removeError) console.error('Failed to remove old avatar:', removeError.message);
+    }
+
     const { data: publicUrl } = supabase.storage.from('avatars').getPublicUrl(path);
-    return `${publicUrl.publicUrl}?v=${Date.now()}`;
+    return publicUrl.publicUrl;
   }
 
   async function handleSave() {
