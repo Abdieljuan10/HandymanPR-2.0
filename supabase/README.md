@@ -71,10 +71,10 @@ since the app doesn't deep-link the confirmation itself (the in-app copy
 already tells the user to confirm the email, then manually return and log
 in).
 
-**Note on brand colors**: the button/header colors in the template
-(`#1C64F2` blue, `#F97316` orange) are a provisional placeholder pair, not
-final brand colors — swap the two hex values in the file (and re-paste) once
-the app's real color scheme is picked.
+**Brand colors**: updated 2026-09-25 to the app's real "Isla" palette
+(`#0E7A82` teal header/links, `#E8593F` coral button), matching
+`Colors.light.tint`/`Colors.light.accent` in `theme.ts` — the file no longer
+has placeholder colors in it, still not yet applied in the dashboard.
 
 **Known limitation, not fixed here**: Supabase's built-in email sending is
 rate-limited (a handful of emails per hour) and can land in spam, since it
