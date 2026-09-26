@@ -675,6 +675,42 @@ index.tsx`) was redesigned earlier in this same arc and is explicitly
 **locked** — client confirmed "everything works and looks good," no further
 changes without a new ask.
 
+9. **Handyman Jobs feed** (`(handyman)/(tabs)/index.tsx`) — compact filter
+   `Chip` ("Filtros · 2" when active) replaces the full-width button;
+   "Invitaciones" (elevated `Card`) and "Trabajos Abiertos" `SectionHeader`s
+   are a display-only split of the existing `filteredJobs` (same rows, same
+   order, invites still pinned + filter-exempt); cards show the job's first
+   photo (`JobPhoto`) else `ServiceIcon`, title, trade · pin pueblo, time;
+   `LoadingState`/`EmptyState`. Query additions only: `trades(slug)` and
+   `job_photos(photo_url, sort_order)` (same plain embed as client Home;
+   job_photos RLS just re-checks the jobs policy, so no access change).
+   Filter-open ScrollView swap kept as-is. **Client: "looks good overall"**
+   before the photo thumbnail was added — photo not yet seen on-device.
+10. **My Bids** (`(handyman)/(tabs)/my-bids.tsx`) — same filter chip; status
+   filter rows and the sort toggle are now `Chip`s calling the same
+   handlers; `SectionHeader` with count per section (order unchanged);
+   cards: `ServiceIcon`, title, trade · pueblo, price (tint) on the right,
+   `StatusBadge` with the section's own label (accepted success, completed
+   neutral, pending warning/amber — client-approved, jobCancelled error,
+   closed/archived neutral), time. Query addition: `trades(slug)` only.
+   Swipe structure untouched — the `Card` keeps `marginBottom: Spacing.two`
+   to match `SwipeAction`'s. Grouping/archive/sort logic unchanged. **Not
+   yet reviewed on-device; client said a further My Bids pass comes later.**
+
+### Logged 2026-09-26 by the client — real features, NOT visual, not started
+1. **Handyman rejects a job invitation.** Today the only responses are bid
+   or ignore. Open decisions: does rejecting only hide it from the
+   handyman's feed, does it notify the client, is there a reason field?
+2. **Handyman edits their own bid before it's accepted** (typo, wrong
+   price/note). Only Withdraw exists today; bid mutation rules don't allow
+   edits — needs its own design pass (what happens to a bid the client is
+   mid-review on, RLS/trigger changes, notify the client?).
+3. **Notification indicator** — badge/red dot on the Messages and/or Jobs
+   tab icons, or a notification center, or both. Zero badge/count
+   infrastructure exists in the tab bar today, and unread tracking doesn't
+   exist either (see Messages item 1 below). New plumbing; do an
+   inspect-first pass like Job Details/Messages got.
+
 ### Known, not fixed (small)
 - **Messages, three items from the client-facing redesign (2026-09-26), not fixed yet:**
   1. **Unread tracking doesn't exist at all** (no `read_at`, no unread count/badge anywhere) — a real feature to build later, not just a visual gap. Confirmed absent during the Messages redesign inspection.

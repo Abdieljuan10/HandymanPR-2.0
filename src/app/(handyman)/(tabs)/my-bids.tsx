@@ -9,13 +9,21 @@ import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
+import { Card } from '@/components/card';
+import { Chip } from '@/components/chip';
+import { EmptyState } from '@/components/empty-state';
+import { JobPhoto } from '@/components/job-photo';
+import { LoadingState } from '@/components/loading-state';
 import { PrimaryButton } from '@/components/primary-button';
 import { PuebloPicker } from '@/components/pueblo-picker';
+import { SectionHeader } from '@/components/section-header';
+import { ServiceIcon } from '@/components/service-icon';
+import { StatusBadge, type StatusTone } from '@/components/status-badge';
 import { SwipeAction, SWIPE_OVERSHOOT_FRICTION, SWIPE_SPRING } from '@/components/swipe-action';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TradePicker } from '@/components/trade-picker';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePueblos } from '@/hooks/use-pueblos';
 import { supabase } from '@/lib/supabase';
@@ -35,7 +43,8 @@ type MyBidRow = {
     trade_id: number;
     pueblo_id: number;
     pueblos: { name: string } | null;
-    trades: { name_es: string; name_en: string } | null;
+    trades: { slug: string; name_es: string; name_en: string } | null;
+    job_photos: { photo_url: string; sort_order: number }[];
   } | null;
 };
 
@@ -58,8 +67,36 @@ const SECTION_DEFS: { key: Exclude<SectionKey, 'archived'>; titleKey: string }[]
   { key: 'closed', titleKey: 'myBids.sections.closed' },
 ];
 
+// The three primary statuses get one-tap chips on the screen itself (row 2,
+// single-select); the Filters panel keeps only the rest. Both write the
+// same filterStatusKeys state, so there's still one filtering path --
+// these are just which keys each control is allowed to touch.
+const QUICK_STATUS_DEFS: { key: SectionKey; labelKey: string }[] = [
+  { key: 'accepted', labelKey: 'myBids.quick.hired' },
+  { key: 'pending', labelKey: 'myBids.quick.pending' },
+  { key: 'completed', labelKey: 'myBids.quick.completed' },
+];
+const QUICK_STATUS_KEYS = QUICK_STATUS_DEFS.map((def) => def.key);
+const PANEL_STATUS_DEFS = SECTION_DEFS.filter((def) => !QUICK_STATUS_KEYS.includes(def.key));
+
+// Badge color per section -- display only; which section a bid lands in is
+// decided by the grouping below, not here.
+const SECTION_TONE: Record<SectionKey, StatusTone> = {
+  accepted: 'success',
+  completed: 'neutral',
+  pending: 'warning',
+  jobCancelled: 'error',
+  closed: 'neutral',
+  archived: 'neutral',
+};
+
+// job_photos is the same plain embed the job feed and client Home use, for
+// the card thumbnail -- jobs without photos come back with an empty array.
 const BIDS_SELECT =
-  'id, price, status, created_at, jobs!job_id(id, title, status, trade_id, pueblo_id, pueblos(name), trades(name_es, name_en))';
+  'id, price, status, created_at, jobs!job_id(id, title, status, trade_id, pueblo_id, pueblos(name), ' +
+  'trades(slug, name_es, name_en), job_photos(photo_url, sort_order))';
+
+const THUMBNAIL_SIZE = 52;
 
 export default function MyBidsScreen() {
   const { t } = useTranslation();
@@ -221,6 +258,24 @@ export default function MyBidsScreen() {
     setFilterStatusKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   }
 
+  // Single-select among the quick chips: tapping the active one clears it,
+  // tapping another swaps to it. Panel-only status keys are left alone.
+  function toggleQuickStatus(key: SectionKey) {
+    setFilterStatusKeys((prev) =>
+      prev.includes(key)
+        ? prev.filter((k) => k !== key)
+        : [...prev.filter((k) => !QUICK_STATUS_KEYS.includes(k)), key]
+    );
+  }
+
+  // hasActiveFilters above (quick statuses included) still drives the
+  // empty-state wording; the Filters chip and Clear Filters only reflect
+  // what's set inside the panel, so a quick chip doesn't count as a filter.
+  const panelStatusCount = filterStatusKeys.filter((k) => !QUICK_STATUS_KEYS.includes(k)).length;
+  const activeFilterCount = filterTradeIds.length + filterPuebloSlugs.length + panelStatusCount;
+  const hasPanelFilters = activeFilterCount > 0;
+  const filtersHighlighted = filtersOpen || hasPanelFilters;
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top', 'left', 'right']}>
@@ -232,31 +287,57 @@ export default function MyBidsScreen() {
             archived). Now a compact icon sharing the filters row instead.
             Sort order moved into the filter panel below (was a second
             button here too, which crowded this row and forced the icon
-            off its vertical center -- see filterPanel for it now). */}
+            off its vertical center -- see filterPanel for it now).
+            2026-09-26 visual pass: the full-width Filters button is now a
+            compact chip ("Filters · 3" when active) -- same three labels,
+            same toggle. */}
         <View style={styles.controlsRow}>
-          <PrimaryButton
+          <Chip
             label={
-              hasActiveFilters
-                ? t('myBids.filtersActive')
+              hasPanelFilters
+                ? `${t('myBids.showFilters')} · ${activeFilterCount}`
                 : filtersOpen
                   ? t('myBids.hideFilters')
                   : t('myBids.showFilters')
             }
-            variant="secondary"
-            style={styles.controlButton}
+            selected={filtersHighlighted}
+            icon={<Ionicons name="options-outline" size={16} color={filtersHighlighted ? theme.tint : theme.textSecondary} />}
             onPress={() => setFiltersOpen((prev) => !prev)}
           />
           {archivedCount > 0 && (
             <Pressable
               onPress={() => setShowArchived((prev) => !prev)}
-              style={[styles.archiveIconButton, { backgroundColor: showArchived ? theme.tint : theme.backgroundElement }]}
+              style={[
+                styles.archiveIconButton,
+                {
+                  backgroundColor: showArchived ? theme.tintBackground : theme.backgroundElement,
+                  borderColor: showArchived ? theme.tint : theme.border,
+                },
+              ]}
               accessibilityRole="button"
               accessibilityLabel={
                 showArchived ? t('myBids.hideArchived') : t('myBids.showArchived', { count: archivedCount })
               }>
-              <Ionicons name="archive-outline" size={20} color={showArchived ? '#ffffff' : theme.textSecondary} />
+              <Ionicons name="archive-outline" size={18} color={showArchived ? theme.tint : theme.textSecondary} />
             </Pressable>
           )}
+        </View>
+
+        {/* Row 2: quick status chips. Own row, not beside Filters -- in
+            Spanish (Contratadas/Pendientes/Completadas) all four controls
+            can't share ~342px without shrinking text (client picked this
+            2026-09-26). flexGrow spreads them across the row, sized to
+            their labels, so the longest word never clips. */}
+        <View style={styles.quickRow}>
+          {QUICK_STATUS_DEFS.map((def) => (
+            <Chip
+              key={def.key}
+              label={t(def.labelKey)}
+              selected={filterStatusKeys.includes(def.key)}
+              onPress={() => toggleQuickStatus(def.key)}
+              style={styles.quickChip}
+            />
+          ))}
         </View>
 
         {/* With filters open, the screen becomes a plain ScrollView holding
@@ -278,21 +359,16 @@ export default function MyBidsScreen() {
               <PuebloPicker mode="multi" selected={filterPuebloSlugs} onChange={setFilterPuebloSlugs} />
 
               <ThemedText type="smallBold">{t('myBids.statusLabel')}</ThemedText>
-              {SECTION_DEFS.map((def) => {
-                const isSelected = filterStatusKeys.includes(def.key);
-                return (
-                  <Pressable
+              <View style={styles.chipRow}>
+                {PANEL_STATUS_DEFS.map((def) => (
+                  <Chip
                     key={def.key}
+                    label={t(def.titleKey)}
+                    selected={filterStatusKeys.includes(def.key)}
                     onPress={() => toggleStatusFilter(def.key)}
-                    style={[
-                      styles.statusRow,
-                      { backgroundColor: isSelected ? theme.backgroundSelected : 'transparent' },
-                    ]}>
-                    <ThemedText type="default">{t(def.titleKey)}</ThemedText>
-                    {isSelected && <ThemedText type="smallBold">✓</ThemedText>}
-                  </Pressable>
-                );
-              })}
+                  />
+                ))}
+              </View>
 
               {/* Was its own button sharing the top controls row with
                   Filtros (client call 2026-09-25: crowded that row and
@@ -300,21 +376,22 @@ export default function MyBidsScreen() {
                   "filter" -- doesn't hide anything -- so it sits below the
                   filters proper, outside hasActiveFilters/clearFilters. */}
               <ThemedText type="smallBold">{t('myBids.sortLabel')}</ThemedText>
-              <Pressable onPress={() => setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))} style={styles.statusRow}>
-                <ThemedText type="default">
-                  {sortOrder === 'newest' ? t('myBids.sortNewest') : t('myBids.sortOldest')}
-                </ThemedText>
-                <Ionicons name="swap-vertical-outline" size={18} color={theme.textSecondary} />
-              </Pressable>
+              <Chip
+                label={sortOrder === 'newest' ? t('myBids.sortNewest') : t('myBids.sortOldest')}
+                icon={<Ionicons name="swap-vertical-outline" size={16} color={theme.textSecondary} />}
+                onPress={() => setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))}
+              />
 
-              {hasActiveFilters && (
+              {hasPanelFilters && (
                 <PrimaryButton
                   label={t('myBids.clearFilters')}
                   variant="secondary"
                   onPress={() => {
                     setFilterTradeIds([]);
                     setFilterPuebloSlugs([]);
-                    setFilterStatusKeys([]);
+                    // Keeps the selected quick status (it lives outside
+                    // this panel); clears only the panel's own statuses.
+                    setFilterStatusKeys((prev) => prev.filter((k) => QUICK_STATUS_KEYS.includes(k)));
                   }}
                 />
               )}
@@ -325,15 +402,19 @@ export default function MyBidsScreen() {
             />
           </ScrollView>
         ) : loadError ? (
-          <ThemedText type="small" style={styles.error}>
-            {t('common.loadError', { error: loadError })}
-          </ThemedText>
+          <EmptyState
+            icon="cloud-offline-outline"
+            title={t('myBids.errorTitle')}
+            description={t('common.loadError', { error: loadError })}
+          />
         ) : bids === null ? (
-          <ThemedText type="default">{t('common.loading')}</ThemedText>
+          <LoadingState label={t('common.loading')} />
         ) : sections.length === 0 ? (
-          <ThemedText type="default" themeColor="textSecondary">
-            {hasActiveFilters ? t('myBids.emptyFiltered') : t('myBids.empty')}
-          </ThemedText>
+          hasActiveFilters ? (
+            <EmptyState icon="funnel-outline" title={t('myBids.emptyFilteredTitle')} description={t('myBids.emptyFiltered')} />
+          ) : (
+            <EmptyState icon="pricetag-outline" title={t('myBids.emptyTitle')} description={t('myBids.empty')} />
+          )
         ) : (
           <SectionList
             showsVerticalScrollIndicator={false}
@@ -343,9 +424,9 @@ export default function MyBidsScreen() {
             stickySectionHeadersEnabled={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
             renderSectionHeader={({ section }) => (
-              <ThemedText type="smallBold" style={styles.sectionHeader}>
-                {t(section.titleKey)}
-              </ThemedText>
+              <View style={styles.sectionHeader}>
+                <SectionHeader title={`${t(section.titleKey)} · ${section.data.length}`} />
+              </View>
             )}
             renderItem={({ item, section }) => {
               if (!item.jobs) return null;
@@ -354,16 +435,57 @@ export default function MyBidsScreen() {
                   ? item.jobs.trades.name_en
                   : item.jobs.trades.name_es
                 : '';
+              // Thumbnail: the job's first photo, else the trade icon.
+              const photos = item.jobs.job_photos;
+              const firstPhoto =
+                photos && photos.length > 0
+                  ? [...photos].sort((a, b) => a.sort_order - b.sort_order)[0].photo_url
+                  : null;
               const row = (
                 <Link href={`/job/${item.jobs.id}`} asChild>
                   <Pressable>
-                    <ThemedView type="backgroundElement" style={styles.card}>
-                      <ThemedText type="default">{item.jobs.title}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {item.jobs.pueblos?.name} · {tradeName} · ${item.price.toFixed(2)} ·{' '}
-                        {formatRelativeTime(item.created_at, t)}
-                      </ThemedText>
-                    </ThemedView>
+                    {/* marginBottom (styles.card) matches SwipeAction's own
+                        marginBottom so the revealed action lines up with
+                        the card's height -- keep them equal. */}
+                    <Card style={styles.card}>
+                      <View style={styles.cardTop}>
+                        {firstPhoto ? (
+                          <JobPhoto uri={firstPhoto} style={styles.thumbnail} />
+                        ) : (
+                          <ServiceIcon slug={item.jobs.trades?.slug ?? ''} size={THUMBNAIL_SIZE} />
+                        )}
+                        <View style={styles.cardBody}>
+                          <ThemedText type="cardTitle" numberOfLines={2}>
+                            {item.jobs.title}
+                          </ThemedText>
+                          <View style={styles.metaRow}>
+                            {tradeName !== '' && (
+                              <ThemedText type="small" themeColor="textSecondary">
+                                {tradeName}
+                              </ThemedText>
+                            )}
+                            {tradeName !== '' && item.jobs.pueblos?.name && (
+                              <View style={[styles.metaDot, { backgroundColor: theme.border }]} />
+                            )}
+                            {item.jobs.pueblos?.name && (
+                              <View style={styles.iconRow}>
+                                <Ionicons name="location-outline" size={12} color={theme.textSecondary} />
+                                <ThemedText type="small" themeColor="textSecondary">
+                                  {item.jobs.pueblos.name}
+                                </ThemedText>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                        <ThemedText type="cardTitle" themeColor="tint">
+                          ${item.price.toFixed(2)}
+                        </ThemedText>
+                      </View>
+                      <View style={styles.cardBottom}>
+                        <StatusBadge label={t(section.titleKey)} tone={SECTION_TONE[section.key]} />
+                        <ThemedText type="metadata">{formatRelativeTime(item.created_at, t)}</ThemedText>
+                      </View>
+                    </Card>
                   </Pressable>
                 </Link>
               );
@@ -414,19 +536,18 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   archiveIconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: Spacing.two,
+    width: 36,
+    height: 36,
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: Spacing.two,
-  },
-  controlButton: {
-    flex: 1,
   },
   filterScroll: {
     gap: Spacing.three,
@@ -437,13 +558,23 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     gap: Spacing.two,
   },
-  statusRow: {
+  quickRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    borderRadius: Spacing.two,
+    gap: Spacing.two,
+    // Pulls row 2 a bit closer to row 1 than safeArea's gap, so the two
+    // control rows read as one group above the list.
+    marginTop: -Spacing.one,
+  },
+  quickChip: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    minHeight: 36,
+    paddingHorizontal: Spacing.two,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
   },
   list: {
     gap: Spacing.two,
@@ -451,15 +582,44 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     marginTop: Spacing.two,
-    marginBottom: Spacing.one,
   },
   card: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    gap: Spacing.one,
+    gap: Spacing.two,
     marginBottom: Spacing.two,
   },
-  error: {
-    color: '#d64545',
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  thumbnail: {
+    width: THUMBNAIL_SIZE,
+    height: THUMBNAIL_SIZE,
+    borderRadius: Radius.medium,
+  },
+  cardBody: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  cardBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  iconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    flexWrap: 'wrap',
+  },
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
   },
 });

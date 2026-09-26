@@ -124,7 +124,12 @@
     "clearFilters": "Clear Filters",
     "invitedYou": "Invited you to quote",
     "showResults_one": "Show {{count}} job",
-    "showResults_other": "Show {{count}} jobs"
+    "showResults_other": "Show {{count}} jobs",
+    "invitedSection": "Invited",
+    "availableSection": "Available Jobs",
+    "emptyTitle": "No open jobs yet",
+    "emptyFilteredTitle": "No matching jobs",
+    "errorTitle": "Couldn't load jobs"
   },
   "myBids": {
     "empty": "You haven't submitted any bids yet.",
@@ -150,7 +155,15 @@
     "sortNewest": "Newest First",
     "sortOldest": "Oldest First",
     "showResults_one": "Show {{count}} bid",
-    "showResults_other": "Show {{count}} bids"
+    "showResults_other": "Show {{count}} bids",
+    "emptyTitle": "No bids yet",
+    "emptyFilteredTitle": "No matching bids",
+    "errorTitle": "Couldn't load your bids",
+    "quick": {
+      "hired": "Hired",
+      "pending": "Pending",
+      "completed": "Completed"
+    }
   },
   "postJob": {
     "title": "Post a Job",

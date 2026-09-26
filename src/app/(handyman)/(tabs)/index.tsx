@@ -1,17 +1,26 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
+import { Card } from '@/components/card';
+import { Chip } from '@/components/chip';
+import { EmptyState } from '@/components/empty-state';
+import { JobPhoto } from '@/components/job-photo';
+import { LoadingState } from '@/components/loading-state';
 import { PrimaryButton } from '@/components/primary-button';
 import { PuebloPicker } from '@/components/pueblo-picker';
+import { SectionHeader } from '@/components/section-header';
+import { ServiceIcon } from '@/components/service-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TradePicker } from '@/components/trade-picker';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
 import { usePueblos } from '@/hooks/use-pueblos';
+import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
 import { useSession } from '@/providers/session-provider';
@@ -25,12 +34,18 @@ type JobFeedRow = {
   pueblo_id: number;
   visibility: 'public' | 'invite_only';
   pueblos: { name: string } | null;
-  trades: { name_es: string; name_en: string } | null;
+  trades: { slug: string; name_es: string; name_en: string } | null;
+  job_photos: { photo_url: string; sort_order: number }[];
 };
+
+const THUMBNAIL_SIZE = 52;
+
+type JobSection ={ key: 'invited' | 'available'; titleKey: string; data: JobFeedRow[] };
 
 export default function HandymanJobFeedScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
+  const theme = useTheme();
   const { session } = useSession();
   const { pueblos } = usePueblos();
   const [jobs, setJobs] = useState<JobFeedRow[] | null>(null);
@@ -49,7 +64,13 @@ export default function HandymanJobFeedScreen() {
     const [{ data, error }, { data: invitations, error: invitationsError }] = await Promise.all([
       supabase
         .from('jobs')
-        .select('id, title, created_at, trade_id, pueblo_id, visibility, pueblos(name), trades(name_es, name_en)')
+        // job_photos rides along in this same query (same embed as client
+        // Home) for the card thumbnail -- a plain embed, so jobs without
+        // photos still come back, with an empty array.
+        .select(
+          'id, title, created_at, trade_id, pueblo_id, visibility, pueblos(name), trades(slug, name_es, name_en), ' +
+            'job_photos(photo_url, sort_order)'
+        )
         .eq('status', 'open')
         .order('created_at', { ascending: false }),
       supabase.from('job_invitations').select('job_id').eq('handyman_id', session.user.id),
@@ -116,17 +137,36 @@ export default function HandymanJobFeedScreen() {
   }, [jobs, filterTradeIds, filterPuebloIds, isInvite]);
 
   const hasActiveFilters = filterTradeIds.length > 0 || filterPuebloSlugs.length > 0;
+  const activeFilterCount = filterTradeIds.length + filterPuebloSlugs.length;
 
-  const filtersButton = (
-    <PrimaryButton
+  // Display-only split of filteredJobs into its two existing halves (invites
+  // pinned first, then the rest) -- same rows, same order, just rendered
+  // under two headers. filteredJobs itself, and the "Show N" count built on
+  // it, are untouched.
+  const sections = useMemo<JobSection[]>(() => {
+    if (!filteredJobs) return [];
+    const invites = filteredJobs.filter(isInvite);
+    const rest = filteredJobs.filter((job) => !isInvite(job));
+    const list: JobSection[] = [];
+    if (invites.length > 0) list.push({ key: 'invited', titleKey: 'handymanJobFeed.invitedSection', data: invites });
+    if (rest.length > 0) list.push({ key: 'available', titleKey: 'handymanJobFeed.availableSection', data: rest });
+    return list;
+  }, [filteredJobs, isInvite]);
+
+  // Same three states and same toggle as the old full-width button (active /
+  // open / closed), now a compact chip -- "Filters · 2" when anything is set.
+  const filtersHighlighted = filtersOpen || hasActiveFilters;
+  const filtersChip = (
+    <Chip
       label={
         hasActiveFilters
-          ? t('handymanJobFeed.filtersActive')
+          ? `${t('handymanJobFeed.showFilters')} · ${activeFilterCount}`
           : filtersOpen
             ? t('handymanJobFeed.hideFilters')
             : t('handymanJobFeed.showFilters')
       }
-      variant="secondary"
+      selected={filtersHighlighted}
+      icon={<Ionicons name="options-outline" size={16} color={filtersHighlighted ? theme.tint : theme.textSecondary} />}
       onPress={() => setFiltersOpen((prev) => !prev)}
     />
   );
@@ -137,6 +177,8 @@ export default function HandymanJobFeedScreen() {
         <AppHeader pageTitle={t('handymanJobFeed.title')} />
       </SafeAreaView>
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
+        <View style={styles.controlsRow}>{filtersChip}</View>
+
         {/* With filters open, the screen is a plain ScrollView holding the
             panel -- the same structure Post Job uses for these pickers, which
             scrolls on-device. The previous fix put the panel in the FlatList's
@@ -147,7 +189,6 @@ export default function HandymanJobFeedScreen() {
             pressable shapes are swallowed. */}
         {filtersOpen ? (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterScroll} keyboardShouldPersistTaps="handled">
-            {filtersButton}
             <ThemedView type="backgroundElement" style={styles.filterPanel}>
               <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
               <TradePicker mode="multi" selected={filterTradeIds} onChange={setFilterTradeIds} />
@@ -172,40 +213,94 @@ export default function HandymanJobFeedScreen() {
             />
           </ScrollView>
         ) : filteredJobs === null ? (
-          <ThemedText type="default">{t('common.loading')}</ThemedText>
+          <LoadingState label={t('common.loading')} />
         ) : (
-          <FlatList
+          <SectionList
             showsVerticalScrollIndicator={false}
-            data={filteredJobs}
+            sections={sections}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
+            stickySectionHeadersEnabled={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-            ListHeaderComponent={<View style={styles.header}>{filtersButton}</View>}
+            renderSectionHeader={({ section }) => (
+              <View style={styles.sectionHeader}>
+                <SectionHeader title={t(section.titleKey)} />
+              </View>
+            )}
             ListEmptyComponent={
-              <ThemedText type="default" themeColor="textSecondary">
-                {loadError !== null
-                  ? t('common.loadError', { error: loadError })
-                  : hasActiveFilters
-                    ? t('handymanJobFeed.emptyFiltered')
-                    : t('handymanJobFeed.empty')}
-              </ThemedText>
+              loadError !== null ? (
+                <EmptyState
+                  icon="cloud-offline-outline"
+                  title={t('handymanJobFeed.errorTitle')}
+                  description={t('common.loadError', { error: loadError })}
+                />
+              ) : hasActiveFilters ? (
+                <EmptyState
+                  icon="funnel-outline"
+                  title={t('handymanJobFeed.emptyFilteredTitle')}
+                  description={t('handymanJobFeed.emptyFiltered')}
+                />
+              ) : (
+                <EmptyState
+                  icon="briefcase-outline"
+                  title={t('handymanJobFeed.emptyTitle')}
+                  description={t('handymanJobFeed.empty')}
+                />
+              )
             }
             renderItem={({ item }) => {
               const tradeName = item.trades ? (language === 'en' ? item.trades.name_en : item.trades.name_es) : '';
+              const invited = isInvite(item);
+              // Thumbnail: the job's first photo, else the trade icon.
+              const firstPhoto =
+                item.job_photos && item.job_photos.length > 0
+                  ? [...item.job_photos].sort((a, b) => a.sort_order - b.sort_order)[0].photo_url
+                  : null;
               return (
                 <Link href={`/job/${item.id}`} asChild>
                   <Pressable>
-                    <ThemedView type="backgroundElement" style={styles.card}>
-                      {isInvite(item) && (
-                        <ThemedText type="smallBold" themeColor="tint">
-                          {t('handymanJobFeed.invitedYou')}
-                        </ThemedText>
+                    {/* Elevated only for invites -- the one thing on this
+                        screen addressed to this handyman personally. */}
+                    <Card variant={invited ? 'elevated' : 'flat'} style={styles.card}>
+                      {firstPhoto ? (
+                        <JobPhoto uri={firstPhoto} style={styles.thumbnail} />
+                      ) : (
+                        <ServiceIcon slug={item.trades?.slug ?? ''} size={THUMBNAIL_SIZE} />
                       )}
-                      <ThemedText type="default">{item.title}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {item.pueblos?.name} · {tradeName} · {formatRelativeTime(item.created_at, t)}
-                      </ThemedText>
-                    </ThemedView>
+                      <View style={styles.cardBody}>
+                        {invited && (
+                          <View style={styles.iconRow}>
+                            <Ionicons name="mail-outline" size={13} color={theme.tint} />
+                            <ThemedText type="smallBold" themeColor="tint">
+                              {t('handymanJobFeed.invitedYou')}
+                            </ThemedText>
+                          </View>
+                        )}
+                        <ThemedText type="cardTitle" numberOfLines={2}>
+                          {item.title}
+                        </ThemedText>
+                        <View style={styles.metaRow}>
+                          {tradeName !== '' && (
+                            <ThemedText type="small" themeColor="textSecondary">
+                              {tradeName}
+                            </ThemedText>
+                          )}
+                          {tradeName !== '' && item.pueblos?.name && (
+                            <View style={[styles.metaDot, { backgroundColor: theme.border }]} />
+                          )}
+                          {item.pueblos?.name && (
+                            <View style={styles.iconRow}>
+                              <Ionicons name="location-outline" size={12} color={theme.textSecondary} />
+                              <ThemedText type="small" themeColor="textSecondary">
+                                {item.pueblos.name}
+                              </ThemedText>
+                            </View>
+                          )}
+                        </View>
+                        <ThemedText type="metadata">{formatRelativeTime(item.created_at, t)}</ThemedText>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+                    </Card>
                   </Pressable>
                 </Link>
               );
@@ -226,9 +321,10 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.three,
   },
-  header: {
-    gap: Spacing.three,
-    marginBottom: Spacing.one,
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   filterScroll: {
     gap: Spacing.three,
@@ -243,9 +339,37 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingBottom: BottomTabInset,
   },
+  sectionHeader: {
+    marginTop: Spacing.two,
+  },
   card: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  thumbnail: {
+    width: THUMBNAIL_SIZE,
+    height: THUMBNAIL_SIZE,
+    borderRadius: Radius.medium,
+  },
+  cardBody: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  iconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.one,
+    flexWrap: 'wrap',
+  },
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
   },
 });

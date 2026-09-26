@@ -124,7 +124,12 @@
     "clearFilters": "Quitar Filtros",
     "invitedYou": "Te invitaron a cotizar",
     "showResults_one": "Ver {{count}} trabajo",
-    "showResults_other": "Ver {{count}} trabajos"
+    "showResults_other": "Ver {{count}} trabajos",
+    "invitedSection": "Invitaciones",
+    "availableSection": "Trabajos Abiertos",
+    "emptyTitle": "Aún no hay trabajos abiertos",
+    "emptyFilteredTitle": "Ningún trabajo coincide",
+    "errorTitle": "No se pudieron cargar los trabajos"
   },
   "myBids": {
     "empty": "Todavía no has enviado ninguna oferta.",
@@ -150,7 +155,15 @@
     "sortNewest": "Más Recientes Primero",
     "sortOldest": "Más Antiguos Primero",
     "showResults_one": "Ver {{count}} oferta",
-    "showResults_other": "Ver {{count}} ofertas"
+    "showResults_other": "Ver {{count}} ofertas",
+    "emptyTitle": "Aún no tienes ofertas",
+    "emptyFilteredTitle": "Ninguna oferta coincide",
+    "errorTitle": "No se pudieron cargar tus ofertas",
+    "quick": {
+      "hired": "Contratadas",
+      "pending": "Pendientes",
+      "completed": "Completadas"
+    }
   },
   "postJob": {
     "title": "Publicar un Trabajo",
