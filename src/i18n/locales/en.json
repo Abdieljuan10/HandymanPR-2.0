@@ -68,6 +68,14 @@
   },
   "clientHome": {
     "title": "Your Jobs",
+    "greetingMorning": "Good morning{{name}} 👋",
+    "greetingAfternoon": "Good afternoon{{name}} 👋",
+    "greetingEvening": "Good evening{{name}} 👋",
+    "greetingSubtitle": "Here's what's happening with your jobs.",
+    "myJobsHeading": "My Jobs",
+    "filter": "Filter",
+    "viewAll": "View all ({{count}})",
+    "noFilterMatches": "No jobs match this filter.",
     "empty": "You haven't posted a job yet. Use the Post Job tab to get started.",
     "bidCount_one": "{{count}} bid",
     "bidCount_other": "{{count}} bids",
@@ -174,7 +182,18 @@
     "postAnyway": "Post Anyway",
     "inviteTitle": "Invite to Quote",
     "inviteBanner": "Only {{name}} will see this job and be able to quote it. They get a notification as soon as you send it.",
-    "inviteSubmit": "Send Invite"
+    "inviteSubmit": "Send Invite",
+    "stepDetails": "Details",
+    "stepTrade": "Trade",
+    "stepLocation": "Location",
+    "stepPhotos": "Photos",
+    "stepQuotes": "Quotes",
+    "stepReview": "Review",
+    "stepIndicator": "Step {{current}} of {{total}}",
+    "next": "Next",
+    "back": "Back",
+    "edit": "Edit",
+    "reviewTitle": "Review your job"
   },
   "browseHandymen": {
     "title": "Browse Handymen",
@@ -182,6 +201,7 @@
     "empty": "No handymen yet.",
     "emptyFiltered": "No handymen match your search. Try clearing some filters.",
     "featured": "Featured",
+    "allHandymen": "Handymen",
     "puebloCount_one": "Serves {{count}} pueblo",
     "puebloCount_other": "Serves {{count}} pueblos",
     "showSaved": "Saved ({{count}})",
@@ -201,11 +221,13 @@
     "unarchive": "Unarchive",
     "showArchived": "Show Archived ({{count}})",
     "hideArchived": "Hide Archived",
+    "activeSection": "Active Conversations",
     "archivedSection": "Archived"
   },
   "clientProfile": {
     "title": "Your Profile",
     "editProfile": "Edit Profile",
+    "accountSection": "Account",
     "notFound": "Client not found."
   },
   "handymanProfile": {
@@ -215,7 +237,10 @@
     "editTrades": "Edit Trades",
     "editPueblos": "Edit Pueblos",
     "portfolio": "Portfolio",
-    "certifications": "Certifications"
+    "certifications": "Certifications",
+    "profileSection": "Profile",
+    "showcaseSection": "Showcase",
+    "accountSection": "Account"
   },
   "portfolio": {
     "intro": "Group your photos into projects so clients can see real jobs, not just loose photos.",
@@ -409,6 +434,9 @@
   "handymanPublicProfile": {
     "notFound": "Handyman not found.",
     "verified": "Verified",
+    "aboutTitle": "About Me",
+    "readMore": "Read more",
+    "readLess": "Read less",
     "yearsExperience_one": "{{count}} year of experience",
     "yearsExperience_other": "{{count}} years of experience",
     "tradesTitle": "Trades",

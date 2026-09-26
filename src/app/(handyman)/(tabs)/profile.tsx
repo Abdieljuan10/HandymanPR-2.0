@@ -1,4 +1,4 @@
-import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,14 +6,43 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
+import { Avatar } from '@/components/avatar';
+import { Card } from '@/components/card';
 import { PhotoViewer } from '@/components/photo-viewer';
-import { PrimaryButton } from '@/components/primary-button';
+import { SectionHeader } from '@/components/section-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { BottomTabInset, CardShadow, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
+
+// Local to this screen only -- a "management hub" tappable row (icon, label,
+// chevron) for the PROFILE/SHOWCASE/ACCOUNT sections below. Not a shared
+// component: nothing else in the app needs this exact icon+label+chevron
+// shape yet, and the client Profile tab inlines its own two rows directly.
+type AccountRowProps = {
+  href: Parameters<typeof Link>[0]['href'];
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+};
+
+function AccountRow({ href, icon, label }: AccountRowProps) {
+  const theme = useTheme();
+  return (
+    <Link href={href} asChild>
+      <Pressable style={({ pressed }) => pressed && styles.rowPressed}>
+        <Card style={styles.actionRow}>
+          <View style={styles.actionRowLeft}>
+            <Ionicons name={icon} size={20} color={theme.tint} />
+            <ThemedText type="default">{label}</ThemedText>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+        </Card>
+      </Pressable>
+    </Link>
+  );
+}
 
 type OwnProfile = {
   full_name: string;
@@ -69,63 +98,73 @@ export default function HandymanProfileScreen() {
       </SafeAreaView>
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.headerRow}>
+          <Card style={styles.identityCard}>
             {profile?.avatar_url ? (
               <Pressable onPress={() => setAvatarViewerOpen(true)}>
-                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+                <Avatar uri={profile.avatar_url} name={profile?.full_name} size={100} />
               </Pressable>
             ) : (
-              <View
-                style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.backgroundElement }]}>
-                <ThemedText type="title" themeColor="textSecondary">
-                  {profile?.full_name?.trim().charAt(0).toUpperCase() || '?'}
+              <Avatar uri={null} name={profile?.full_name} size={100} />
+            )}
+            <ThemedText type="cardTitle" style={styles.centeredText}>
+              {profile?.full_name ?? (loadError !== null ? '' : t('common.loading'))}
+            </ThemedText>
+
+            {profile?.is_verified && (
+              <View style={[styles.verifiedBadge, { backgroundColor: theme.backgroundElement }]}>
+                <Ionicons name="shield-checkmark" size={13} color={theme.accent} />
+                <ThemedText type="smallBold" themeColor="accent">
+                  {t('handymanPublicProfile.verified')}
                 </ThemedText>
               </View>
             )}
-            <View style={styles.headerText}>
-              <ThemedText type="subtitle">{profile?.full_name ?? (loadError !== null ? '' : t('common.loading'))}</ThemedText>
-              {profile?.is_verified && (
-                <ThemedText type="small" themeColor="tint">
-                  {t('handymanPublicProfile.verified')}
-                </ThemedText>
-              )}
-              {profile?.years_experience != null && (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t('handymanPublicProfile.yearsExperience', { count: profile.years_experience })}
-                </ThemedText>
-              )}
+
+            {profile?.years_experience != null && (
+              <ThemedText type="small" themeColor="textSecondary">
+                {t('handymanPublicProfile.yearsExperience', { count: profile.years_experience })}
+              </ThemedText>
+            )}
+
+            {loadError !== null ? (
+              <ThemedText type="small" style={{ color: theme.error }}>
+                {t('common.loadError', { error: loadError })}
+              </ThemedText>
+            ) : (
+              <ThemedText
+                type="default"
+                themeColor={profile?.bio ? 'text' : 'textSecondary'}
+                style={styles.centeredText}>
+                {profile?.bio || t('handymanProfile.noBio')}
+              </ThemedText>
+            )}
+          </Card>
+
+          <View style={styles.section}>
+            <SectionHeader title={t('handymanProfile.profileSection')} />
+            <View style={styles.actionList}>
+              <AccountRow href="/profile-edit" icon="pencil-outline" label={t('handymanProfile.editProfile')} />
+              <AccountRow href="/trades" icon="hammer-outline" label={t('handymanProfile.editTrades')} />
+              <AccountRow href="/pueblos" icon="location-outline" label={t('handymanProfile.editPueblos')} />
             </View>
           </View>
 
-          {loadError !== null ? (
-            <ThemedText type="small" style={styles.error}>
-              {t('common.loadError', { error: loadError })}
-            </ThemedText>
-          ) : (
-            <ThemedText type="default" themeColor={profile?.bio ? 'text' : 'textSecondary'}>
-              {profile?.bio || t('handymanProfile.noBio')}
-            </ThemedText>
-          )}
+          <View style={styles.section}>
+            <SectionHeader title={t('handymanProfile.showcaseSection')} />
+            <View style={styles.actionList}>
+              <AccountRow href="/portfolio" icon="images-outline" label={t('handymanProfile.portfolio')} />
+              <AccountRow
+                href="/certifications"
+                icon="ribbon-outline"
+                label={t('handymanProfile.certifications')}
+              />
+            </View>
+          </View>
 
-          <View style={styles.actions}>
-            <Link href="/profile-edit" asChild>
-              <PrimaryButton label={t('handymanProfile.editProfile')} />
-            </Link>
-            <Link href="/portfolio" asChild>
-              <PrimaryButton label={t('handymanProfile.portfolio')} variant="secondary" />
-            </Link>
-            <Link href="/certifications" asChild>
-              <PrimaryButton label={t('handymanProfile.certifications')} variant="secondary" />
-            </Link>
-            <Link href="/trades" asChild>
-              <PrimaryButton label={t('handymanProfile.editTrades')} variant="secondary" />
-            </Link>
-            <Link href="/pueblos" asChild>
-              <PrimaryButton label={t('handymanProfile.editPueblos')} variant="secondary" />
-            </Link>
-            <Link href="/profile-settings" asChild>
-              <PrimaryButton label={t('common.settings')} variant="secondary" />
-            </Link>
+          <View style={styles.section}>
+            <SectionHeader title={t('handymanProfile.accountSection')} />
+            <View style={styles.actionList}>
+              <AccountRow href="/profile-settings" icon="settings-outline" label={t('common.settings')} />
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -151,38 +190,42 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
   },
   scrollContent: {
-    gap: Spacing.three,
+    gap: Spacing.four,
     paddingBottom: BottomTabInset,
   },
-  headerRow: {
+  identityCard: {
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  centeredText: {
+    textAlign: 'center',
+  },
+  verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-  },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-  },
-  avatarPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // flex: 1 -- without a bounded width here, a long name has nothing to
-  // wrap against and overflows past the screen edge instead (same bug as
-  // the chat header and the handyman-side client profile, both already
-  // fixed the same way). This screen was the original template the client
-  // Perfil tab was copied from, which is exactly how it carried the same
-  // gap forward.
-  headerText: {
-    flex: 1,
     gap: Spacing.half,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
+    borderRadius: Radius.pill,
+    ...CardShadow,
   },
-  actions: {
+  section: {
+    gap: Spacing.one,
+  },
+  actionList: {
     gap: Spacing.two,
-    marginTop: Spacing.two,
   },
-  error: {
-    color: '#d64545',
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  actionRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  rowPressed: {
+    opacity: 0.7,
   },
 });

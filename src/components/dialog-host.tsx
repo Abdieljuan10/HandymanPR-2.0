@@ -4,12 +4,10 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { registerDialogPresenter, type DialogRequest } from '@/lib/confirm';
-
-const DESTRUCTIVE_RED = '#d64545';
 
 // The app's themed replacement for Alert.alert / window.confirm (visual pass
 // 2026-09-24). Mounted once in the root layout, above the navigator, so a
@@ -49,7 +47,7 @@ export function DialogHost() {
   }
 
   const confirmColor =
-    shown?.kind === 'confirm' && shown.destructive ? DESTRUCTIVE_RED : theme.tint;
+    shown?.kind === 'confirm' && shown.destructive ? theme.error : theme.tint;
 
   return (
     <Modal
@@ -73,9 +71,10 @@ export function DialogHost() {
               cardStyle,
             ]}
             accessibilityRole="alert">
-            <ThemedText type="subtitle" style={styles.title}>
-              {shown.title}
-            </ThemedText>
+            {/* Was type="subtitle" (32/44) with a style override forcing it
+                down to 20/26 -- sectionHeading (18/600) is the real token for
+                this size now, no override needed. */}
+            <ThemedText type="sectionHeading">{shown.title}</ThemedText>
             <ScrollView style={styles.messageScroll} contentContainerStyle={styles.messageContent}>
               <ThemedText type="default" themeColor="textSecondary">
                 {shown.message}
@@ -126,7 +125,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     maxHeight: '80%',
-    borderRadius: 20,
+    borderRadius: Radius.xlarge,
     padding: Spacing.four,
     gap: Spacing.three,
     shadowColor: '#000000',
@@ -134,10 +133,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 24,
     elevation: 12,
-  },
-  title: {
-    fontSize: 20,
-    lineHeight: 26,
   },
   messageScroll: {
     flexGrow: 0,
@@ -151,7 +146,7 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.medium,
     paddingVertical: Spacing.three,
     paddingHorizontal: Spacing.two,
     alignItems: 'center',

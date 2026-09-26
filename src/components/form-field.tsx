@@ -1,7 +1,7 @@
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type FormFieldProps = TextInputProps & {
@@ -29,7 +29,10 @@ export function FormField({ label, error, style, rightElement, labelColor, ...re
       placeholderTextColor={theme.textSecondary}
       style={[
         styles.input,
-        { color: theme.text, backgroundColor: theme.backgroundElement },
+        // White surface + a subtle border, not a flat gray fill -- 2026-09-25
+        // design-system pass ("avoid huge gray boxes"). Border color alone
+        // carries the error state; backgroundColor never changes.
+        { color: theme.text, backgroundColor: theme.background, borderColor: error ? theme.error : theme.border },
         error && styles.inputError,
         !!rightElement && styles.inputWithRightElement,
         !!rightElement && styles.noMargin,
@@ -53,7 +56,7 @@ export function FormField({ label, error, style, rightElement, labelColor, ...re
         input
       )}
       {error && (
-        <ThemedText type="small" style={styles.errorText}>
+        <ThemedText type="small" style={[styles.errorText, { color: theme.error }]}>
           {error}
         </ThemedText>
       )}
@@ -63,15 +66,15 @@ export function FormField({ label, error, style, rightElement, labelColor, ...re
 
 const styles = StyleSheet.create({
   input: {
-    borderRadius: Spacing.two,
+    borderRadius: Radius.medium,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     fontSize: 16,
     marginBottom: Spacing.three,
   },
   inputError: {
-    borderWidth: 1,
-    borderColor: '#d64545',
+    borderWidth: 1.5,
     marginBottom: Spacing.one,
   },
   inputWithRightElement: {
@@ -99,7 +102,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
   },
   errorText: {
-    color: '#d64545',
     marginBottom: Spacing.two,
     marginTop: -Spacing.one,
   },

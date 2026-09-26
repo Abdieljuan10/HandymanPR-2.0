@@ -6,14 +6,18 @@ import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Card } from '@/components/card';
+import { EmptyState } from '@/components/empty-state';
+import { LoadingState } from '@/components/loading-state';
 import { PhotoViewer } from '@/components/photo-viewer';
 import { PrimaryButton } from '@/components/primary-button';
 import { PuebloMapThumbnail } from '@/components/pueblo-map-thumbnail';
+import { SectionHeader } from '@/components/section-header';
+import { ServiceIcon } from '@/components/service-icon';
 import { StarDisplay } from '@/components/star-display';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { DEFAULT_TRADE_ICON, TRADE_ICONS } from '@/constants/trade-icons';
-import { Spacing } from '@/constants/theme';
+import { CardShadow, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { saveHandyman, unsaveHandyman } from '@/lib/saved-handymen';
 import { supabase } from '@/lib/supabase';
@@ -78,6 +82,12 @@ export default function PublicHandymanProfileScreen() {
   // hidden then, rather than wrongly claiming "No reviews yet".
   const [reviews, setReviews] = useState<ReviewRow[] | null>(null);
   const [showAllReviews, setShowAllReviews] = useState(false);
+  // Local presentation state only, same pattern as showAllReviews above --
+  // no query, no persisted preference. bioTruncated only flips true once
+  // onTextLayout reports more lines than the 3-line clamp actually shows, so
+  // a short bio never gets a pointless "Read more" that does nothing.
+  const [bioExpanded, setBioExpanded] = useState(false);
+  const [bioTruncated, setBioTruncated] = useState(false);
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   // Sections that failed to load. They used to just disappear, which on a
@@ -222,7 +232,7 @@ export default function PublicHandymanProfileScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
-          <ThemedText type="default">{t('common.loading')}</ThemedText>
+          <LoadingState label={t('common.loading')} />
         </SafeAreaView>
       </ThemedView>
     );
@@ -232,9 +242,10 @@ export default function PublicHandymanProfileScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
-          <ThemedText type="default">
-            {loadError !== null ? t('common.loadError', { error: loadError }) : t('handymanPublicProfile.notFound')}
-          </ThemedText>
+          <EmptyState
+            icon="alert-circle-outline"
+            title={loadError !== null ? t('common.loadError', { error: loadError }) : t('handymanPublicProfile.notFound')}
+          />
         </SafeAreaView>
       </ThemedView>
     );
@@ -258,69 +269,124 @@ export default function PublicHandymanProfileScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.headerRow}>
-            {profile.avatar_url ? (
-              <Pressable onPress={() => setAvatarViewerOpen(true)}>
-                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-              </Pressable>
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.backgroundElement }]}>
-                <ThemedText type="subtitle" themeColor="textSecondary">
-                  {profile.full_name.trim().charAt(0).toUpperCase() || '?'}
-                </ThemedText>
-              </View>
-            )}
-            <View style={styles.headerText}>
-              <ThemedText type="subtitle">{profile.full_name}</ThemedText>
+          <View style={styles.headerColumn}>
+            <View style={styles.heroWrapper}>
+              {profile.avatar_url ? (
+                <Pressable onPress={() => setAvatarViewerOpen(true)} style={styles.avatarTouchable}>
+                  <Image source={{ uri: profile.avatar_url }} style={styles.avatar} contentFit="cover" />
+                </Pressable>
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.backgroundElement }]}>
+                  <ThemedText type="screenTitle" themeColor="textSecondary">
+                    {profile.full_name.trim().charAt(0).toUpperCase() || '?'}
+                  </ThemedText>
+                </View>
+              )}
+              {/* Same coral verified treatment as before -- only its position
+                  changed (overlaid on the photo, mockup-style, bottom-left)
+                  per client request. Still gated on the exact same
+                  `profile.is_verified` flag; never turned green. */}
               {profile.is_verified && (
-                <ThemedText type="small" themeColor="tint">
-                  {t('handymanPublicProfile.verified')}
-                </ThemedText>
-              )}
-              {profile.years_experience !== null && (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t('handymanPublicProfile.yearsExperience', { count: profile.years_experience })}
-                </ThemedText>
-              )}
-              {reviews && reviews.length > 0 && (
-                <View style={styles.ratingRow}>
-                  <StarDisplay rating={averageRating} />
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {t('handymanPublicProfile.ratingSummary', {
-                      average: averageRating.toFixed(1),
-                      count: reviews.length,
-                    })}
+                <View style={[styles.verifiedBadge, { backgroundColor: theme.background }]}>
+                  <Ionicons name="shield-checkmark" size={13} color={theme.accent} />
+                  <ThemedText type="smallBold" themeColor="accent">
+                    {t('handymanPublicProfile.verified')}
                   </ThemedText>
                 </View>
               )}
             </View>
+
+            <ThemedText type="subtitle" style={styles.centeredText} numberOfLines={2}>
+              {profile.full_name}
+            </ThemedText>
+            {reviews && reviews.length > 0 && (
+              <View style={[styles.ratingRow, styles.centerRow]}>
+                <StarDisplay rating={averageRating} />
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t('handymanPublicProfile.ratingSummary', {
+                    average: averageRating.toFixed(1),
+                    count: reviews.length,
+                  })}
+                </ThemedText>
+              </View>
+            )}
+
+            {/* Quick-glance stat row, in ADDITION to (not instead of) the
+                full PuebloMapThumbnail section further down -- that section
+                keeps its map + See list/Hide list toggle exactly as it was.
+                Same data already computed below (years_experience,
+                puebloNames), no new query. Either side hides independently
+                if that data isn't there; the whole row hides if neither is. */}
+            {(profile.years_experience !== null || puebloNames.length > 0) && (
+              <View style={styles.infoRow}>
+                {puebloNames.length > 0 && (
+                  <View style={styles.infoItem}>
+                    <Ionicons name="location-outline" size={15} color={theme.textSecondary} />
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {t('handymanPublicProfile.puebloCount', { count: puebloNames.length })}
+                    </ThemedText>
+                  </View>
+                )}
+                {profile.years_experience !== null && (
+                  <View style={styles.infoItem}>
+                    <Ionicons name="briefcase-outline" size={15} color={theme.textSecondary} />
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {t('handymanPublicProfile.yearsExperience', { count: profile.years_experience })}
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
+          {Object.keys(partialErrors).length > 0 && (
+            <ThemedText type="small" style={[styles.errorText, { color: theme.error }]}>
+              {t('common.partialLoadError', { error: Object.values(partialErrors).join('; ') })}
+            </ThemedText>
+          )}
+
+          <View style={styles.actionsRow}>
+            <PrimaryButton
+              style={styles.inviteButton}
+              label={t('handymanPublicProfile.inviteToQuote')}
+              onPress={() => router.push(`/invite/${profile.id}`)}
+            />
             {saved !== null && (
               <Pressable
                 onPress={toggleSaved}
                 hitSlop={8}
                 accessibilityRole="button"
-                accessibilityLabel={saved ? t('handymanPublicProfile.unsave') : t('handymanPublicProfile.save')}>
+                accessibilityLabel={saved ? t('handymanPublicProfile.unsave') : t('handymanPublicProfile.save')}
+                style={[styles.heartButton, { backgroundColor: theme.backgroundElement }]}>
                 <Ionicons
                   name={saved ? 'heart' : 'heart-outline'}
-                  size={28}
-                  color={saved ? '#d64545' : theme.textSecondary}
+                  size={24}
+                  color={saved ? theme.error : theme.textSecondary}
                 />
               </Pressable>
             )}
           </View>
 
-          {Object.keys(partialErrors).length > 0 && (
-            <ThemedText type="small" style={styles.errorText}>
-              {t('common.partialLoadError', { error: Object.values(partialErrors).join('; ') })}
-            </ThemedText>
+          {profile.bio && (
+            <View style={styles.section}>
+              <SectionHeader title={t('handymanPublicProfile.aboutTitle')} />
+              <ThemedText
+                type="default"
+                numberOfLines={bioExpanded ? undefined : 3}
+                onTextLayout={(e) => {
+                  if (!bioExpanded && e.nativeEvent.lines.length > 3) setBioTruncated(true);
+                }}>
+                {profile.bio}
+              </ThemedText>
+              {bioTruncated && (
+                <Pressable onPress={() => setBioExpanded((v) => !v)}>
+                  <ThemedText type="small" themeColor="tint">
+                    {bioExpanded ? t('handymanPublicProfile.readLess') : t('handymanPublicProfile.readMore')}
+                  </ThemedText>
+                </Pressable>
+              )}
+            </View>
           )}
-
-          <PrimaryButton
-            label={t('handymanPublicProfile.inviteToQuote')}
-            onPress={() => router.push(`/invite/${profile.id}`)}
-          />
-
-          {profile.bio && <ThemedText type="default">{profile.bio}</ThemedText>}
 
           {(profile.instagram_url || profile.facebook_url) && (
             <View style={styles.socialRow}>
@@ -328,16 +394,18 @@ export default function PublicHandymanProfileScreen() {
                 <Pressable
                   onPress={() => Linking.openURL(profile.instagram_url!)}
                   accessibilityRole="link"
-                  accessibilityLabel={t('handymanPublicProfile.instagram')}>
-                  <Ionicons name="logo-instagram" size={28} color="#E4405F" />
+                  accessibilityLabel={t('handymanPublicProfile.instagram')}
+                  style={[styles.socialButton, { backgroundColor: theme.backgroundElement }]}>
+                  <Ionicons name="logo-instagram" size={24} color="#E4405F" />
                 </Pressable>
               )}
               {profile.facebook_url && (
                 <Pressable
                   onPress={() => Linking.openURL(profile.facebook_url!)}
                   accessibilityRole="link"
-                  accessibilityLabel={t('handymanPublicProfile.facebook')}>
-                  <Ionicons name="logo-facebook" size={28} color="#1877F2" />
+                  accessibilityLabel={t('handymanPublicProfile.facebook')}
+                  style={[styles.socialButton, { backgroundColor: theme.backgroundElement }]}>
+                  <Ionicons name="logo-facebook" size={24} color="#1877F2" />
                 </Pressable>
               )}
             </View>
@@ -345,17 +413,15 @@ export default function PublicHandymanProfileScreen() {
 
           {tradeItems.length > 0 && (
             <View style={styles.section}>
-              <ThemedText type="smallBold">{t('handymanPublicProfile.tradesTitle')}</ThemedText>
+              <SectionHeader title={t('handymanPublicProfile.tradesTitle')} />
               <View style={styles.tradeGrid}>
                 {tradeItems.map((item) => (
-                  <View key={item.slug} style={[styles.tradeCard, { backgroundColor: theme.backgroundElement }]}>
-                    <View style={[styles.tradeIconCircle, { backgroundColor: `${theme.tint}22` }]}>
-                      <Ionicons name={TRADE_ICONS[item.slug] ?? DEFAULT_TRADE_ICON} size={18} color={theme.tint} />
-                    </View>
-                    <ThemedText type="small" style={styles.tradeLabel}>
+                  <Card key={item.slug} style={styles.tradeCard}>
+                    <ServiceIcon slug={item.slug} size={36} />
+                    <ThemedText type="smallBold" style={styles.tradeLabel}>
                       {item.name}
                     </ThemedText>
-                  </View>
+                  </Card>
                 ))}
               </View>
             </View>
@@ -363,14 +429,14 @@ export default function PublicHandymanProfileScreen() {
 
           {puebloNames.length > 0 && (
             <View style={styles.section}>
-              <ThemedText type="smallBold">{t('handymanPublicProfile.pueblosTitle')}</ThemedText>
+              <SectionHeader title={t('handymanPublicProfile.pueblosTitle')} />
               <PuebloMapThumbnail selectedSlugs={puebloSlugs} names={puebloNames} />
             </View>
           )}
 
           {reviews !== null && (
             <View style={styles.section}>
-              <ThemedText type="smallBold">{t('handymanPublicProfile.reviewsTitle')}</ThemedText>
+              <SectionHeader title={t('handymanPublicProfile.reviewsTitle')} />
               {reviews.length === 0 ? (
                 <ThemedText type="default" themeColor="textSecondary">
                   {t('handymanPublicProfile.noReviews')}
@@ -378,7 +444,7 @@ export default function PublicHandymanProfileScreen() {
               ) : (
                 <>
                   {(showAllReviews ? reviews : reviews.slice(0, REVIEWS_CAP)).map((review) => (
-                    <ThemedView key={review.id} type="backgroundElement" style={styles.reviewCard}>
+                    <Card key={review.id} style={styles.reviewCard}>
                       {/* Plain text on purpose -- never a Link or Pressable to
                           the reviewer's profile (client's rule). */}
                       <ThemedText type="smallBold">
@@ -391,7 +457,7 @@ export default function PublicHandymanProfileScreen() {
                         </ThemedText>
                       </View>
                       {review.comment && <ThemedText type="default">{review.comment}</ThemedText>}
-                    </ThemedView>
+                    </Card>
                   ))}
                   {reviews.length > REVIEWS_CAP && (
                     <Pressable onPress={() => setShowAllReviews((prev) => !prev)}>
@@ -409,7 +475,7 @@ export default function PublicHandymanProfileScreen() {
 
           {projects.length > 0 && (
             <View style={styles.section}>
-              <ThemedText type="smallBold">{t('handymanPublicProfile.portfolioTitle')}</ThemedText>
+              <SectionHeader title={t('handymanPublicProfile.portfolioTitle')} />
               {projects.map((project) => {
                 const sortedPhotos = [...project.handyman_portfolio_photos].sort(
                   (a, b) => a.sort_order - b.sort_order
@@ -424,29 +490,36 @@ export default function PublicHandymanProfileScreen() {
 
                 return (
                   <Link key={project.id} href={`/handyman/${id}/project/${project.id}`} asChild>
-                    <Pressable
-                      style={StyleSheet.flatten([styles.projectCard, { borderColor: theme.backgroundElement }])}>
-                      {cover ? (
-                        <Image source={{ uri: cover.photo_url }} style={styles.projectCover} />
-                      ) : (
-                        <View
-                          style={[
-                            styles.projectCover,
-                            { backgroundColor: theme.backgroundElement },
-                          ]}
-                        />
-                      )}
-                      <View style={styles.cardText}>
-                        <ThemedText type="smallBold">{project.title}</ThemedText>
-                        {subtitle.length > 0 && (
-                          <ThemedText type="small" themeColor="textSecondary">
-                            {subtitle}
-                          </ThemedText>
+                    <Pressable>
+                      <Card style={styles.projectCard}>
+                        {cover ? (
+                          <Image source={{ uri: cover.photo_url }} style={styles.projectCover} />
+                        ) : (
+                          <View
+                            style={[
+                              styles.projectCover,
+                              { backgroundColor: theme.backgroundElement },
+                            ]}
+                          />
                         )}
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {t('portfolio.photoCount', { count: project.handyman_portfolio_photos.length })}
-                        </ThemedText>
-                      </View>
+                        <View style={styles.cardText}>
+                          <ThemedText type="smallBold" numberOfLines={1}>
+                            {project.title}
+                          </ThemedText>
+                          {subtitle.length > 0 && (
+                            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                              {subtitle}
+                            </ThemedText>
+                          )}
+                          <View style={styles.metaRow}>
+                            <Ionicons name="images-outline" size={12} color={theme.textSecondary} />
+                            <ThemedText type="small" themeColor="textSecondary">
+                              {t('portfolio.photoCount', { count: project.handyman_portfolio_photos.length })}
+                            </ThemedText>
+                          </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+                      </Card>
                     </Pressable>
                   </Link>
                 );
@@ -456,7 +529,7 @@ export default function PublicHandymanProfileScreen() {
 
           {certifications.length > 0 && (
             <View style={styles.section}>
-              <ThemedText type="smallBold">{t('handymanPublicProfile.certificationsTitle')}</ThemedText>
+              <SectionHeader title={t('handymanPublicProfile.certificationsTitle')} />
               {certifications.map((certification) => (
                 <View key={certification.id} style={styles.certRow}>
                   <ThemedText type="default">{certification.title}</ThemedText>
@@ -496,75 +569,162 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
   },
   scrollContent: {
-    gap: Spacing.three,
+    gap: Spacing.four,
     paddingBottom: Spacing.six,
   },
-  headerRow: {
-    flexDirection: 'row',
+  // Vertical, centered header per client feedback 2026-09-25: large photo on
+  // top, identity stacked and centered underneath (name -> rating ->
+  // verified -> experience), replacing the earlier horizontal
+  // photo-beside-info row.
+  headerColumn: {
     alignItems: 'center',
-    gap: Spacing.three,
+    gap: Spacing.one,
+  },
+  centeredText: {
+    textAlign: 'center',
+  },
+  // Merged onto ratingRow/verifiedRow/metaRow ONLY in this header context --
+  // metaRow is also used left-aligned inside portfolio project rows below,
+  // so the shared style itself stays untouched.
+  centerRow: {
+    justifyContent: 'center',
+  },
+  // Wide landscape hero photo, not a circle or a small square, per client
+  // feedback 2026-09-25 -- a Facebook-cover-photo-style focal point spanning
+  // the same width as everything else on the screen (this View's own
+  // padding, from `safeArea` below, already gives it the normal side
+  // margins -- no separate margin needed here).
+  // Wraps the photo/placeholder so the verified badge (position: absolute)
+  // can overlay it. The negative horizontal margin cancels safeArea's own
+  // `padding: Spacing.four` for this one element only, so the photo reaches
+  // the true screen edges (Facebook-cover-photo style) while every other
+  // section keeps the normal padded content width -- this app is
+  // portrait-only (app.json), so there's no nonzero left/right safe-area
+  // inset to worry about clipping into here.
+  heroWrapper: {
+    width: '100%',
+    marginHorizontal: -Spacing.four,
+    position: 'relative',
+  },
+  avatarTouchable: {
+    width: '100%',
   },
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: '100%',
+    aspectRatio: 16 / 9,
+    // No radius -- a rounded corner flush against the screen's true edge
+    // doesn't read as "rounded", it reads as a gap. Edge-to-edge means
+    // square corners.
+    borderRadius: 0,
   },
   avatarPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerText: {
-    flex: 1,
+  // Same coral pill as verifiedRow used to be, just overlaid bottom-left on
+  // the photo instead of stacked below it. Solid theme.background (not a
+  // translucent tint) so the coral text stays legible over any photo.
+  verifiedBadge: {
+    position: 'absolute',
+    left: Spacing.two,
+    bottom: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.half,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
+    borderRadius: Radius.pill,
+    ...CardShadow,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.four,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
+  verifiedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
+  // Invite to Quote + the favorite heart, side by side -- the heart's own
+  // marginTop is zeroed so it lines up with PrimaryButton's, whose default
+  // marginTop otherwise sits Spacing.two lower than a plain View.
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  inviteButton: {
+    flex: 1,
+    marginTop: 0,
+  },
+  heartButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   socialRow: {
     flexDirection: 'row',
-    gap: Spacing.four,
+    gap: Spacing.three,
+  },
+  socialButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   section: {
-    gap: Spacing.one,
+    gap: Spacing.two,
   },
   tradeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
   },
+  // 2-column rectangular cards, per client feedback 2026-09-25: the earlier
+  // compact icon-above-label chip truncated long trade names ("HVAC / Air
+  // Conditioning", "Concrete / Masonry") with an ellipsis. No numberOfLines
+  // and no fixed height here on purpose -- the card grows to fit however
+  // many lines a trade name needs, so nothing can ever truncate again.
   tradeCard: {
     width: '47%',
-    borderRadius: Spacing.two,
-    padding: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.two,
   },
-  tradeIconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   tradeLabel: {
-    fontWeight: '600',
+    flex: 1,
   },
   projectCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    padding: Spacing.two,
-    borderWidth: 1,
-    borderRadius: Spacing.two,
     marginBottom: Spacing.two,
   },
   projectCover: {
     width: 64,
     height: 64,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.small,
   },
   cardText: {
     flex: 1,
     gap: Spacing.half,
   },
   errorText: {
-    color: '#d64545',
+    // color set inline via theme.error
   },
   ratingRow: {
     flexDirection: 'row',
@@ -572,8 +732,6 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   reviewCard: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
     gap: Spacing.one,
     marginBottom: Spacing.two,
   },

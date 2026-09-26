@@ -22,13 +22,16 @@ export function AppHeader({ pageTitle }: { pageTitle: string }) {
   const theme = useTheme();
 
   return (
-    <ThemedView style={[styles.row, { borderBottomColor: theme.backgroundSelected }]}>
+    <ThemedView style={[styles.row, { borderBottomColor: theme.border }]}>
       <View style={styles.wordmarkRow}>
         <ThemedText type="smallBold" themeColor="tint" style={styles.wordmark}>
           HandymanPR
         </ThemedText>
       </View>
-      <ThemedText type="small" style={styles.pageTitle} numberOfLines={1}>
+      {/* cardTitle (16/700), not the old ad hoc 14/600 -- a bit more
+          presence for "strong typography hierarchy" without changing the
+          bar's height or either screen-side's safe-area math. */}
+      <ThemedText type="cardTitle" style={styles.pageTitle} numberOfLines={1}>
         {pageTitle}
       </ThemedText>
     </ThemedView>
@@ -42,7 +45,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.four,
-    borderBottomWidth: 1,
+    // Hairline, not a solid 1px in backgroundSelected's flat gray -- "subtle
+    // borders" per the 2026-09-25 design-system pass.
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   wordmarkRow: {
     flexDirection: 'row',
@@ -54,7 +59,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   pageTitle: {
-    fontWeight: '600',
     flexShrink: 1,
     marginLeft: Spacing.three,
     textAlign: 'right',

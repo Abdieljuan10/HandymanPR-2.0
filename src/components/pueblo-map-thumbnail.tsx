@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -47,9 +48,16 @@ export function PuebloMapThumbnail({ selectedSlugs, names }: PuebloMapThumbnailP
       </View>
 
       <Pressable style={styles.footer} onPress={() => setExpanded((v) => !v)}>
-        <ThemedText type="small" themeColor="textSecondary">
-          {t('handymanPublicProfile.puebloCount', { count: names.length })}
-        </ThemedText>
+        {/* 2026-09-25 design-system pass: the pin is purely decorative --
+            "N municipios" is the same text/count as before, same i18n key,
+            same toggle. Single caller of this component (this profile
+            screen), so this doesn't ripple anywhere else. */}
+        <View style={styles.countRow}>
+          <Ionicons name="location-outline" size={13} color={theme.textSecondary} />
+          <ThemedText type="small" themeColor="textSecondary">
+            {t('handymanPublicProfile.puebloCount', { count: names.length })}
+          </ThemedText>
+        </View>
         <ThemedText type="smallBold" themeColor="tint">
           {expanded ? t('handymanPublicProfile.hideList') : t('handymanPublicProfile.seeList')}
         </ThemedText>
@@ -77,6 +85,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: Spacing.two,
+  },
+  countRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.half,
   },
   list: {
     marginTop: Spacing.two,

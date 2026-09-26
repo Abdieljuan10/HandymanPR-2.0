@@ -8,6 +8,11 @@ import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
+import { Avatar } from '@/components/avatar';
+import { Card } from '@/components/card';
+import { EmptyState } from '@/components/empty-state';
+import { LoadingState } from '@/components/loading-state';
+import { SectionHeader } from '@/components/section-header';
 import { SwipeAction, SWIPE_OVERSHOOT_FRICTION, SWIPE_SPRING } from '@/components/swipe-action';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -18,16 +23,26 @@ import { supabase } from '@/lib/supabase';
 import { useSession } from '@/providers/session-provider';
 import { formatRelativeTime } from '@/utils/relative-time';
 
+type OtherParty = { full_name: string; avatar_url: string | null };
+
 type ConversationRow = {
   id: string;
   last_message_at: string;
   jobs: { title: string } | null;
-  client_profiles?: { full_name: string } | null;
-  handyman_profiles?: { full_name: string } | null;
+  client_profiles?: OtherParty | null;
+  handyman_profiles?: OtherParty | null;
   job_messages: { count: number }[];
+  // New, 2026-09-26 (visual redesign) -- a second, differently-ordered embed
+  // of the SAME job_messages relation already used for the count above
+  // (aliased, same pattern as hired_bid:bids!hired_bid_id elsewhere in this
+  // app). Ordered/limited server-side via the query builder below, so this
+  // is still exactly one round trip, not one query per conversation.
+  latest_message?: { body: string | null; created_at: string }[];
 };
 
 type Section = { key: 'main' | 'archived'; data: ConversationRow[] };
+
+const AVATAR_SIZE = 54;
 
 // Shared by both Messages tabs -- the only difference between them is which
 // column identifies "me" and whose name each row shows.
@@ -53,9 +68,17 @@ export function ConversationListScreen({ role }: { role: 'client' | 'handyman' }
     const [{ data, error }, { data: hidesData }, { data: archivesData }] = await Promise.all([
       supabase
         .from('job_conversations')
-        .select(`id, last_message_at, jobs(title), ${otherParty}(full_name), job_messages(count)`)
+        .select(
+          `id, last_message_at, jobs(title), ${otherParty}(full_name, avatar_url), job_messages(count), ` +
+            'latest_message:job_messages(body, created_at)'
+        )
         .eq(myColumn, session.user.id)
-        .order('last_message_at', { ascending: false }),
+        .order('last_message_at', { ascending: false })
+        // Scoped to the `latest_message` embed only -- the top-level order
+        // above (by last_message_at) is untouched. This is what keeps the
+        // preview to "one round trip," not a query per conversation.
+        .order('created_at', { foreignTable: 'latest_message', ascending: false })
+        .limit(1, { foreignTable: 'latest_message' }),
       supabase.from('job_conversation_hides').select('conversation_id, hidden_at').eq('user_id', session.user.id),
       supabase.from('job_conversation_archives').select('conversation_id').eq('user_id', session.user.id),
     ]);
@@ -162,7 +185,7 @@ export function ConversationListScreen({ role }: { role: 'client' | 'handyman' }
         )}
 
         {conversations === null ? (
-          <ThemedText type="default">{t('common.loading')}</ThemedText>
+          <LoadingState label={t('common.loading')} />
         ) : (
           <SectionList
             showsVerticalScrollIndicator={false}
@@ -171,20 +194,52 @@ export function ConversationListScreen({ role }: { role: 'client' | 'handyman' }
             contentContainerStyle={styles.list}
             stickySectionHeadersEnabled={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-            ListEmptyComponent={
-              <ThemedText type="default" themeColor="textSecondary">
-                {t('conversation.listEmpty')}
-              </ThemedText>
-            }
-            renderSectionHeader={({ section }) =>
-              section.key === 'archived' ? (
-                <ThemedText type="smallBold" style={styles.sectionHeader}>
-                  {t('messages.archivedSection')}
-                </ThemedText>
-              ) : null
-            }
+            ListEmptyComponent={<EmptyState title={t('conversation.listEmpty')} />}
+            renderSectionHeader={({ section }) => (
+              <SectionHeader
+                title={section.key === 'archived' ? t('messages.archivedSection') : t('messages.activeSection')}
+              />
+            )}
             renderItem={({ item, section }) => {
               const isArchived = section.key === 'archived';
+              const other = item[otherParty];
+              // latest_message is server-ordered/limited to 1 (see the
+              // query above), but sorted again here as a cheap correctness
+              // safety net in case that server-side scoping doesn't apply
+              // the way I expect -- this always picks the true latest
+              // regardless, at the cost of a few extra rows in that
+              // (unverified against a live project) worse case.
+              const latest =
+                item.latest_message && item.latest_message.length > 0
+                  ? [...item.latest_message].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0]
+                  : null;
+
+              const row = (
+                <Link href={`/conversation/${item.id}`} asChild>
+                  <Pressable>
+                    <Card style={styles.card}>
+                      <Avatar uri={other?.avatar_url} name={other?.full_name} size={AVATAR_SIZE} />
+                      <View style={styles.cardText}>
+                        <ThemedText type="cardTitle" numberOfLines={1}>
+                          {other?.full_name}
+                        </ThemedText>
+                        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                          {item.jobs?.title}
+                        </ThemedText>
+                        {!!latest?.body && (
+                          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                            {latest.body}
+                          </ThemedText>
+                        )}
+                        <ThemedText type="metadata" themeColor="textSecondary" style={styles.time}>
+                          {formatRelativeTime(item.last_message_at, t)}
+                        </ThemedText>
+                      </View>
+                    </Card>
+                  </Pressable>
+                </Link>
+              );
+
               return (
                 <Swipeable
                   animationOptions={SWIPE_SPRING}
@@ -216,17 +271,7 @@ export function ConversationListScreen({ role }: { role: 'client' | 'handyman' }
                       />
                     </View>
                   )}>
-                  <Link href={`/conversation/${item.id}`} asChild>
-                    <Pressable>
-                      <ThemedView type="backgroundElement" style={styles.card}>
-                        <ThemedText type="default">{item[otherParty]?.full_name}</ThemedText>
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {item.jobs?.title} ·{' '}
-                          {t('conversation.startedAgo', { time: formatRelativeTime(item.last_message_at, t) })}
-                        </ThemedText>
-                      </ThemedView>
-                    </Pressable>
-                  </Link>
+                  {row}
                 </Swipeable>
               );
             }}
@@ -254,15 +299,19 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingBottom: BottomTabInset,
   },
-  sectionHeader: {
-    marginTop: Spacing.two,
-    marginBottom: Spacing.one,
-  },
   card: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    gap: Spacing.one,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
     marginBottom: Spacing.two,
+  },
+  cardText: {
+    flex: 1,
+    gap: Spacing.half,
+    minWidth: 0,
+  },
+  time: {
+    textAlign: 'right',
   },
   swipeActions: {
     flexDirection: 'row',

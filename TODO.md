@@ -591,7 +591,106 @@ background. **Confirmed on-device by the client**, including dark mode
 (input boxes go dark there since only their label color was locked, not
 their fill — client reviewed and accepted this as-is).
 
+### Client + handyman visual redesign pass — 2026-09-26
+New shared design-system primitives first (theme tokens: `border`,
+`tintBackground`, `success`/`successBackground`, `error`/`errorBackground`,
+a `Radius` scale, `CardShadow`; new components `Card`, `Chip`, `StatusBadge`,
+`Avatar`, `ServiceIcon`, `SearchBar`, `SectionHeader`, `EmptyState`,
+`LoadingState`; `ThemedText` type scale extended with `screenTitle`/
+`sectionHeading`/`cardTitle`/`metadata`), then applied screen-by-screen,
+inspect-first/approve-then-implement each time. **Visual-only throughout —
+no query, RPC, RLS, or status-gating logic changed in any of the items
+below**, confirmed file-by-file at implementation time.
+
+1. **Post Job wizard** — new 6-step wizard (`post-job-wizard.tsx`) replaces
+   only the Post Job tab; the invite flow's original `post-job-form.tsx` is
+   untouched. Both now share one extracted `use-post-job-submission.ts` hook
+   (single submission implementation). Real bug found + fixed on-device:
+   after a successful submit, the wizard briefly showed an emptied Review
+   screen because state reset ran while the wizard was still mounted under
+   the pushed screen (a tab screen under a pushed stack screen is never
+   unmounted) — fixed with a `submitSucceeded` flag + focus-gated reset.
+   **Confirmed working on-device.**
+2. **Client Home** — job cards now show trade data, a priority thumbnail
+   (hired handyman avatar → job's own photo → trade icon fallback, one
+   query, no per-card fetch), a time-aware greeting from existing session
+   data only, a filter chip row, and per-section "View all" caps. Not yet
+   explicitly re-confirmed end-to-end on-device after the final pass.
+3. **Client tab bar** — Post Job is now a raised, centered, teal circular
+   action button (`center-post-job-button.tsx`) after an explicit client
+   correction ("too subtle" on the first pass); the other 4 tabs and the
+   entire handyman 4-tab bar are structurally unchanged. Not yet explicitly
+   re-confirmed on-device.
+4. **Browse** — Featured/Handymen sections, `SearchBar`/`Avatar` adoption,
+   the saved heart is now a real tap-to-save action (no ratings/reviews
+   added, per explicit instruction — that data doesn't exist without a new
+   query). **Confirmed working on-device**; one bug found and deferred (see
+   Known-not-fixed below: "Saved" filter empties with no way back).
+5. **Messages** (`conversation-list-screen.tsx`, shared by both roles) —
+   avatar + last-message preview added via one safely-scoped query
+   (aliased/ordered/limited embed). **Confirmed working on-device**; three
+   items found and deferred (see Known-not-fixed below: unread tracking,
+   conversation-open scroll-position bug, photo-only-message preview text).
+6. **Job Details** (`(client)/job/[id]/index.tsx` and
+   `(handyman)/job/[id]/index.tsx`, deliberately kept as two separate
+   files) — two passes:
+   - First pass: Card/StatusBadge/SectionHeader restyle, including the
+     three shared cards `job-date-card.tsx`/`completion-card.tsx`/
+     `reviews-card.tsx` (used only by these two screens). **Confirmed
+     working on-device** ("functionality is working correctly").
+   - Second pass: photo hero+peek treatment with a photo-count overlay,
+     trade shown via `ServiceIcon` (added `trades.slug` to both job
+     queries — the only field addition, explicitly approved, no other
+     query change), a tinted "Ask a Question" row on the handyman screen,
+     a teal-accented bid card, and one divider separating job info from
+     the transaction/action zone. Not yet confirmed on-device.
+   - **Real bug found + fixed during this second pass**: `JobDateCard`'s
+     calendar (`date-input.tsx`) still hardcoded its own background to the
+     old gray `theme.backgroundElement`, left over from before
+     `JobDateCard`'s outer wrapper was migrated to the white `Card`
+     component in the first pass above — so the calendar rendered as a
+     gray box inside a white card (client screenshot, 2026-09-26).
+     `DateInput` has exactly one caller (`JobDateCard`), so it now tracks
+     `theme.background` (its real current parent) instead of a fixed gray.
+     Not yet re-confirmed on-device after this fix.
+7. **Client Profile tab** (`(client)/(tabs)/profile.tsx`) — visual-only
+   redesign of the 2026-09-25 real-profile build above: the hand-rolled
+   avatar is now the shared `Avatar` component inside a centered identity
+   `Card`; "Edit Profile"/"Settings" are `Card`-surfaced tappable rows under
+   an "Account" `SectionHeader` instead of two stacked full-width buttons.
+   Settings stays its own pushed screen, untouched. Not yet confirmed
+   on-device.
+8. **Handyman Profile tab** (`(handyman)/(tabs)/profile.tsx`) — same
+   identity-card treatment (`Avatar`, bio, years, and the locked public
+   profile's coral shield-checkmark verified badge — still read-only,
+   still admin-managed, no toggle added); the six previous stacked buttons
+   are now three `SectionHeader`-grouped row lists: PROFILE (Edit Profile,
+   Trades, Pueblos), SHOWCASE (Portfolio, Certifications), ACCOUNT
+   (Settings). Not yet confirmed on-device.
+
+None of `profile-edit.tsx`, `profile-settings.tsx`, `trades.tsx`,
+`pueblos.tsx`, the portfolio files, or the certification files were touched
+in items 7–8. The **Handyman Public Profile** (`(client)/handyman/[id]/
+index.tsx`) was redesigned earlier in this same arc and is explicitly
+**locked** — client confirmed "everything works and looks good," no further
+changes without a new ask.
+
 ### Known, not fixed (small)
+- **Messages, three items from the client-facing redesign (2026-09-26), not fixed yet:**
+  1. **Unread tracking doesn't exist at all** (no `read_at`, no unread count/badge anywhere) — a real feature to build later, not just a visual gap. Confirmed absent during the Messages redesign inspection.
+  2. **Opening a conversation scrolls near the end, not the very last message.** `ConversationScreen`'s `FlatList` scrolls via `onContentSizeChange={() => listRef.current?.scrollToEnd(...)}` — likely fires before a photo message's image has finished loading/laying out, so the final scroll lands short of the true bottom once that image's height is added. Needs a fix, not attempted yet.
+  3. **A photo-only last message shows no preview in the Messages list** (conversation-list-screen.tsx's new preview line only renders when `latest_message.body` is non-empty). Client wants it to at least say "Photo" instead of showing nothing. Small, deferred so as not to touch the just-shipped redesign again immediately.
+- **Browse: "Saved" filter chip has no way back once it empties the list**
+  (found 2026-09-26, client-facing visual redesign work). Repro: heart a
+  handyman → tap the "Saved" filter chip (list correctly narrows) → unheart
+  that same handyman while the filter is still active → the list correctly
+  goes empty ("no saved handymen match"), but nothing in that empty state
+  lets you turn the Saved filter back off — only fix today is force-closing
+  the app. Likely cause: the "filtered to nothing" `ListEmptyComponent`
+  branch shows only a text message, not the filter chips themselves or a
+  clear-filter action, so the control that caused the empty state stops
+  being reachable. Not fixed yet — client explicitly deferred this to keep
+  momentum on Messages.
 - `enforce_bid_insert` runs before RLS, so a bid insert on any job id
   returns its status/"full" message — minor status oracle, no personal data.
 - A few older app RPCs were granted to `authenticated` but never revoked from

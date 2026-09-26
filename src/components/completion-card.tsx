@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { Card } from '@/components/card';
 import { PrimaryButton } from '@/components/primary-button';
+import { SectionHeader } from '@/components/section-header';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
 type CompletionCardProps = {
@@ -22,6 +24,9 @@ type CompletionCardProps = {
 // disputes, and it auto-confirms after 7 days if nobody acts. See
 // TODO.md's "Job completion" entry for why: a one-sided mark-complete let
 // either party lock the job and start the review window alone.
+//
+// 2026-09-26: visual restyle only (Job Details redesign) -- every RPC call
+// and status-gating condition below is unchanged from before.
 export function CompletionCard({
   jobId,
   myId,
@@ -32,6 +37,7 @@ export function CompletionCard({
   onChanged,
 }: CompletionCardProps) {
   const { t } = useTranslation();
+  const theme = useTheme();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,9 +56,9 @@ export function CompletionCard({
   if (status === 'hired') {
     if (!agreedDate) return null;
     return (
-      <ThemedView style={styles.wrap}>
+      <View style={styles.wrap}>
         {error && (
-          <ThemedText type="small" style={styles.error}>
+          <ThemedText type="small" style={{ color: theme.error }}>
             {error}
           </ThemedText>
         )}
@@ -63,15 +69,15 @@ export function CompletionCard({
             {t('jobCompletion.hint', { date: agreedDate })}
           </ThemedText>
         )}
-      </ThemedView>
+      </View>
     );
   }
 
   if (status === 'pending_completion') {
     const isMine = completionMarkedBy === myId;
     return (
-      <ThemedView type="backgroundElement" style={styles.card}>
-        <ThemedText type="smallBold">{t('jobCompletion.cardTitle')}</ThemedText>
+      <Card style={styles.card}>
+        <SectionHeader title={t('jobCompletion.cardTitle')} />
         <ThemedText type="default">
           {isMine
             ? t('jobCompletion.pendingMine', { party: otherPartyLabel })
@@ -79,7 +85,7 @@ export function CompletionCard({
         </ThemedText>
 
         {error && (
-          <ThemedText type="small" style={styles.error}>
+          <ThemedText type="small" style={{ color: theme.error }}>
             {error}
           </ThemedText>
         )}
@@ -97,7 +103,7 @@ export function CompletionCard({
             />
           </>
         )}
-      </ThemedView>
+      </Card>
     );
   }
 
@@ -109,12 +115,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   card: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    gap: Spacing.one,
+    gap: Spacing.two,
     marginTop: Spacing.two,
-  },
-  error: {
-    color: '#d64545',
   },
 });

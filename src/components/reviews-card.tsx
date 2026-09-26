@@ -2,10 +2,11 @@ import { Link } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
+import { Card } from '@/components/card';
 import { PrimaryButton } from '@/components/primary-button';
+import { SectionHeader } from '@/components/section-header';
 import { StarDisplay } from '@/components/star-display';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 
 type ReviewRow = {
@@ -28,6 +29,10 @@ type ReviewsCardProps = {
 // query; RLS (reviews_select) already hides the other party's row unless
 // published_at is set, so "otherReview is missing" and "not published yet"
 // are the same signal from the client's point of view.
+//
+// 2026-09-26: visual restyle only (Job Details redesign) -- review
+// submission/publication logic is untouched; this component doesn't submit
+// anything itself, only links to the existing review screen.
 export function ReviewsCard({ jobId, myId, reviews, otherPartyLabel }: ReviewsCardProps) {
   const { t } = useTranslation();
 
@@ -35,8 +40,8 @@ export function ReviewsCard({ jobId, myId, reviews, otherPartyLabel }: ReviewsCa
   const otherReview = reviews.find((r) => r.author_id !== myId);
 
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedText type="smallBold">{t('reviews.cardTitle')}</ThemedText>
+    <Card style={styles.card}>
+      <SectionHeader title={t('reviews.cardTitle')} />
 
       {!myReview && (
         <Link href={`/job/${jobId}/review`} asChild>
@@ -83,15 +88,13 @@ export function ReviewsCard({ jobId, myId, reviews, otherPartyLabel }: ReviewsCa
           )}
         </>
       )}
-    </ThemedView>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    gap: Spacing.one,
+    gap: Spacing.two,
     marginTop: Spacing.two,
   },
   ratingRow: {

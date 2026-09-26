@@ -68,6 +68,14 @@
   },
   "clientHome": {
     "title": "Tus Trabajos",
+    "greetingMorning": "Buenos días{{name}} 👋",
+    "greetingAfternoon": "Buenas tardes{{name}} 👋",
+    "greetingEvening": "Buenas noches{{name}} 👋",
+    "greetingSubtitle": "Esto es lo que está pasando con tus trabajos.",
+    "myJobsHeading": "Mis Trabajos",
+    "filter": "Filtrar",
+    "viewAll": "Ver todos ({{count}})",
+    "noFilterMatches": "Ningún trabajo coincide con este filtro.",
     "empty": "Todavía no has publicado ningún trabajo. Usa la pestaña Publicar para empezar.",
     "bidCount_one": "{{count}} oferta",
     "bidCount_other": "{{count}} ofertas",
@@ -174,7 +182,18 @@
     "postAnyway": "Publicar de Todas Formas",
     "inviteTitle": "Invitar a Cotizar",
     "inviteBanner": "Solo {{name}} verá este trabajo y podrá cotizarlo. Recibirá una notificación en cuanto lo envíes.",
-    "inviteSubmit": "Enviar Invitación"
+    "inviteSubmit": "Enviar Invitación",
+    "stepDetails": "Detalles",
+    "stepTrade": "Oficio",
+    "stepLocation": "Ubicación",
+    "stepPhotos": "Fotos",
+    "stepQuotes": "Cotizaciones",
+    "stepReview": "Revisar",
+    "stepIndicator": "Paso {{current}} de {{total}}",
+    "next": "Siguiente",
+    "back": "Atrás",
+    "edit": "Editar",
+    "reviewTitle": "Revisa tu trabajo"
   },
   "browseHandymen": {
     "title": "Buscar Técnicos",
@@ -182,6 +201,7 @@
     "empty": "Todavía no hay técnicos.",
     "emptyFiltered": "Ningún técnico coincide con tu búsqueda. Prueba quitando algunos filtros.",
     "featured": "Destacado",
+    "allHandymen": "Técnicos",
     "puebloCount_one": "Trabaja en {{count}} pueblo",
     "puebloCount_other": "Trabaja en {{count}} pueblos",
     "showSaved": "Guardados ({{count}})",
@@ -201,11 +221,13 @@
     "unarchive": "Desarchivar",
     "showArchived": "Mostrar Archivadas ({{count}})",
     "hideArchived": "Ocultar Archivadas",
+    "activeSection": "Conversaciones Activas",
     "archivedSection": "Archivadas"
   },
   "clientProfile": {
     "title": "Tu Perfil",
     "editProfile": "Editar Perfil",
+    "accountSection": "Cuenta",
     "notFound": "Cliente no encontrado."
   },
   "handymanProfile": {
@@ -215,7 +237,10 @@
     "editTrades": "Editar Oficios",
     "editPueblos": "Editar Pueblos",
     "portfolio": "Portafolio",
-    "certifications": "Certificaciones"
+    "certifications": "Certificaciones",
+    "profileSection": "Perfil",
+    "showcaseSection": "Muestra",
+    "accountSection": "Cuenta"
   },
   "portfolio": {
     "intro": "Agrupa tus fotos en proyectos para que los clientes vean trabajos reales, no solo fotos sueltas.",
@@ -409,6 +434,9 @@
   "handymanPublicProfile": {
     "notFound": "Técnico no encontrado.",
     "verified": "Verificado",
+    "aboutTitle": "Sobre Mí",
+    "readMore": "Leer más",
+    "readLess": "Leer menos",
     "yearsExperience_one": "{{count}} año de experiencia",
     "yearsExperience_other": "{{count}} años de experiencia",
     "tradesTitle": "Oficios",

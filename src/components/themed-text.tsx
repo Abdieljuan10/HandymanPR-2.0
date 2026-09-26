@@ -4,17 +4,38 @@ import { Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?:
+    | 'default'
+    | 'title'
+    | 'small'
+    | 'smallBold'
+    | 'subtitle'
+    | 'link'
+    | 'linkPrimary'
+    | 'code'
+    // Added in the 2026-09-25 design-system pass -- a real type scale for
+    // "large bold screen titles / medium section headings / clear card
+    // titles / smaller secondary metadata", distinct from the pre-existing
+    // title (48, unused screen-title-sized) and subtitle (32, used as a
+    // generic "big heading" today). None of the existing types changed size.
+    | 'screenTitle'
+    | 'sectionHeading'
+    | 'cardTitle'
+    | 'metadata';
   themeColor?: ThemeColor;
 };
 
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
+  // 'metadata' reads as secondary by default (that's the point of the
+  // type) without every call site having to also pass themeColor="textSecondary".
+  // An explicit themeColor still wins.
+  const defaultColor = type === 'metadata' ? 'textSecondary' : 'text';
 
   return (
     <Text
       style={[
-        { color: theme[themeColor ?? 'text'] },
+        { color: theme[themeColor ?? defaultColor] },
         type === 'default' && styles.default,
         type === 'title' && styles.title,
         type === 'small' && styles.small,
@@ -23,6 +44,10 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'link' && styles.link,
         type === 'linkPrimary' && [styles.linkPrimary, { color: theme.tint }],
         type === 'code' && styles.code,
+        type === 'screenTitle' && styles.screenTitle,
+        type === 'sectionHeading' && styles.sectionHeading,
+        type === 'cardTitle' && styles.cardTitle,
+        type === 'metadata' && styles.metadata,
         style,
       ]}
       {...rest}
@@ -68,5 +93,25 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.mono,
     fontWeight: Platform.select({ android: 700 }) ?? 500,
     fontSize: 12,
+  },
+  screenTitle: {
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: 700,
+  },
+  sectionHeading: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: 600,
+  },
+  cardTitle: {
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: 700,
+  },
+  metadata: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: 500,
   },
 });

@@ -59,15 +59,18 @@ export function DateInput({ onChange, disabledDates = [] }: DateInputProps) {
   }
 
   return (
-    // No rounded corners/clipping of its own -- JobDateCard's own ThemedView
+    // No rounded corners/clipping of its own -- JobDateCard's own Card
     // already rounds this whole area (a second nested rounded box, even in
     // the identical color, produced a visible seam at the shared corners,
     // client report 2026-09-24). Background color is still explicit rather
-    // than left to inherit from the parent showing through: with the
-    // parent's overflow:hidden (now removed, see job-date-card.tsx) or even
-    // without it, a plain child View with no color of its own rendered as a
-    // stray white patch here on Android instead of the parent's gray.
-    <View style={[styles.wrapper, { backgroundColor: theme.backgroundElement }]}>
+    // than left to inherit from the parent showing through: a plain child
+    // View with no color of its own rendered as a stray patch on Android
+    // instead of matching the parent. JobDateCard's outer Card is white
+    // (theme.background) since the 2026-09-26 Job Details restyle -- this
+    // must track whatever that parent actually is, not a fixed gray, or the
+    // same mismatch reappears in the opposite direction (client report
+    // 2026-09-26: gray box inside a white card).
+    <View style={[styles.wrapper, { backgroundColor: theme.background }]}>
       <ThemedText type="smallBold" style={styles.label}>
         {t('jobDate.selectDate')}
       </ThemedText>
@@ -79,13 +82,13 @@ export function DateInput({ onChange, disabledDates = [] }: DateInputProps) {
         enableSwipeMonths
         theme={{
           // Explicit fill, not 'transparent' -- some internal panel of the
-          // calendar (header vs. day grid) was still coming through white
-          // even with the outer wrapper de-nested, so this now matches the
-          // card's own gray outright rather than relying on layered
-          // transparency to line up (client call 2026-09-24: stop fighting
-          // it, make it one flat color).
-          backgroundColor: theme.backgroundElement,
-          calendarBackground: theme.backgroundElement,
+          // calendar (header vs. day grid) was still coming through a
+          // different color even with the outer wrapper de-nested, so this
+          // matches the card's own fill outright rather than relying on
+          // layered transparency to line up (client call 2026-09-24: stop
+          // fighting it, make it one flat color).
+          backgroundColor: theme.background,
+          calendarBackground: theme.background,
           textSectionTitleColor: theme.textSecondary,
           dayTextColor: theme.text,
           textDisabledColor: theme.textSecondary,

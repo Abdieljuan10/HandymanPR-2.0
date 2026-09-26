@@ -35,8 +35,11 @@ type SwipeActionProps = {
 
 export function SwipeAction({ kind, label, onPress, progress, index = 0 }: SwipeActionProps) {
   const theme = useTheme();
+  // Was hardcoded '#6b7280' / '#d64545' -- fixed grays/reds that didn't
+  // adapt in dark mode. theme.textSecondary and theme.error are the same
+  // colors in light mode and now actually respond to theme.
   const backgroundColor =
-    kind === 'archive' ? theme.tint : kind === 'unarchive' ? '#6b7280' : '#d64545';
+    kind === 'archive' ? theme.tint : kind === 'unarchive' ? theme.textSecondary : theme.error;
 
   const start = 0.15 * index;
   const animatedStyle = useAnimatedStyle(() => ({

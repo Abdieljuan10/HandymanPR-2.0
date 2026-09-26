@@ -1,20 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
+import { Avatar } from '@/components/avatar';
+import { Card } from '@/components/card';
+import { Chip } from '@/components/chip';
 import { PrimaryButton } from '@/components/primary-button';
 import { PuebloPicker } from '@/components/pueblo-picker';
+import { SearchBar } from '@/components/search-bar';
+import { SectionHeader } from '@/components/section-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TradePicker } from '@/components/trade-picker';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { usePueblos } from '@/hooks/use-pueblos';
 import { useTheme } from '@/hooks/use-theme';
+import { saveHandyman, unsaveHandyman } from '@/lib/saved-handymen';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
 import { useSession } from '@/providers/session-provider';
@@ -31,9 +36,15 @@ type HandymanRow = {
   handyman_pueblos: { pueblo_id: number }[];
 };
 
+type HandymanSection = { key: 'featured' | 'handymen'; titleKey: string; data: HandymanRow[] };
+
 const HANDYMEN_SELECT =
   'id, full_name, avatar_url, is_verified, years_experience, is_promoted, promotion_expires_at, ' +
   'handyman_trades(trade_id, trades(name_es, name_en)), handyman_pueblos(pueblo_id)';
+
+// Card avatar + section-partition size -- same value used in both places so
+// "Featured" cards and regular cards read as one consistent list.
+const AVATAR_SIZE = 68;
 
 function isPromotedNow(row: HandymanRow): boolean {
   return row.is_promoted && (!row.promotion_expires_at || Date.parse(row.promotion_expires_at) > Date.now());
@@ -91,6 +102,34 @@ export default function BrowseHandymenScreen() {
     setRefreshing(false);
   }
 
+  // Same save/unsave functions the (locked) Handyman Profile screen already
+  // uses -- same table, same optimistic-update-then-rollback pattern. Browse
+  // previously only showed a read-only "already saved" heart; this wires the
+  // existing lib functions to a tap here too, it doesn't add new backend
+  // behavior.
+  async function toggleSaved(handymanId: string) {
+    if (!session) return;
+    const next = !savedIds.has(handymanId);
+    setSavedIds((prev) => {
+      const updated = new Set(prev);
+      if (next) updated.add(handymanId);
+      else updated.delete(handymanId);
+      return updated;
+    });
+    const { error } = next
+      ? await saveHandyman(session.user.id, handymanId)
+      : await unsaveHandyman(session.user.id, handymanId);
+    if (error) {
+      console.error('Failed to update saved handyman:', error);
+      setSavedIds((prev) => {
+        const updated = new Set(prev);
+        if (next) updated.delete(handymanId);
+        else updated.add(handymanId);
+        return updated;
+      });
+    }
+  }
+
   const filterPuebloIds = useMemo(() => {
     if (!pueblos || filterPuebloSlugs.length === 0) return null;
     const slugSet = new Set(filterPuebloSlugs);
@@ -99,6 +138,7 @@ export default function BrowseHandymenScreen() {
 
   // Promoted (while the promotion is live) first, then verified, then by
   // name -- is_promoted had nowhere to show up before this screen existed.
+  // Unchanged by this pass.
   const visibleHandymen = useMemo(() => {
     if (!handymen) return null;
     const query = search.trim().toLowerCase();
@@ -122,10 +162,24 @@ export default function BrowseHandymenScreen() {
       );
   }, [handymen, search, filterTradeIds, filterPuebloIds, savedOnly, savedIds]);
 
+  // New: purely a visual partition of the SAME already-sorted list above --
+  // isPromotedNow() and the sort comparator are untouched, so which
+  // handymen count as "featured" and their relative order within each
+  // group are exactly what they were before this pass.
+  const sections = useMemo<HandymanSection[]>(() => {
+    if (!visibleHandymen) return [];
+    const featured = visibleHandymen.filter((h) => isPromotedNow(h));
+    const rest = visibleHandymen.filter((h) => !isPromotedNow(h));
+    const list: HandymanSection[] = [];
+    if (featured.length > 0) list.push({ key: 'featured', titleKey: 'browseHandymen.featured', data: featured });
+    if (rest.length > 0) list.push({ key: 'handymen', titleKey: 'browseHandymen.allHandymen', data: rest });
+    return list;
+  }, [visibleHandymen]);
+
   const hasActiveFilters = filterTradeIds.length > 0 || filterPuebloSlugs.length > 0;
-  // Only for the button's own label -- "saved only" lives inside the panel
-  // now (below), not as a separate control, but the button should still
-  // hint that SOMETHING is active even if that's the only thing on.
+  // Only for the button's own label -- "saved only" has its own quick chip
+  // now (below), but the button inside the open panel should still hint
+  // that something is active even if that's the only thing on.
   const filtersButtonActive = hasActiveFilters || savedOnly;
 
   const filtersButton = (
@@ -149,14 +203,11 @@ export default function BrowseHandymenScreen() {
       </SafeAreaView>
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
         {/* With filters open, the screen is a plain ScrollView holding the
-            panel -- the same structure Post Job uses for these pickers, which
-            scrolls on-device. The previous fix put the panel in this
-            FlatList's header, and on Android that never scrolled through it:
-            the trade picker is itself a FlatList (nested-VirtualizedList
-            handling), the pueblo list is an inner scroller that needs
-            nestedScrollEnabled, and drags that start on the SVG map's
-            pressable shapes are swallowed. The search box stays in the list
-            header (as an element, not a component, so it keeps focus). */}
+            panel -- unchanged from before this pass. See the file's own
+            history: putting this panel in the FlatList/SectionList header
+            broke Android scrolling (nested-VirtualizedList handling on the
+            trade picker, nestedScrollEnabled on the pueblo list, and drags
+            on the SVG map's pressable shapes being swallowed). */}
         {filtersOpen ? (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterScroll} keyboardShouldPersistTaps="handled">
             {filtersButton}
@@ -166,22 +217,6 @@ export default function BrowseHandymenScreen() {
 
               <ThemedText type="smallBold">{t('postJob.puebloLabel')}</ThemedText>
               <PuebloPicker mode="multi" selected={filterPuebloSlugs} onChange={setFilterPuebloSlugs} />
-
-              {/* Was a standalone icon sharing a row with the Filtros button
-                  (client call 2026-09-25: off-center, crowded). Lives inside
-                  the panel now, alongside the other filters, instead of its
-                  own persistent top-row control. */}
-              {savedIds.size > 0 && (
-                <Pressable
-                  onPress={() => setSavedOnly((prev) => !prev)}
-                  style={[styles.savedOnlyRow, { backgroundColor: savedOnly ? theme.backgroundSelected : 'transparent' }]}>
-                  <View style={styles.savedOnlyLabel}>
-                    <Ionicons name="heart" size={18} color={savedOnly ? theme.tint : theme.textSecondary} />
-                    <ThemedText type="default">{t('browseHandymen.savedOnly', { count: savedIds.size })}</ThemedText>
-                  </View>
-                  {savedOnly && <ThemedText type="smallBold">✓</ThemedText>}
-                </Pressable>
-              )}
 
               {hasActiveFilters && (
                 <PrimaryButton
@@ -200,25 +235,54 @@ export default function BrowseHandymenScreen() {
             />
           </ScrollView>
         ) : (
-          <FlatList
+          <SectionList
             showsVerticalScrollIndicator={false}
-            data={visibleHandymen ?? []}
+            sections={sections}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
+            stickySectionHeadersEnabled={false}
             keyboardShouldPersistTaps="handled"
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+            renderSectionHeader={({ section }) => <SectionHeader title={t(section.titleKey)} />}
             ListHeaderComponent={
               <View style={styles.header}>
-                <TextInput
+                <SearchBar
                   value={search}
                   onChangeText={setSearch}
                   placeholder={t('browseHandymen.searchPlaceholder')}
-                  placeholderTextColor={theme.textSecondary}
                   autoCorrect={false}
-                  style={[styles.search, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+                  onClear={() => setSearch('')}
                 />
 
-                {filtersButton}
+                <View style={styles.filterChipsRow}>
+                  {/* Both open the SAME existing filter panel (setFiltersOpen)
+                      -- there are still not two separate pickers, just two
+                      more visible entry points into the one that exists. */}
+                  <Chip
+                    label={`${t('postJob.tradeLabel')} ▾`}
+                    selected={filterTradeIds.length > 0}
+                    onPress={() => setFiltersOpen(true)}
+                  />
+                  <Chip
+                    label={`${t('postJob.puebloLabel')} ▾`}
+                    selected={filterPuebloSlugs.length > 0}
+                    onPress={() => setFiltersOpen(true)}
+                  />
+                  {savedIds.size > 0 && (
+                    <Chip
+                      icon={
+                        <Ionicons
+                          name={savedOnly ? 'heart' : 'heart-outline'}
+                          size={14}
+                          color={savedOnly ? theme.tint : theme.textSecondary}
+                        />
+                      }
+                      label={t('browseHandymen.savedOnly', { count: savedIds.size })}
+                      selected={savedOnly}
+                      onPress={() => setSavedOnly((prev) => !prev)}
+                    />
+                  )}
+                </View>
               </View>
             }
             ListEmptyComponent={
@@ -239,59 +303,78 @@ export default function BrowseHandymenScreen() {
                 .map((ht) => (ht.trades ? (language === 'en' ? ht.trades.name_en : ht.trades.name_es) : null))
                 .filter((name): name is string => !!name)
                 .join(', ');
-              const badges = [
-                isPromotedNow(item) ? t('browseHandymen.featured') : null,
-                item.is_verified ? t('handymanPublicProfile.verified') : null,
-              ].filter(Boolean);
+              const saved = savedIds.has(item.id);
+              const promoted = isPromotedNow(item);
+
               return (
                 <Link href={`/handyman/${item.id}`} asChild>
                   <Pressable>
-                    <ThemedView type="backgroundElement" style={styles.card}>
-                      {item.avatar_url ? (
-                        <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
-                      ) : (
-                        <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.background }]}>
-                          <ThemedText type="smallBold" themeColor="textSecondary">
-                            {item.full_name.trim().charAt(0).toUpperCase() || '?'}
+                    <Card style={styles.card}>
+                      {promoted && (
+                        <View style={styles.featuredRow}>
+                          <Ionicons name="star" size={12} color={theme.accent} />
+                          <ThemedText type="metadata" themeColor="accent" style={styles.featuredLabel}>
+                            {t('browseHandymen.featured')}
                           </ThemedText>
                         </View>
                       )}
-                      <View style={styles.cardText}>
-                        <View style={styles.nameRow}>
-                          <ThemedText type="default" style={styles.name}>
-                            {item.full_name}
-                          </ThemedText>
-                          {savedIds.has(item.id) && (
-                            <Ionicons
-                              name="heart"
-                              size={16}
-                              color="#d64545"
-                              accessibilityLabel={t('browseHandymen.savedBadge')}
-                            />
+                      <View style={styles.cardRow}>
+                        <Avatar uri={item.avatar_url} name={item.full_name} size={AVATAR_SIZE} />
+                        <View style={styles.cardText}>
+                          <View style={styles.nameRow}>
+                            <ThemedText type="cardTitle" style={styles.name} numberOfLines={1}>
+                              {item.full_name}
+                            </ThemedText>
+                            {item.is_verified && (
+                              <Ionicons name="shield-checkmark" size={13} color={theme.accent} />
+                            )}
+                          </View>
+                          {tradeNames.length > 0 && (
+                            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                              {tradeNames}
+                            </ThemedText>
                           )}
+                          <View style={styles.metaRow}>
+                            {item.years_experience !== null && (
+                              <View style={styles.metaItem}>
+                                <Ionicons name="briefcase-outline" size={12} color={theme.textSecondary} />
+                                <ThemedText type="small" themeColor="textSecondary">
+                                  {t('handymanPublicProfile.yearsExperience', { count: item.years_experience })}
+                                </ThemedText>
+                              </View>
+                            )}
+                            {item.years_experience !== null && item.handyman_pueblos.length > 0 && (
+                              <View style={[styles.metaDot, { backgroundColor: theme.border }]} />
+                            )}
+                            {item.handyman_pueblos.length > 0 && (
+                              <View style={styles.metaItem}>
+                                <Ionicons name="location-outline" size={12} color={theme.textSecondary} />
+                                <ThemedText type="small" themeColor="textSecondary">
+                                  {t('browseHandymen.puebloCount', { count: item.handyman_pueblos.length })}
+                                </ThemedText>
+                              </View>
+                            )}
+                          </View>
                         </View>
-                        {badges.length > 0 && (
-                          <ThemedText type="small" themeColor="tint">
-                            {badges.join(' · ')}
-                          </ThemedText>
-                        )}
-                        {tradeNames.length > 0 && (
-                          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-                            {tradeNames}
-                          </ThemedText>
-                        )}
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {[
-                            t('browseHandymen.puebloCount', { count: item.handyman_pueblos.length }),
-                            item.years_experience !== null
-                              ? t('handymanPublicProfile.yearsExperience', { count: item.years_experience })
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </ThemedText>
+                        <Pressable
+                          onPress={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleSaved(item.id);
+                          }}
+                          hitSlop={10}
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            saved ? t('handymanPublicProfile.unsave') : t('handymanPublicProfile.save')
+                          }>
+                          <Ionicons
+                            name={saved ? 'heart' : 'heart-outline'}
+                            size={22}
+                            color={saved ? theme.error : theme.textSecondary}
+                          />
+                        </Pressable>
                       </View>
-                    </ThemedView>
+                    </Card>
                   </Pressable>
                 </Link>
               );
@@ -312,36 +395,14 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.three,
   },
-  savedOnlyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    borderRadius: Spacing.two,
-  },
-  savedOnlyLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-  },
-  name: {
-    flexShrink: 1,
-  },
   header: {
     gap: Spacing.three,
     marginBottom: Spacing.one,
   },
-  search: {
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    fontSize: 16,
+  filterChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
   },
   filterScroll: {
     gap: Spacing.three,
@@ -357,23 +418,48 @@ const styles = StyleSheet.create({
     paddingBottom: BottomTabInset,
   },
   card: {
+    gap: Spacing.two,
+  },
+  featuredRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
+  featuredLabel: {
+    fontWeight: '700',
+  },
+  cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
-  avatarPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   cardText: {
     flex: 1,
     gap: Spacing.half,
+    minWidth: 0,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  name: {
+    flexShrink: 1,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    flexWrap: 'wrap',
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
   },
 });

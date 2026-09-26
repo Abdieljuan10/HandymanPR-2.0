@@ -1,50 +1,61 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Card } from '@/components/card';
 import { CompletionCard } from '@/components/completion-card';
+import { EmptyState } from '@/components/empty-state';
 import { FormField } from '@/components/form-field';
 import { JobDateCard } from '@/components/job-date-card';
 import { JobPhoto } from '@/components/job-photo';
 import { PhotoViewer } from '@/components/photo-viewer';
 import { KeyboardAvoidingScreen } from '@/components/keyboard-avoiding-screen';
+import { LoadingState } from '@/components/loading-state';
 import { PrimaryButton } from '@/components/primary-button';
 import { ReviewsCard } from '@/components/reviews-card';
+import { SectionHeader } from '@/components/section-header';
+import { ServiceIcon } from '@/components/service-icon';
+import { StatusBadge, type StatusTone } from '@/components/status-badge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { confirmAsync, confirmDestructive } from '@/lib/confirm';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
 import { useSession } from '@/providers/session-provider';
 import { formatRelativeTime } from '@/utils/relative-time';
 
+type JobStatus = 'open' | 'hired' | 'pending_completion' | 'completed' | 'cancelled' | 'expired';
+type BidStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'cancelled';
+
 type JobDetailRow = {
   id: string;
   client_id: string;
   title: string;
   description: string;
-  status: 'open' | 'hired' | 'pending_completion' | 'completed' | 'cancelled' | 'expired';
+  status: JobStatus;
   created_at: string;
   agreed_date: string | null;
   proposed_date: string | null;
   proposed_by: string | null;
   completion_marked_by: string | null;
   pueblos: { name: string } | null;
-  trades: { name_es: string; name_en: string } | null;
+  trades: { slug: string; name_es: string; name_en: string } | null;
   client_profiles: { full_name: string } | null;
 };
 
 const JOB_SELECT =
-  'id, client_id, title, description, status, created_at, agreed_date, proposed_date, proposed_by, completion_marked_by, pueblos(name), trades(name_es, name_en), client_profiles(full_name)';
+  'id, client_id, title, description, status, created_at, agreed_date, proposed_date, proposed_by, completion_marked_by, pueblos(name), trades(slug, name_es, name_en), client_profiles(full_name)';
 
 type MyBidRow = {
   id: string;
   price: number;
   note: string | null;
-  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'cancelled';
+  status: BidStatus;
 };
 
 type ReviewRow = {
@@ -57,9 +68,29 @@ type ReviewRow = {
 
 const REVIEW_SELECT = 'id, author_id, rating, comment, published_at';
 
+// Presentation only -- purely maps an existing status value to a StatusBadge
+// tone, same convention already used on Client Home and the client's own
+// Job Details screen. Doesn't change what any status means or when it applies.
+const JOB_STATUS_TONE: Record<JobStatus, StatusTone> = {
+  open: 'info',
+  hired: 'success',
+  pending_completion: 'warning',
+  completed: 'success',
+  cancelled: 'error',
+  expired: 'neutral',
+};
+const BID_STATUS_TONE: Record<BidStatus, StatusTone> = {
+  pending: 'neutral',
+  accepted: 'success',
+  rejected: 'error',
+  withdrawn: 'neutral',
+  cancelled: 'neutral',
+};
+
 export default function HandymanJobDetailScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
+  const theme = useTheme();
   const { session } = useSession();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -325,7 +356,7 @@ export default function HandymanJobDetailScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
-          <ThemedText type="default">{t('common.loading')}</ThemedText>
+          <LoadingState label={t('common.loading')} />
         </SafeAreaView>
       </ThemedView>
     );
@@ -335,7 +366,7 @@ export default function HandymanJobDetailScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
-          <ThemedText type="default">{loadError ?? t('jobDetail.notFound')}</ThemedText>
+          <EmptyState title={loadError ?? t('jobDetail.notFound')} />
         </SafeAreaView>
       </ThemedView>
     );
@@ -351,8 +382,15 @@ export default function HandymanJobDetailScreen() {
           {photos.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
               {photos.map((photo, index) => (
-                <Pressable key={photo.photo_url} onPress={() => setViewerIndex(index)}>
+                <Pressable key={photo.photo_url} onPress={() => setViewerIndex(index)} style={styles.photoWrap}>
                   <JobPhoto uri={photo.photo_url} style={styles.photo} />
+                  {index === 0 && photos.length > 1 && (
+                    <View style={styles.photoCountBadge}>
+                      <ThemedText type="metadata" style={styles.photoCountText}>
+                        1/{photos.length}
+                      </ThemedText>
+                    </View>
+                  )}
                 </Pressable>
               ))}
             </ScrollView>
@@ -365,166 +403,203 @@ export default function HandymanJobDetailScreen() {
             onClose={() => setViewerIndex(null)}
           />
 
-          <ThemedText type="subtitle">{job.title}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {job.pueblos?.name} · {tradeName} · {t(`jobStatus.${job.status}`)} ·{' '}
-            {formatRelativeTime(job.created_at, t)}
-          </ThemedText>
+          <View style={styles.headerBlock}>
+            <ThemedText type="screenTitle">{job.title}</ThemedText>
+            <View style={styles.primaryRow}>
+              <StatusBadge label={t(`jobStatus.${job.status}`)} tone={JOB_STATUS_TONE[job.status]} />
+              {job.trades && tradeName.length > 0 && (
+                <View style={styles.tradeChip}>
+                  <ServiceIcon slug={job.trades.slug} size={20} />
+                  <ThemedText type="smallBold" themeColor="tint">
+                    {tradeName}
+                  </ThemedText>
+                </View>
+              )}
+            </View>
+            <View style={styles.metaRow}>
+              {job.pueblos?.name && (
+                <View style={styles.metaItem}>
+                  <Ionicons name="location-outline" size={13} color={theme.textSecondary} />
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {job.pueblos.name}
+                  </ThemedText>
+                </View>
+              )}
+              <View style={styles.metaItem}>
+                <Ionicons name="calendar-outline" size={13} color={theme.textSecondary} />
+                <ThemedText type="small" themeColor="textSecondary">
+                  {formatRelativeTime(job.created_at, t)}
+                </ThemedText>
+              </View>
+            </View>
+          </View>
 
           {Object.keys(partialErrors).length > 0 && (
-            <ThemedText type="small" style={styles.error}>
+            <ThemedText type="small" style={{ color: theme.error }}>
               {t('common.partialLoadError', { error: Object.values(partialErrors).join('; ') })}
             </ThemedText>
           )}
 
-          <ThemedText type="default">{job.description}</ThemedText>
+          <View style={styles.section}>
+            <SectionHeader title={t('postJob.descriptionLabel')} />
+            <ThemedText type="default">{job.description}</ThemedText>
+          </View>
 
-          <PrimaryButton
-            label={t('conversation.messageClient')}
-            variant="secondary"
-            loading={messaging}
-            onPress={handleMessage}
-          />
-          {messageError && (
-            <ThemedText type="small" style={styles.error}>
-              {t('common.messageError', { error: messageError })}
-            </ThemedText>
-          )}
-
-          {address && (
-            <ThemedView type="backgroundElement" style={styles.addressBox}>
-              <ThemedText type="smallBold">{t('postJob.addressLabel')}</ThemedText>
-              <ThemedText type="default">{address}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {t('myBid.hiredMessage')}
+          <View style={[styles.transactionZone, { borderTopColor: theme.border }]}>
+            <Pressable
+              style={[styles.messageRow, { backgroundColor: theme.tintBackground }]}
+              disabled={messaging}
+              onPress={handleMessage}>
+              {messaging ? (
+                <ActivityIndicator color={theme.tint} />
+              ) : (
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color={theme.tint} />
+              )}
+              <ThemedText type="smallBold" themeColor="tint">
+                {t('conversation.messageClient')}
               </ThemedText>
-            </ThemedView>
-          )}
+            </Pressable>
+            {messageError && (
+              <ThemedText type="small" style={{ color: theme.error }}>
+                {t('common.messageError', { error: messageError })}
+              </ThemedText>
+            )}
 
-          {job.status === 'hired' && session && (
-            <JobDateCard
-              jobId={job.id}
-              myId={session.user.id}
-              agreedDate={job.agreed_date}
-              proposedDate={job.proposed_date}
-              proposedBy={job.proposed_by}
-              otherPartyLabel={job.client_profiles?.full_name ?? t('jobDate.theClient')}
-              onChanged={refreshJob}
-            />
-          )}
-
-          {(job.status === 'hired' || job.status === 'pending_completion') && session && (
-            <CompletionCard
-              jobId={job.id}
-              myId={session.user.id}
-              status={job.status}
-              agreedDate={job.agreed_date}
-              completionMarkedBy={job.completion_marked_by}
-              otherPartyLabel={job.client_profiles?.full_name ?? t('jobDate.theClient')}
-              onChanged={async () => {
-                await Promise.all([refreshJob(), fetchReviews()]);
-              }}
-            />
-          )}
-
-          {job.status === 'completed' && session && (
-            <ReviewsCard
-              jobId={job.id}
-              myId={session.user.id}
-              reviews={reviews}
-              otherPartyLabel={job.client_profiles?.full_name ?? t('jobDate.theClient')}
-            />
-          )}
-
-          {bidLoadError !== null ? (
-            <ThemedText type="small" style={styles.error}>
-              {t('common.loadError', { error: bidLoadError })}
-            </ThemedText>
-          ) : myBid ? (
-            <ThemedView type="backgroundElement" style={styles.bidStatusBox}>
-              <ThemedText type="smallBold">{t('myBid.title')}</ThemedText>
-              <ThemedText type="default">${myBid.price.toFixed(2)}</ThemedText>
-              {myBid.note && (
+            {address && (
+              <Card style={styles.card}>
+                <ThemedText type="smallBold">{t('postJob.addressLabel')}</ThemedText>
+                <ThemedText type="default">{address}</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {myBid.note}
+                  {t('myBid.hiredMessage')}
                 </ThemedText>
-              )}
-              <ThemedText type="small">{t(`bidStatus.${myBid.status}`)}</ThemedText>
-              {myBid.status === 'rejected' && (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t('myBid.rejectedMessage')}
-                </ThemedText>
-              )}
-              {myBid.status === 'cancelled' && (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t('myBid.jobCancelledMessage')}
-                </ThemedText>
-              )}
-              {withdrawError && (
-                <ThemedText type="small" style={styles.error}>
-                  {withdrawError}
-                </ThemedText>
-              )}
-              {myBid.status === 'pending' && (
-                <PrimaryButton
-                  label={t('myBid.withdraw')}
-                  variant="secondary"
-                  loading={withdrawing}
-                  onPress={confirmWithdraw}
-                />
-              )}
-              {cancelError && (
-                <ThemedText type="small" style={styles.error}>
-                  {cancelError}
-                </ThemedText>
-              )}
-              {myBid.status === 'accepted' && job.status === 'hired' && (
-                <PrimaryButton
-                  label={t('myBid.cancelJob')}
-                  variant="secondary"
-                  loading={cancelling}
-                  onPress={confirmCancelJob}
-                />
-              )}
-            </ThemedView>
-          ) : job.status === 'open' ? (
-            <ThemedView type="backgroundElement" style={styles.bidForm}>
-              <ThemedText type="smallBold">{t('bidForm.title')}</ThemedText>
-              <FormField
-                label={t('bidForm.priceLabel')}
-                value={price}
-                onChangeText={(value) => {
-                  setPrice(value);
-                  if (priceError) setPriceError(undefined);
+              </Card>
+            )}
+
+            {job.status === 'hired' && session && (
+              <JobDateCard
+                jobId={job.id}
+                myId={session.user.id}
+                agreedDate={job.agreed_date}
+                proposedDate={job.proposed_date}
+                proposedBy={job.proposed_by}
+                otherPartyLabel={job.client_profiles?.full_name ?? t('jobDate.theClient')}
+                onChanged={refreshJob}
+              />
+            )}
+
+            {(job.status === 'hired' || job.status === 'pending_completion') && session && (
+              <CompletionCard
+                jobId={job.id}
+                myId={session.user.id}
+                status={job.status}
+                agreedDate={job.agreed_date}
+                completionMarkedBy={job.completion_marked_by}
+                otherPartyLabel={job.client_profiles?.full_name ?? t('jobDate.theClient')}
+                onChanged={async () => {
+                  await Promise.all([refreshJob(), fetchReviews()]);
                 }}
-                keyboardType="decimal-pad"
-                error={priceError}
               />
-              <FormField
-                label={t('bidForm.noteLabel')}
-                value={note}
-                onChangeText={setNote}
-                placeholder={t('bidForm.notePlaceholder')}
-                multiline
-                numberOfLines={4}
-                style={styles.multiline}
+            )}
+
+            {job.status === 'completed' && session && (
+              <ReviewsCard
+                jobId={job.id}
+                myId={session.user.id}
+                reviews={reviews}
+                otherPartyLabel={job.client_profiles?.full_name ?? t('jobDate.theClient')}
               />
-              {submitError && (
-                <ThemedText type="small" style={styles.error}>
-                  {submitError}
-                </ThemedText>
-              )}
-              <PrimaryButton
-                label={submitting ? t('bidForm.submitting') : t('bidForm.submit')}
-                onPress={handleSubmitBid}
-                loading={submitting}
-              />
-            </ThemedView>
-          ) : (
-            <ThemedText type="default" themeColor="textSecondary">
-              {t('myBid.closedNoBid')}
-            </ThemedText>
-          )}
+            )}
+
+            {bidLoadError !== null ? (
+              <ThemedText type="small" style={{ color: theme.error }}>
+                {t('common.loadError', { error: bidLoadError })}
+              </ThemedText>
+            ) : myBid ? (
+              <Card style={[styles.card, styles.accentCard, { borderLeftColor: theme.tint }]}>
+                <View style={styles.bidStatusRow}>
+                  <ThemedText type="smallBold">{t('myBid.title')}</ThemedText>
+                  <StatusBadge label={t(`bidStatus.${myBid.status}`)} tone={BID_STATUS_TONE[myBid.status]} />
+                </View>
+                <ThemedText type="cardTitle">${myBid.price.toFixed(2)}</ThemedText>
+                {myBid.note && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {myBid.note}
+                  </ThemedText>
+                )}
+                {myBid.status === 'rejected' && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {t('myBid.rejectedMessage')}
+                  </ThemedText>
+                )}
+                {myBid.status === 'cancelled' && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {t('myBid.jobCancelledMessage')}
+                  </ThemedText>
+                )}
+                {withdrawError && (
+                  <ThemedText type="small" style={{ color: theme.error }}>
+                    {withdrawError}
+                  </ThemedText>
+                )}
+                {myBid.status === 'pending' && (
+                  <PrimaryButton
+                    label={t('myBid.withdraw')}
+                    variant="secondary"
+                    loading={withdrawing}
+                    onPress={confirmWithdraw}
+                  />
+                )}
+                {cancelError && (
+                  <ThemedText type="small" style={{ color: theme.error }}>
+                    {cancelError}
+                  </ThemedText>
+                )}
+                {myBid.status === 'accepted' && job.status === 'hired' && (
+                  <PrimaryButton
+                    label={t('myBid.cancelJob')}
+                    variant="secondary"
+                    loading={cancelling}
+                    onPress={confirmCancelJob}
+                  />
+                )}
+              </Card>
+            ) : job.status === 'open' ? (
+              <Card style={[styles.card, styles.accentCard, { borderLeftColor: theme.tint }]}>
+                <SectionHeader title={t('bidForm.title')} />
+                <FormField
+                  label={t('bidForm.priceLabel')}
+                  value={price}
+                  onChangeText={(value) => {
+                    setPrice(value);
+                    if (priceError) setPriceError(undefined);
+                  }}
+                  keyboardType="decimal-pad"
+                  error={priceError}
+                />
+                <FormField
+                  label={t('bidForm.noteLabel')}
+                  value={note}
+                  onChangeText={setNote}
+                  placeholder={t('bidForm.notePlaceholder')}
+                  multiline
+                  numberOfLines={4}
+                  style={styles.multiline}
+                />
+                {submitError && (
+                  <ThemedText type="small" style={{ color: theme.error }}>
+                    {submitError}
+                  </ThemedText>
+                )}
+                <PrimaryButton
+                  label={submitting ? t('bidForm.submitting') : t('bidForm.submit')}
+                  onPress={handleSubmitBid}
+                  loading={submitting}
+                />
+              </Card>
+            ) : (
+              <EmptyState title={t('myBid.closedNoBid')} />
+            )}
+          </View>
         </ScrollView>
         </KeyboardAvoidingScreen>
       </SafeAreaView>
@@ -545,37 +620,82 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.six,
   },
   photoScroll: {
-    marginBottom: Spacing.two,
+    marginBottom: Spacing.one,
   },
-  photo: {
-    width: 220,
-    height: 160,
-    borderRadius: Spacing.two,
+  photoWrap: {
     marginRight: Spacing.two,
   },
-  addressBox: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    gap: Spacing.one,
-    marginTop: Spacing.two,
+  photo: {
+    width: 300,
+    height: 220,
+    borderRadius: Radius.large,
   },
-  bidStatusBox: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    gap: Spacing.one,
-    marginTop: Spacing.two,
+  photoCountBadge: {
+    position: 'absolute',
+    right: Spacing.one,
+    bottom: Spacing.one,
+    paddingHorizontal: Spacing.one,
+    paddingVertical: 2,
+    borderRadius: Radius.pill,
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  bidForm: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
+  photoCountText: {
+    color: '#ffffff',
+  },
+  headerBlock: {
+    gap: Spacing.two,
+  },
+  primaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    flexWrap: 'wrap',
+  },
+  tradeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    flexWrap: 'wrap',
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
+  section: {
+    gap: Spacing.two,
+  },
+  transactionZone: {
+    gap: Spacing.three,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.three,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: Spacing.one,
-    marginTop: Spacing.two,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.medium,
+  },
+  card: {
+    gap: Spacing.one,
+  },
+  accentCard: {
+    borderLeftWidth: 3,
+  },
+  bidStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   multiline: {
     minHeight: 100,
     textAlignVertical: 'top',
-  },
-  error: {
-    color: '#d64545',
   },
 });

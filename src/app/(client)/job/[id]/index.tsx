@@ -1,29 +1,41 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Link, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/avatar';
+import { Card } from '@/components/card';
 import { CompletionCard } from '@/components/completion-card';
+import { EmptyState } from '@/components/empty-state';
 import { JobDateCard } from '@/components/job-date-card';
 import { JobPhoto } from '@/components/job-photo';
+import { LoadingState } from '@/components/loading-state';
 import { PhotoViewer } from '@/components/photo-viewer';
 import { PrimaryButton } from '@/components/primary-button';
 import { ReviewsCard } from '@/components/reviews-card';
+import { SectionHeader } from '@/components/section-header';
+import { ServiceIcon } from '@/components/service-icon';
+import { StatusBadge, type StatusTone } from '@/components/status-badge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { confirmAsync, confirmDestructive } from '@/lib/confirm';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
 import { useSession } from '@/providers/session-provider';
 import { formatRelativeTime } from '@/utils/relative-time';
 
+type JobStatus = 'open' | 'hired' | 'pending_completion' | 'completed' | 'cancelled' | 'expired';
+type BidStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'cancelled';
+
 type JobDetailRow = {
   id: string;
   title: string;
   description: string;
-  status: 'open' | 'hired' | 'pending_completion' | 'completed' | 'cancelled' | 'expired';
+  status: JobStatus;
   max_bids: number;
   created_at: string;
   agreed_date: string | null;
@@ -35,16 +47,20 @@ type JobDetailRow = {
   // (bids links them too, so PostgREST sees a second, many-to-many path).
   invited_handyman: { id: string; full_name: string } | null;
   pueblos: { name: string } | null;
-  trades: { name_es: string; name_en: string } | null;
+  trades: { slug: string; name_es: string; name_en: string } | null;
 };
 
 type BidRow = {
   id: string;
   price: number;
   note: string | null;
-  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'cancelled';
+  status: BidStatus;
   created_at: string;
-  handyman_profiles: { id: string; full_name: string } | null;
+  // avatar_url added 2026-09-26 (Job Details redesign, explicitly approved)
+  // -- same safe, zero-new-RLS-surface pattern already used on Browse and
+  // Messages: this exact field is already readable by anyone who can see
+  // this handyman_profiles row at all.
+  handyman_profiles: { id: string; full_name: string; avatar_url: string | null } | null;
 };
 
 type ReviewRow = {
@@ -56,13 +72,34 @@ type ReviewRow = {
 };
 
 const JOB_SELECT =
-  'id, title, description, status, max_bids, created_at, agreed_date, proposed_date, proposed_by, completion_marked_by, visibility, invited_handyman:handyman_profiles!invited_handyman_id(id, full_name), pueblos(name), trades(name_es, name_en)';
-const BID_SELECT = 'id, price, note, status, created_at, handyman_profiles(id, full_name)';
+  'id, title, description, status, max_bids, created_at, agreed_date, proposed_date, proposed_by, completion_marked_by, visibility, invited_handyman:handyman_profiles!invited_handyman_id(id, full_name), pueblos(name), trades(slug, name_es, name_en)';
+const BID_SELECT = 'id, price, note, status, created_at, handyman_profiles(id, full_name, avatar_url)';
 const REVIEW_SELECT = 'id, author_id, rating, comment, published_at';
+
+// Presentation only -- purely maps an existing status value to a StatusBadge
+// tone, same convention already used on Client Home. Doesn't change what
+// any status means or when it applies.
+const JOB_STATUS_TONE: Record<JobStatus, StatusTone> = {
+  open: 'info',
+  hired: 'success',
+  pending_completion: 'warning',
+  completed: 'success',
+  cancelled: 'error',
+  expired: 'neutral',
+};
+// New for this screen -- bid status had no visual tone anywhere before.
+const BID_STATUS_TONE: Record<BidStatus, StatusTone> = {
+  pending: 'neutral',
+  accepted: 'success',
+  rejected: 'error',
+  withdrawn: 'neutral',
+  cancelled: 'neutral',
+};
 
 export default function JobDetailScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
+  const theme = useTheme();
   const { session } = useSession();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -325,7 +362,7 @@ export default function JobDetailScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
-          <ThemedText type="default">{t('common.loading')}</ThemedText>
+          <LoadingState label={t('common.loading')} />
         </SafeAreaView>
       </ThemedView>
     );
@@ -335,7 +372,7 @@ export default function JobDetailScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
-          <ThemedText type="default">{loadError ?? t('jobDetail.notFound')}</ThemedText>
+          <EmptyState title={loadError ?? t('jobDetail.notFound')} />
         </SafeAreaView>
       </ThemedView>
     );
@@ -350,8 +387,15 @@ export default function JobDetailScreen() {
           {photos.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
               {photos.map((photo, index) => (
-                <Pressable key={photo.photo_url} onPress={() => setViewerIndex(index)}>
+                <Pressable key={photo.photo_url} onPress={() => setViewerIndex(index)} style={styles.photoWrap}>
                   <JobPhoto uri={photo.photo_url} style={styles.photo} />
+                  {index === 0 && photos.length > 1 && (
+                    <View style={styles.photoCountBadge}>
+                      <ThemedText type="metadata" style={styles.photoCountText}>
+                        1/{photos.length}
+                      </ThemedText>
+                    </View>
+                  )}
                 </Pressable>
               ))}
             </ScrollView>
@@ -364,14 +408,39 @@ export default function JobDetailScreen() {
             onClose={() => setViewerIndex(null)}
           />
 
-          <ThemedText type="subtitle">{job.title}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {job.pueblos?.name} · {tradeName} · {t(`jobStatus.${job.status}`)} ·{' '}
-            {formatRelativeTime(job.created_at, t)}
-          </ThemedText>
+          <View style={styles.headerBlock}>
+            <ThemedText type="screenTitle">{job.title}</ThemedText>
+            <View style={styles.primaryRow}>
+              <StatusBadge label={t(`jobStatus.${job.status}`)} tone={JOB_STATUS_TONE[job.status]} />
+              {job.trades && tradeName.length > 0 && (
+                <View style={styles.tradeChip}>
+                  <ServiceIcon slug={job.trades.slug} size={20} />
+                  <ThemedText type="smallBold" themeColor="tint">
+                    {tradeName}
+                  </ThemedText>
+                </View>
+              )}
+            </View>
+            <View style={styles.metaRow}>
+              {job.pueblos?.name && (
+                <View style={styles.metaItem}>
+                  <Ionicons name="location-outline" size={13} color={theme.textSecondary} />
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {job.pueblos.name}
+                  </ThemedText>
+                </View>
+              )}
+              <View style={styles.metaItem}>
+                <Ionicons name="calendar-outline" size={13} color={theme.textSecondary} />
+                <ThemedText type="small" themeColor="textSecondary">
+                  {formatRelativeTime(job.created_at, t)}
+                </ThemedText>
+              </View>
+            </View>
+          </View>
 
           {partialError && (
-            <ThemedText type="small" style={styles.partialError}>
+            <ThemedText type="small" style={{ color: theme.error }}>
               {t('common.partialLoadError', { error: partialError })}
             </ThemedText>
           )}
@@ -398,144 +467,158 @@ export default function JobDetailScreen() {
             </ThemedText>
           )}
 
-          <ThemedText type="default">{job.description}</ThemedText>
+          <View style={styles.section}>
+            <SectionHeader title={t('postJob.descriptionLabel')} />
+            <ThemedText type="default">{job.description}</ThemedText>
+          </View>
 
           {address && (
-            <ThemedView type="backgroundElement" style={styles.addressBox}>
+            <Card style={styles.card}>
               <ThemedText type="smallBold">{t('postJob.addressLabel')}</ThemedText>
               <ThemedText type="default">{address}</ThemedText>
-            </ThemedView>
+            </Card>
           )}
 
-          {job.status === 'hired' && session && (
-            <JobDateCard
-              jobId={job.id}
-              myId={session.user.id}
-              agreedDate={job.agreed_date}
-              proposedDate={job.proposed_date}
-              proposedBy={job.proposed_by}
-              otherPartyLabel={
-                bids.find((b) => b.status === 'accepted')?.handyman_profiles?.full_name ?? t('jobDate.theHandyman')
-              }
-              onChanged={async () => {
-                const result = await fetchAll();
-                if (result) applyResult(result, true);
-              }}
-            />
-          )}
+          <View style={[styles.transactionZone, { borderTopColor: theme.border }]}>
+            {job.status === 'hired' && session && (
+              <JobDateCard
+                jobId={job.id}
+                myId={session.user.id}
+                agreedDate={job.agreed_date}
+                proposedDate={job.proposed_date}
+                proposedBy={job.proposed_by}
+                otherPartyLabel={
+                  bids.find((b) => b.status === 'accepted')?.handyman_profiles?.full_name ?? t('jobDate.theHandyman')
+                }
+                onChanged={async () => {
+                  const result = await fetchAll();
+                  if (result) applyResult(result, true);
+                }}
+              />
+            )}
 
-          <ThemedText type="small" themeColor="textSecondary">
-            {t('jobDetail.maxBids', { count: job.max_bids })}
-          </ThemedText>
-
-          {job.status === 'open' && (
-            <Link href={`/job/${job.id}/edit`} asChild>
-              <PrimaryButton label={t('jobDetail.edit')} variant="secondary" />
-            </Link>
-          )}
-
-          {removeError && (
-            <ThemedText type="small" style={styles.error}>
-              {removeError}
+            <ThemedText type="small" themeColor="textSecondary">
+              {t('jobDetail.maxBids', { count: job.max_bids })}
             </ThemedText>
-          )}
 
-          {(job.status === 'open' ||
-            job.status === 'cancelled' ||
-            job.status === 'expired' ||
-            job.status === 'hired') && (
-            <PrimaryButton
-              label={job.status === 'hired' ? t('jobDelete.cancelButton') : t('jobDelete.deleteButton')}
-              variant="secondary"
-              loading={removing}
-              onPress={confirmRemoveJob}
-            />
-          )}
+            {job.status === 'open' && (
+              <Link href={`/job/${job.id}/edit`} asChild>
+                <PrimaryButton label={t('jobDetail.edit')} variant="secondary" />
+              </Link>
+            )}
 
-          {job.status === 'expired' && (
-            <ThemedView type="backgroundElement" style={styles.addressBox}>
-              <ThemedText type="default" themeColor="textSecondary">
-                {t('jobExpiry.expiredMessage')}
+            {removeError && (
+              <ThemedText type="small" style={{ color: theme.error }}>
+                {removeError}
               </ThemedText>
-              {renewError && (
-                <ThemedText type="small" style={styles.error}>
-                  {renewError}
+            )}
+
+            {(job.status === 'open' ||
+              job.status === 'cancelled' ||
+              job.status === 'expired' ||
+              job.status === 'hired') && (
+              <PrimaryButton
+                label={job.status === 'hired' ? t('jobDelete.cancelButton') : t('jobDelete.deleteButton')}
+                variant="secondary"
+                loading={removing}
+                onPress={confirmRemoveJob}
+              />
+            )}
+
+            {job.status === 'expired' && (
+              <Card style={styles.card}>
+                <ThemedText type="default" themeColor="textSecondary">
+                  {t('jobExpiry.expiredMessage')}
                 </ThemedText>
-              )}
-              <PrimaryButton label={t('jobExpiry.renewButton')} loading={renewing} onPress={handleRenew} />
-            </ThemedView>
-          )}
-
-          {(job.status === 'hired' || job.status === 'pending_completion') && session && (
-            <CompletionCard
-              jobId={job.id}
-              myId={session.user.id}
-              status={job.status}
-              agreedDate={job.agreed_date}
-              completionMarkedBy={job.completion_marked_by}
-              otherPartyLabel={
-                bids.find((b) => b.status === 'accepted')?.handyman_profiles?.full_name ?? t('jobDate.theHandyman')
-              }
-              onChanged={async () => {
-                const result = await fetchAll();
-                if (result) applyResult(result, true);
-              }}
-            />
-          )}
-
-          {job.status === 'completed' && session && (
-            <ReviewsCard
-              jobId={job.id}
-              myId={session.user.id}
-              reviews={reviews}
-              otherPartyLabel={
-                bids.find((b) => b.status === 'accepted')?.handyman_profiles?.full_name ?? t('jobDate.theHandyman')
-              }
-            />
-          )}
-
-          <ThemedText type="smallBold" style={styles.bidsTitle}>
-            {t('bids.title')}
-          </ThemedText>
-
-          {acceptError && (
-            <ThemedText type="small" style={styles.error}>
-              {acceptError}
-            </ThemedText>
-          )}
-
-          {bids.length === 0 ? (
-            <ThemedText type="default" themeColor="textSecondary">
-              {t('bids.empty')}
-            </ThemedText>
-          ) : (
-            bids.map((bid) => (
-              <ThemedView key={bid.id} type="backgroundElement" style={styles.bidCard}>
-                {bid.handyman_profiles && (
-                  <Link href={`/handyman/${bid.handyman_profiles.id}`} asChild>
-                    <Pressable>
-                      <ThemedText type="linkPrimary">{bid.handyman_profiles.full_name}</ThemedText>
-                    </Pressable>
-                  </Link>
-                )}
-                <ThemedText type="default">${bid.price.toFixed(2)}</ThemedText>
-                {bid.note && (
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {bid.note}
+                {renewError && (
+                  <ThemedText type="small" style={{ color: theme.error }}>
+                    {renewError}
                   </ThemedText>
                 )}
-                <ThemedText type="small">{t(`bidStatus.${bid.status}`)}</ThemedText>
+                <PrimaryButton label={t('jobExpiry.renewButton')} loading={renewing} onPress={handleRenew} />
+              </Card>
+            )}
 
-                {job.status === 'open' && bid.status === 'pending' && (
-                  <PrimaryButton
-                    label={t('bids.accept')}
-                    loading={acceptingId === bid.id}
-                    onPress={() => confirmAccept(bid)}
-                  />
-                )}
-              </ThemedView>
-            ))
-          )}
+            {(job.status === 'hired' || job.status === 'pending_completion') && session && (
+              <CompletionCard
+                jobId={job.id}
+                myId={session.user.id}
+                status={job.status}
+                agreedDate={job.agreed_date}
+                completionMarkedBy={job.completion_marked_by}
+                otherPartyLabel={
+                  bids.find((b) => b.status === 'accepted')?.handyman_profiles?.full_name ?? t('jobDate.theHandyman')
+                }
+                onChanged={async () => {
+                  const result = await fetchAll();
+                  if (result) applyResult(result, true);
+                }}
+              />
+            )}
+
+            {job.status === 'completed' && session && (
+              <ReviewsCard
+                jobId={job.id}
+                myId={session.user.id}
+                reviews={reviews}
+                otherPartyLabel={
+                  bids.find((b) => b.status === 'accepted')?.handyman_profiles?.full_name ?? t('jobDate.theHandyman')
+                }
+              />
+            )}
+
+            <View style={styles.section}>
+              <SectionHeader title={t('bids.title')} />
+
+              {acceptError && (
+                <ThemedText type="small" style={{ color: theme.error }}>
+                  {acceptError}
+                </ThemedText>
+              )}
+
+              {bids.length === 0 ? (
+                <EmptyState title={t('bids.empty')} />
+              ) : (
+                <View style={styles.bidsList}>
+                  {bids.map((bid) => (
+                    <Card key={bid.id} style={styles.bidCard}>
+                      <View style={styles.bidHeaderRow}>
+                        {bid.handyman_profiles && (
+                          <Link href={`/handyman/${bid.handyman_profiles.id}`} asChild>
+                            <Pressable style={styles.bidIdentity}>
+                              <Avatar
+                                uri={bid.handyman_profiles.avatar_url}
+                                name={bid.handyman_profiles.full_name}
+                                size={40}
+                              />
+                              <ThemedText type="cardTitle" numberOfLines={1} style={styles.bidName}>
+                                {bid.handyman_profiles.full_name}
+                              </ThemedText>
+                            </Pressable>
+                          </Link>
+                        )}
+                        <StatusBadge label={t(`bidStatus.${bid.status}`)} tone={BID_STATUS_TONE[bid.status]} />
+                      </View>
+                      <ThemedText type="cardTitle">${bid.price.toFixed(2)}</ThemedText>
+                      {bid.note && (
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {bid.note}
+                        </ThemedText>
+                      )}
+
+                      {job.status === 'open' && bid.status === 'pending' && (
+                        <PrimaryButton
+                          label={t('bids.accept')}
+                          loading={acceptingId === bid.id}
+                          onPress={() => confirmAccept(bid)}
+                        />
+                      )}
+                    </Card>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -546,9 +629,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  partialError: {
-    color: '#d64545',
-  },
   safeArea: {
     flex: 1,
     padding: Spacing.four,
@@ -558,29 +638,83 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.six,
   },
   photoScroll: {
-    marginBottom: Spacing.two,
+    marginBottom: Spacing.one,
   },
-  photo: {
-    width: 220,
-    height: 160,
-    borderRadius: Spacing.two,
+  photoWrap: {
     marginRight: Spacing.two,
   },
-  addressBox: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    gap: Spacing.one,
-    marginTop: Spacing.two,
+  photo: {
+    width: 300,
+    height: 220,
+    borderRadius: Radius.large,
   },
-  bidsTitle: {
-    marginTop: Spacing.three,
+  photoCountBadge: {
+    position: 'absolute',
+    right: Spacing.one,
+    bottom: Spacing.one,
+    paddingHorizontal: Spacing.one,
+    paddingVertical: 2,
+    borderRadius: Radius.pill,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  photoCountText: {
+    color: '#ffffff',
+  },
+  headerBlock: {
+    gap: Spacing.two,
+  },
+  primaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    flexWrap: 'wrap',
+  },
+  tradeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    flexWrap: 'wrap',
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
+  section: {
+    gap: Spacing.two,
+  },
+  transactionZone: {
+    gap: Spacing.three,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.three,
+  },
+  card: {
+    gap: Spacing.one,
+  },
+  bidsList: {
+    gap: Spacing.two,
   },
   bidCard: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    gap: Spacing.one,
+    gap: Spacing.two,
   },
-  error: {
-    color: '#d64545',
+  bidHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  bidIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    flexShrink: 1,
+  },
+  bidName: {
+    flexShrink: 1,
   },
 });

@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { Card } from '@/components/card';
 import { DateInput } from '@/components/date-input';
 import { PrimaryButton } from '@/components/primary-button';
+import { SectionHeader } from '@/components/section-header';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
 type JobDateCardProps = {
@@ -28,6 +30,9 @@ function formatDate(iso: string) {
 // is enforced server-side (confirm_job_date rejects confirming your own
 // proposal); hiding the Confirm button when it's your own proposal is
 // belt-and-suspenders on top of that.
+//
+// 2026-09-26: visual restyle only (Job Details redesign) -- every query,
+// RPC call, and status-gating condition below is unchanged from before.
 export function JobDateCard({
   jobId,
   myId,
@@ -38,6 +43,7 @@ export function JobDateCard({
   onChanged,
 }: JobDateCardProps) {
   const { t } = useTranslation();
+  const theme = useTheme();
   const [proposing, setProposing] = useState(false);
   const [pendingDate, setPendingDate] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -79,8 +85,8 @@ export function JobDateCard({
   }
 
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedText type="smallBold">{t('jobDate.title')}</ThemedText>
+    <Card style={styles.card}>
+      <SectionHeader title={t('jobDate.title')} />
 
       {agreedDate && <ThemedText type="default">{t('jobDate.agreed', { date: formatDate(agreedDate) })}</ThemedText>}
 
@@ -103,7 +109,7 @@ export function JobDateCard({
       )}
 
       {error && (
-        <ThemedText type="small" style={styles.error}>
+        <ThemedText type="small" style={{ color: theme.error }}>
           {error}
         </ThemedText>
       )}
@@ -119,15 +125,11 @@ export function JobDateCard({
           onPress={() => setProposing(true)}
         />
       ) : (
-        // Explicit type -- ThemedView with none defaults to theme.background
-        // (plain white), not this card's own backgroundElement gray. That
-        // mismatch was the actual source of one of the two white patches
-        // reported 2026-09-24 (DateInput's own wrapper now also paints its
-        // own gray explicitly, so this alone wouldn't have shown through
-        // today, but it's the real bug either way -- worth fixing at the
-        // source rather than leaving it as a landmine for the next edit
-        // here).
-        <ThemedView type="backgroundElement" style={styles.proposeForm}>
+        // Plain View, not a second nested card -- the outer Card already
+        // gives this a white surface; a second gray panel inside it would
+        // be exactly the "excessive nested cards" the redesign is meant to
+        // avoid. No functional change: same proposing/pendingDate state.
+        <View style={styles.proposeForm}>
           <DateInput onChange={setPendingDate} />
           <PrimaryButton label={t('jobDate.submitProposal')} loading={submitting} onPress={handlePropose} />
           <PrimaryButton
@@ -138,31 +140,18 @@ export function JobDateCard({
               setPendingDate(null);
             }}
           />
-        </ThemedView>
+        </View>
       )}
-    </ThemedView>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    // NOT overflow: 'hidden' -- combined with borderRadius, Android fails to
-    // paint this View's OWN background in areas with no opaque child sitting
-    // directly on top (empty padding, a plain wrapper with no color of its
-    // own), showing the page's white through instead of this card's gray
-    // (client report 2026-09-24, two separate spots). A View's own
-    // background always respects its own borderRadius regardless of
-    // overflow, so dropping this loses nothing -- nothing here actually
-    // needs child content clipped to the curve.
-    gap: Spacing.one,
+    gap: Spacing.two,
     marginTop: Spacing.two,
   },
   proposeForm: {
     gap: Spacing.one,
-  },
-  error: {
-    color: '#d64545',
   },
 });

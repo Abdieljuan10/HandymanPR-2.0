@@ -1,4 +1,4 @@
-import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,8 +6,10 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
+import { Avatar } from '@/components/avatar';
+import { Card } from '@/components/card';
 import { PhotoViewer } from '@/components/photo-viewer';
-import { PrimaryButton } from '@/components/primary-button';
+import { SectionHeader } from '@/components/section-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -68,41 +70,54 @@ export default function ClientProfileScreen() {
         <AppHeader pageTitle={t('clientProfile.title')} />
       </SafeAreaView>
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
-        <View style={styles.headerRow}>
+        <Card style={styles.identityCard}>
           {profile?.avatar_url ? (
             <Pressable onPress={() => setAvatarViewerOpen(true)}>
-              <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+              <Avatar uri={profile.avatar_url} name={profile?.full_name} size={100} />
             </Pressable>
           ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="title" themeColor="textSecondary">
-                {profile?.full_name?.trim().charAt(0).toUpperCase() || '?'}
-              </ThemedText>
-            </View>
+            <Avatar uri={null} name={profile?.full_name} size={100} />
           )}
-          <View style={styles.headerText}>
-            <ThemedText type="subtitle">
-              {profile?.full_name ?? (loadError !== null ? '' : t('common.loading'))}
-            </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {session?.user.email}
-            </ThemedText>
-          </View>
-        </View>
+          <ThemedText type="cardTitle">
+            {profile?.full_name ?? (loadError !== null ? '' : t('common.loading'))}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {session?.user.email}
+          </ThemedText>
+        </Card>
 
         {loadError !== null && (
-          <ThemedText type="small" style={styles.error}>
+          <ThemedText type="small" style={{ color: theme.error }}>
             {t('common.loadError', { error: loadError })}
           </ThemedText>
         )}
 
-        <View style={styles.actions}>
-          <Link href="/profile-edit" asChild>
-            <PrimaryButton label={t('clientProfile.editProfile')} />
-          </Link>
-          <Link href="/profile-settings" asChild>
-            <PrimaryButton label={t('common.settings')} variant="secondary" />
-          </Link>
+        <View style={styles.section}>
+          <SectionHeader title={t('clientProfile.accountSection')} />
+          <View style={styles.actionList}>
+            <Link href="/profile-edit" asChild>
+              <Pressable style={({ pressed }) => pressed && styles.rowPressed}>
+                <Card style={styles.actionRow}>
+                  <View style={styles.actionRowLeft}>
+                    <Ionicons name="pencil-outline" size={20} color={theme.tint} />
+                    <ThemedText type="default">{t('clientProfile.editProfile')}</ThemedText>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+                </Card>
+              </Pressable>
+            </Link>
+            <Link href="/profile-settings" asChild>
+              <Pressable style={({ pressed }) => pressed && styles.rowPressed}>
+                <Card style={styles.actionRow}>
+                  <View style={styles.actionRowLeft}>
+                    <Ionicons name="settings-outline" size={20} color={theme.tint} />
+                    <ThemedText type="default">{t('common.settings')}</ThemedText>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+                </Card>
+              </Pressable>
+            </Link>
+          </View>
         </View>
       </SafeAreaView>
 
@@ -125,35 +140,29 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     padding: Spacing.four,
-    gap: Spacing.three,
+    gap: Spacing.four,
   },
-  headerRow: {
+  identityCard: {
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  section: {
+    gap: Spacing.one,
+  },
+  actionList: {
+    gap: Spacing.two,
+  },
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
+    justifyContent: 'space-between',
   },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-  },
-  avatarPlaceholder: {
+  actionRowLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // flex: 1 -- without a bounded width here, a long name has nothing to
-  // wrap against and overflows past the screen edge instead (same bug as
-  // the chat header and the handyman-side client profile, both already
-  // fixed the same way).
-  headerText: {
-    flex: 1,
-    gap: Spacing.half,
-  },
-  actions: {
     gap: Spacing.two,
-    marginTop: Spacing.two,
   },
-  error: {
-    color: '#d64545',
+  rowPressed: {
+    opacity: 0.7,
   },
 });

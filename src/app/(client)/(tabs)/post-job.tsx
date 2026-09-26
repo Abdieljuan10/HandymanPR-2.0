@@ -1,5 +1,5 @@
-import { PostJobForm } from '@/components/post-job-form';
+import { PostJobWizard } from '@/components/post-job-wizard';
 
 export default function PostJobScreen() {
-  return <PostJobForm />;
+  return <PostJobWizard />;
 }

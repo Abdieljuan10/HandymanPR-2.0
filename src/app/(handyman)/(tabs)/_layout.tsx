@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CenteredTabBarButton } from '@/components/centered-tab-bar-button';
 import { FloatingTabBarBackground } from '@/components/floating-tab-bar-background';
 import { TabBarIcon } from '@/components/tab-bar-icon';
-import { Colors } from '@/constants/theme';
+import { Colors, Radius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 // Visual pass 2026-09-24, option "Nav B -- Floating Translucent" -- see the
@@ -32,7 +32,7 @@ export default function HandymanTabsLayout() {
           right: 16,
           bottom: insets.bottom + 16,
           height: 68,
-          borderRadius: 24,
+          borderRadius: Radius.xlarge,
           borderTopWidth: Platform.OS === 'android' ? StyleSheet.hairlineWidth : 0,
           paddingTop: 0,
           paddingBottom: 0,
@@ -42,11 +42,17 @@ export default function HandymanTabsLayout() {
           // (phone test 2026-09-24). Android gets a hairline border instead.
           elevation: Platform.OS === 'android' ? 0 : 8,
           borderWidth: Platform.OS === 'android' ? StyleSheet.hairlineWidth : 0,
-          borderColor: 'rgba(0,0,0,0.12)',
+          // Was a fixed 'rgba(0,0,0,0.12)' -- invisible against the Android
+          // dark-mode fill (near-black border on a near-black background).
+          // theme.border already exists precisely for this (subtle,
+          // theme-aware divider), and this Android-only border is the one
+          // place this bar draws a real border, so no other screen is
+          // touched by using it here. Refinement 2026-09-26.
+          borderColor: colors.border,
           shadowColor: '#000000',
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.12,
-          shadowRadius: 24,
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.1,
+          shadowRadius: 18,
         },
       }}>
       <Tabs.Screen
