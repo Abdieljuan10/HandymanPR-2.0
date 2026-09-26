@@ -684,8 +684,10 @@ changes without a new ask.
    `LoadingState`/`EmptyState`. Query additions only: `trades(slug)` and
    `job_photos(photo_url, sort_order)` (same plain embed as client Home;
    job_photos RLS just re-checks the jobs policy, so no access change).
-   Filter-open ScrollView swap kept as-is. **Client: "looks good overall"**
-   before the photo thumbnail was added — photo not yet seen on-device.
+   Filter-open ScrollView swap kept as-is. **Client: "looks good overall"**;
+   photo thumbnails in use through the later filter-phase phone testing. The
+   "Filtros" chip was later replaced by [Oficio] [Pueblo] — see "Filter UX
+   redesign" below.
 10. **My Bids** (`(handyman)/(tabs)/my-bids.tsx`) — same filter chip; status
    filter rows and the sort toggle are now `Chip`s calling the same
    handlers; `SectionHeader` with count per section (order unchanged);
@@ -694,8 +696,83 @@ changes without a new ask.
    neutral, pending warning/amber — client-approved, jobCancelled error,
    closed/archived neutral), time. Query addition: `trades(slug)` only.
    Swipe structure untouched — the `Card` keeps `marginBottom: Spacing.two`
-   to match `SwipeAction`'s. Grouping/archive/sort logic unchanged. **Not
-   yet reviewed on-device; client said a further My Bids pass comes later.**
+   to match `SwipeAction`'s. Grouping/archive/sort logic unchanged.
+   Follow-ups in the same commit (`be56daa`), both confirmed on-device:
+   - **Quick status chips** — a second control row, Contratadas /
+     Pendientes / Completadas (single-select). They write the SAME
+     `filterStatusKeys` state as the panel (no second filtering path);
+     Hired = the existing `accepted` section. Own row because Filtros +
+     all three + the Archived icon don't fit ~342px in Spanish (client
+     picked two rows over icon-only Filtros). The panel keeps only Job
+     Cancelled / Rejected-Withdrawn; quick chips don't count toward
+     "Filtros · N" and Clear keeps them.
+   - **Job photo thumbnails** — `job_photos(photo_url, sort_order)` added
+     inside the existing `jobs!job_id(...)` embed, first photo by
+     sort_order via `JobPhoto` at 52px, `ServiceIcon` fallback. Same as the
+     job feed and client Home.
+   The secondary Filtros panel itself was redesigned later, see "Filter UX
+   redesign" below.
+
+### Filter UX redesign — 2026-09-26, confirmed on-device end to end
+Replaced the old gray combined trade+pueblo panels (radio-row TradePicker,
+all 78 pueblos, Seleccionar/Quitar Todos, "Ver N" at the end of the scroll)
+on Browse, the job feed and My Bids. Built in six steps, each phone-tested
+before the next. No query, RLS, hook, map-data or classification change.
+
+**Shared pieces** (`src/components/filters/`), all additive:
+- `FilterViewShell` — focused full-screen view that REPLACES the list (the
+  same list <-> plain ScrollView swap the old panels used, which is what
+  scrolls on Android — never a modal/sheet, never inside a FlatList). ✕,
+  title, "Limpiar", body ScrollView, "Ver N" CTA pinned OUTSIDE the scroll.
+  CTA margin = `BottomTabInset - Spacing.four + 24`: the extra 24 clears the
+  client bar's raised Post Job circle (rises 22px + shadow; the first
+  version collided with it). Android hardware Back closes the view,
+  registered via `useFocusEffect` (a plain listener would keep eating Back
+  on other tabs, since tab screens stay mounted).
+- `TradeFilterGrid` — multi-select 2-column `Card` + `ServiceIcon` tiles,
+  optional per-trade count. Icon stacked ABOVE the name (unlike Post Job's
+  side-by-side tiles): side by side left ~82px, and "Electrodomésticos" /
+  "Acondicionado" are single words wider than that.
+- `PuebloFilterView` — compact Mapa | Lista switch over the EXISTING
+  `PuebloMap`/`PuebloList`, removable selected-pueblo chips, no Select All.
+  Optional `availableSlugs`; selected pueblos are always added back so they
+  stay removable.
+- `FilterChip` — "Oficio" / "Plomería" / "Oficio · 2" + chevron.
+- Additive, off-by-default props on existing components: `Chip.trailingIcon`,
+  `PuebloMap.enabledSlugs` (unavailable shapes plain + untappable, available
+  ones get a tint wash) and `PuebloList.enabledSlugs`. `TradePicker` /
+  `PuebloPicker` themselves untouched — Post Job, job edit, portfolio and the
+  handyman Trades/Pueblos settings still use them (and keep Select All).
+
+**Per screen** (each keeps its own filter state; options/counts are facet
+style — every filter except the one being picked — from already-loaded data):
+- **Browse** — [Oficio ▾] [Pueblo ▾] [♥ Guardados] under search. Oficio:
+  all 10 trades with technician counts. Pueblo: only pueblos served under the
+  other filters. The visible-list filter was split into saved+search / trade
+  / pueblo checks (same AND semantics) so counts reuse them. Guardados is a
+  direct toggle (plain `Chip`, no chevron) and is ALWAYS rendered — this
+  FIXED the "Saved dead end" (it used to hide at `savedIds.size === 0`,
+  stranding `savedOnly = true`); `EmptyState` for "no saved" vs "saved but
+  filtered out". Old combined panel removed.
+- **Job feed** — [Oficio ▾] [Pueblo ▾] replace the Filtros chip. Options and
+  counts come ONLY from non-invitation jobs (invites stay pinned and bypass
+  filters). Trades with ≥1 job under the pueblo selection + anything
+  selected; pueblos with ≥1 job under the trade selection. **"Ver N
+  trabajos" now counts only the filterable jobs** — the old "Show N"
+  included pinned invitations (client's call).
+- **My Bids** — Row 1 (Filtros + Archived) and Row 2 (quick chips) unchanged;
+  Filtros now opens one view titled "Filtros": Oficio grid + Pueblo view +
+  Estado (Cancelled / Rejected-Withdrawn) + Orden. Options from loaded bids,
+  cross-filtered trade<->pueblo but deliberately NOT by status (that would
+  mean running the bid classification twice); no counts (they'd ignore
+  status). Limpiar = the old Quitar Filtros (keeps quick status + sort).
+  First view with grid + map + list in one scroll — phone-tested including a
+  drag on the map mid-scroll.
+- All three: leaving the tab closes an open filter view (selections kept);
+  the chip rows hide while a view is open.
+
+Leftover, harmless: locale keys `browseHandymen.savedOnly` / `emptySaved`
+and `handymanJobFeed.filtersActive` are now unused.
 
 ### Logged 2026-09-26 by the client — real features, NOT visual, not started
 1. **Handyman rejects a job invitation.** Today the only responses are bid
@@ -716,17 +793,9 @@ changes without a new ask.
   1. **Unread tracking doesn't exist at all** (no `read_at`, no unread count/badge anywhere) — a real feature to build later, not just a visual gap. Confirmed absent during the Messages redesign inspection.
   2. **Opening a conversation scrolls near the end, not the very last message.** `ConversationScreen`'s `FlatList` scrolls via `onContentSizeChange={() => listRef.current?.scrollToEnd(...)}` — likely fires before a photo message's image has finished loading/laying out, so the final scroll lands short of the true bottom once that image's height is added. Needs a fix, not attempted yet.
   3. **A photo-only last message shows no preview in the Messages list** (conversation-list-screen.tsx's new preview line only renders when `latest_message.body` is non-empty). Client wants it to at least say "Photo" instead of showing nothing. Small, deferred so as not to touch the just-shipped redesign again immediately.
-- **Browse: "Saved" filter chip has no way back once it empties the list**
-  (found 2026-09-26, client-facing visual redesign work). Repro: heart a
-  handyman → tap the "Saved" filter chip (list correctly narrows) → unheart
-  that same handyman while the filter is still active → the list correctly
-  goes empty ("no saved handymen match"), but nothing in that empty state
-  lets you turn the Saved filter back off — only fix today is force-closing
-  the app. Likely cause: the "filtered to nothing" `ListEmptyComponent`
-  branch shows only a text message, not the filter chips themselves or a
-  clear-filter action, so the control that caused the empty state stops
-  being reachable. Not fixed yet — client explicitly deferred this to keep
-  momentum on Messages.
+- ~~Browse: "Saved" filter chip has no way back once it empties the list~~
+  **FIXED 2026-09-26** in the filter UX redesign (real cause: the chip only
+  rendered while `savedIds.size > 0`) — see "Filter UX redesign" above.
 - `enforce_bid_insert` runs before RLS, so a bid insert on any job id
   returns its status/"full" message — minor status oracle, no personal data.
 - A few older app RPCs were granted to `authenticated` but never revoked from

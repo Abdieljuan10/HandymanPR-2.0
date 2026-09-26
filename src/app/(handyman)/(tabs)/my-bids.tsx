@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
 // The root-export Swipeable is deprecated in favor of this Reanimated-backed
 // one (react-native-reanimated is already a dependency here).
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -12,20 +12,21 @@ import { AppHeader } from '@/components/app-header';
 import { Card } from '@/components/card';
 import { Chip } from '@/components/chip';
 import { EmptyState } from '@/components/empty-state';
+import { FilterViewShell } from '@/components/filters/filter-view-shell';
+import { PuebloFilterView } from '@/components/filters/pueblo-filter-view';
+import { TradeFilterGrid } from '@/components/filters/trade-filter-grid';
 import { JobPhoto } from '@/components/job-photo';
 import { LoadingState } from '@/components/loading-state';
-import { PrimaryButton } from '@/components/primary-button';
-import { PuebloPicker } from '@/components/pueblo-picker';
 import { SectionHeader } from '@/components/section-header';
 import { ServiceIcon } from '@/components/service-icon';
 import { StatusBadge, type StatusTone } from '@/components/status-badge';
 import { SwipeAction, SWIPE_OVERSHOOT_FRICTION, SWIPE_SPRING } from '@/components/swipe-action';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { TradePicker } from '@/components/trade-picker';
 import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePueblos } from '@/hooks/use-pueblos';
+import type { TradeRecord } from '@/hooks/use-trades';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
 import { useSession } from '@/providers/session-provider';
@@ -151,6 +152,16 @@ export default function MyBidsScreen() {
     }, [load])
   );
 
+  const closeFilters = useCallback(() => setFiltersOpen(false), []);
+
+  // Leaving the My Bids tab closes the focused Filtros view, so coming back
+  // lands on the list (same as Jobs/Browse). Selections are kept.
+  useFocusEffect(
+    useCallback(() => {
+      return () => setFiltersOpen(false);
+    }, [])
+  );
+
   async function handleRefresh() {
     setRefreshing(true);
     await load();
@@ -196,6 +207,62 @@ export default function MyBidsScreen() {
   }, [pueblos, filterPuebloSlugs]);
 
   const hasActiveFilters = filterTradeIds.length > 0 || filterPuebloSlugs.length > 0 || filterStatusKeys.length > 0;
+
+  // ---- Focused Filtros view options (2026-09-26) ----
+  // Derived only from the bids already loaded: the trades/pueblos this
+  // handyman has actually bid in (not their registered trades -- My Bids
+  // can hold invitations or trades they've since removed). Each list is
+  // cross-filtered by the OTHER of trade/pueblo only -- deliberately not by
+  // status (quick or panel), which would mean running the bid
+  // classification a second time. Read-only over `bids`; the sections
+  // pipeline below is untouched. No counts shown (they'd ignore status).
+
+  // Every trade seen in any bid, for names/slugs -- so a selected trade
+  // stays nameable even when the pueblo filter leaves it with no bids.
+  const tradesFromBids = useMemo(() => {
+    const byId = new Map<number, TradeRecord>();
+    for (const bid of bids ?? []) {
+      const job = bid.jobs;
+      if (!job?.trades || byId.has(job.trade_id)) continue;
+      byId.set(job.trade_id, {
+        id: job.trade_id,
+        slug: job.trades.slug,
+        name: language === 'en' ? job.trades.name_en : job.trades.name_es,
+      });
+    }
+    return byId;
+  }, [bids, language]);
+
+  // Trades with at least one bid under the current PUEBLO selection, plus
+  // anything selected. Alphabetical (bid rows don't carry sort_order).
+  const tradeOptions = useMemo(() => {
+    const ids = new Set<number>(filterTradeIds);
+    for (const bid of bids ?? []) {
+      if (!bid.jobs) continue;
+      if (filterPuebloIds && !filterPuebloIds.has(bid.jobs.pueblo_id)) continue;
+      ids.add(bid.jobs.trade_id);
+    }
+    return [...ids]
+      .map((id) => tradesFromBids.get(id))
+      .filter((trade): trade is TradeRecord => !!trade)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [bids, filterPuebloIds, filterTradeIds, tradesFromBids]);
+
+  // Pueblos with at least one bid under the current TRADE selection.
+  // PuebloFilterView adds selected pueblos back itself. undefined until
+  // pueblos load (the view shows a loading state until then).
+  const availablePuebloSlugs = useMemo(() => {
+    if (!pueblos) return undefined;
+    const slugById = new Map(pueblos.map((p) => [p.id, p.slug]));
+    const slugs = new Set<string>();
+    for (const bid of bids ?? []) {
+      if (!bid.jobs) continue;
+      if (filterTradeIds.length > 0 && !filterTradeIds.includes(bid.jobs.trade_id)) continue;
+      const slug = slugById.get(bid.jobs.pueblo_id);
+      if (slug) slugs.add(slug);
+    }
+    return slugs;
+  }, [pueblos, bids, filterTradeIds]);
 
   const { sections, archivedCount } = useMemo<{ sections: Section[]; archivedCount: number }>(() => {
     if (!bids) return { sections: [], archivedCount: 0 };
@@ -291,6 +358,10 @@ export default function MyBidsScreen() {
             2026-09-26 visual pass: the full-width Filters button is now a
             compact chip ("Filters · 3" when active) -- same three labels,
             same toggle. */}
+        {/* Both control rows hide while the focused Filtros view is open
+            (same as Jobs/Browse); they're unchanged otherwise. */}
+        {!filtersOpen && (
+          <>
         <View style={styles.controlsRow}>
           <Chip
             label={
@@ -339,68 +410,80 @@ export default function MyBidsScreen() {
             />
           ))}
         </View>
+          </>
+        )}
 
-        {/* With filters open, the screen becomes a plain ScrollView holding
-            the panel -- the same structure Post Job uses for these pickers,
-            which scrolls on-device. A fixed panel above the list (the
-            previous shape here) doesn't scroll on Android: TradePicker is
-            itself a FlatList nested in a FlatList/SectionList, PuebloList is
-            an inner scroller Android won't hand drags to without
-            nestedScrollEnabled, and drags starting on the SVG map's
-            pressable shapes get swallowed. See job feed / Browse for the
-            same fix. */}
+        {/* The focused Filtros view (2026-09-26) REPLACES the list while
+            open -- FilterViewShell's plain ScrollView, never inside the
+            SectionList (on Android, pickers inside a list never scrolled:
+            nested-VirtualizedList handling, the pueblo list's inner scroller
+            needing nestedScrollEnabled, drags on the SVG map). Same shell as
+            Browse/Jobs; this is the one view holding trade grid + map/list +
+            status + sort together in one scroll. */}
         {filtersOpen ? (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterScroll} keyboardShouldPersistTaps="handled">
-            <ThemedView type="backgroundElement" style={styles.filterPanel}>
-              <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
-              <TradePicker mode="multi" selected={filterTradeIds} onChange={setFilterTradeIds} />
+          <FilterViewShell
+            title={t('myBids.showFilters')}
+            onClose={closeFilters}
+            // Exactly the old "Quitar Filtros": trades, pueblos and the
+            // panel's own statuses. Keeps the quick status (it lives
+            // outside this view) and the sort order (not a filter).
+            onClear={() => {
+              setFilterTradeIds([]);
+              setFilterPuebloSlugs([]);
+              setFilterStatusKeys((prev) => prev.filter((k) => QUICK_STATUS_KEYS.includes(k)));
+            }}
+            canClear={hasPanelFilters}
+            ctaLabel={t('myBids.showResults', { count: sections.reduce((sum, s) => sum + s.data.length, 0) })}
+            onCtaPress={closeFilters}>
+            {bids === null ? (
+              <LoadingState label={t('common.loading')} fullScreen={false} />
+            ) : (
+              <>
+                <View style={styles.filterSection}>
+                  <SectionHeader title={t('postJob.tradeLabel')} />
+                  <TradeFilterGrid trades={tradeOptions} selected={filterTradeIds} onChange={setFilterTradeIds} />
+                </View>
 
-              <ThemedText type="smallBold">{t('postJob.puebloLabel')}</ThemedText>
-              <PuebloPicker mode="multi" selected={filterPuebloSlugs} onChange={setFilterPuebloSlugs} />
+                <View style={styles.filterSection}>
+                  <SectionHeader title={t('postJob.puebloLabel')} />
+                  {availablePuebloSlugs === undefined ? (
+                    <LoadingState label={t('common.loading')} fullScreen={false} />
+                  ) : (
+                    <PuebloFilterView
+                      selected={filterPuebloSlugs}
+                      onChange={setFilterPuebloSlugs}
+                      availableSlugs={availablePuebloSlugs}
+                    />
+                  )}
+                </View>
 
-              <ThemedText type="smallBold">{t('myBids.statusLabel')}</ThemedText>
-              <View style={styles.chipRow}>
-                {PANEL_STATUS_DEFS.map((def) => (
+                <View style={styles.filterSection}>
+                  <SectionHeader title={t('myBids.statusLabel')} />
+                  <View style={styles.chipRow}>
+                    {PANEL_STATUS_DEFS.map((def) => (
+                      <Chip
+                        key={def.key}
+                        label={t(def.titleKey)}
+                        selected={filterStatusKeys.includes(def.key)}
+                        onPress={() => toggleStatusFilter(def.key)}
+                      />
+                    ))}
+                  </View>
+                </View>
+
+                {/* Not a "filter" -- doesn't hide anything -- so it's
+                    outside hasPanelFilters and Limpiar leaves it alone. */}
+                <View style={styles.filterSection}>
+                  <SectionHeader title={t('myBids.sortLabel')} />
                   <Chip
-                    key={def.key}
-                    label={t(def.titleKey)}
-                    selected={filterStatusKeys.includes(def.key)}
-                    onPress={() => toggleStatusFilter(def.key)}
+                    label={sortOrder === 'newest' ? t('myBids.sortNewest') : t('myBids.sortOldest')}
+                    icon={<Ionicons name="swap-vertical-outline" size={16} color={theme.textSecondary} />}
+                    onPress={() => setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))}
                   />
-                ))}
-              </View>
-
-              {/* Was its own button sharing the top controls row with
-                  Filtros (client call 2026-09-25: crowded that row and
-                  pushed the archive icon off its vertical center). Not a
-                  "filter" -- doesn't hide anything -- so it sits below the
-                  filters proper, outside hasActiveFilters/clearFilters. */}
-              <ThemedText type="smallBold">{t('myBids.sortLabel')}</ThemedText>
-              <Chip
-                label={sortOrder === 'newest' ? t('myBids.sortNewest') : t('myBids.sortOldest')}
-                icon={<Ionicons name="swap-vertical-outline" size={16} color={theme.textSecondary} />}
-                onPress={() => setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))}
-              />
-
-              {hasPanelFilters && (
-                <PrimaryButton
-                  label={t('myBids.clearFilters')}
-                  variant="secondary"
-                  onPress={() => {
-                    setFilterTradeIds([]);
-                    setFilterPuebloSlugs([]);
-                    // Keeps the selected quick status (it lives outside
-                    // this panel); clears only the panel's own statuses.
-                    setFilterStatusKeys((prev) => prev.filter((k) => QUICK_STATUS_KEYS.includes(k)));
-                  }}
-                />
-              )}
-            </ThemedView>
-            <PrimaryButton
-              label={t('myBids.showResults', { count: sections.reduce((sum, s) => sum + s.data.length, 0) })}
-              onPress={() => setFiltersOpen(false)}
-            />
-          </ScrollView>
+                </View>
+              </>
+            )}
+          </FilterViewShell>
         ) : loadError ? (
           <EmptyState
             icon="cloud-offline-outline"
@@ -549,14 +632,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.two,
   },
-  filterScroll: {
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset,
-  },
-  filterPanel: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    gap: Spacing.two,
+  filterSection: {
+    gap: Spacing.one,
   },
   quickRow: {
     flexDirection: 'row',

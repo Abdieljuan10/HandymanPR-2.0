@@ -17,18 +17,25 @@ function normalize(text: string) {
 type PuebloListProps = {
   selected: ReadonlySet<string>;
   onToggle: (slug: string) => void;
+  /**
+   * Optional, added 2026-09-26 (see PuebloMap's prop of the same name):
+   * when set, only these pueblos are listed. The caller includes anything
+   * already selected so it stays removable. Omitted: all 78, as before.
+   */
+  enabledSlugs?: ReadonlySet<string>;
 };
 
-export function PuebloList({ selected, onToggle }: PuebloListProps) {
+export function PuebloList({ selected, onToggle, enabledSlugs }: PuebloListProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
+    const base = enabledSlugs ? PUEBLO_SHAPES.filter((shape) => enabledSlugs.has(shape.slug)) : PUEBLO_SHAPES;
     const needle = normalize(query);
-    if (!needle) return PUEBLO_SHAPES;
-    return PUEBLO_SHAPES.filter((shape) => normalize(shape.name).includes(needle));
-  }, [query]);
+    if (!needle) return base;
+    return base.filter((shape) => normalize(shape.name).includes(needle));
+  }, [query, enabledSlugs]);
 
   return (
     <>

@@ -2,25 +2,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
 import { Card } from '@/components/card';
-import { Chip } from '@/components/chip';
 import { EmptyState } from '@/components/empty-state';
+import { FilterChip } from '@/components/filters/filter-chip';
+import { FilterViewShell } from '@/components/filters/filter-view-shell';
+import { PuebloFilterView } from '@/components/filters/pueblo-filter-view';
+import { TradeFilterGrid } from '@/components/filters/trade-filter-grid';
 import { JobPhoto } from '@/components/job-photo';
 import { LoadingState } from '@/components/loading-state';
-import { PrimaryButton } from '@/components/primary-button';
-import { PuebloPicker } from '@/components/pueblo-picker';
 import { SectionHeader } from '@/components/section-header';
 import { ServiceIcon } from '@/components/service-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { TradePicker } from '@/components/trade-picker';
+import { PUEBLO_SHAPES } from '@/constants/pueblo-shapes';
 import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
 import { usePueblos } from '@/hooks/use-pueblos';
 import { useTheme } from '@/hooks/use-theme';
+import { useTrades } from '@/hooks/use-trades';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
 import { useSession } from '@/providers/session-provider';
@@ -40,6 +42,10 @@ type JobFeedRow = {
 
 const THUMBNAIL_SIZE = 52;
 
+// Pueblo chip's selected names -- same slug -> name source PuebloFilterView
+// uses for its own selected chips.
+const PUEBLO_NAME_BY_SLUG = new Map(PUEBLO_SHAPES.map((shape) => [shape.slug, shape.name]));
+
 type JobSection ={ key: 'invited' | 'available'; titleKey: string; data: JobFeedRow[] };
 
 export default function HandymanJobFeedScreen() {
@@ -48,8 +54,14 @@ export default function HandymanJobFeedScreen() {
   const theme = useTheme();
   const { session } = useSession();
   const { pueblos } = usePueblos();
+  // The same trades lookup TradePicker already ran for the old panel --
+  // needed for the Oficio chip's names and the grid (slug + sort_order),
+  // including a selected trade with no jobs left in the feed.
+  const { trades, error: tradesError } = useTrades();
   const [jobs, setJobs] = useState<JobFeedRow[] | null>(null);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Which focused filter view (2026-09-26) is replacing the list, if any.
+  // Only open/closed -- the selections below persist independently.
+  const [openFilter, setOpenFilter] = useState<'trade' | 'pueblo' | null>(null);
   const [filterTradeIds, setFilterTradeIds] = useState<number[]>([]);
   const [filterPuebloSlugs, setFilterPuebloSlugs] = useState<string[]>([]);
   // Public jobs this handyman was invited to by name (job_invitations; RLS
@@ -109,6 +121,16 @@ export default function HandymanJobFeedScreen() {
     }, [load])
   );
 
+  const closeFilter = useCallback(() => setOpenFilter(null), []);
+
+  // Leaving the Jobs tab closes whichever focused filter view is open, so
+  // coming back lands on the feed (same as Client Browse). Selections kept.
+  useFocusEffect(
+    useCallback(() => {
+      return () => setOpenFilter(null);
+    }, [])
+  );
+
   async function handleRefresh() {
     setRefreshing(true);
     await load();
@@ -121,23 +143,90 @@ export default function HandymanJobFeedScreen() {
     return new Set(pueblos.filter((p) => slugSet.has(p.slug)).map((p) => p.id));
   }, [pueblos, filterPuebloSlugs]);
 
+  // The two filter checks, split out (2026-09-26, focused Oficio/Pueblo
+  // views) so the filter views' options/counts can apply one without the
+  // other, reusing the exact same checks. filteredJobs applies both, same
+  // as before.
+  const matchesTradeFilter = useCallback(
+    (job: JobFeedRow) => filterTradeIds.length === 0 || filterTradeIds.includes(job.trade_id),
+    [filterTradeIds]
+  );
+  const matchesPuebloFilter = useCallback(
+    (job: JobFeedRow) => !filterPuebloIds || filterPuebloIds.has(job.pueblo_id),
+    [filterPuebloIds]
+  );
+
   // Invites are pinned to the top and exempt from the trade/pueblo filters,
   // so a filter can't hide something addressed to this user personally --
   // especially an invitation outside their own pueblos/trades.
   const filteredJobs = useMemo(() => {
     if (!jobs) return null;
     const invites = jobs.filter(isInvite);
-    const rest = jobs.filter((job) => {
-      if (isInvite(job)) return false;
-      if (filterTradeIds.length > 0 && !filterTradeIds.includes(job.trade_id)) return false;
-      if (filterPuebloIds && !filterPuebloIds.has(job.pueblo_id)) return false;
-      return true;
-    });
+    const rest = jobs.filter((job) => !isInvite(job) && matchesTradeFilter(job) && matchesPuebloFilter(job));
     return [...invites, ...rest];
-  }, [jobs, filterTradeIds, filterPuebloIds, isInvite]);
+  }, [jobs, isInvite, matchesTradeFilter, matchesPuebloFilter]);
 
   const hasActiveFilters = filterTradeIds.length > 0 || filterPuebloSlugs.length > 0;
-  const activeFilterCount = filterTradeIds.length + filterPuebloSlugs.length;
+
+  // ---- Focused filter views (2026-09-26) ----
+  // Options and counts come ONLY from non-invitation jobs: invitations are
+  // pinned and bypass both filters, so they can't be "found" by filtering
+  // and mustn't inflate a trade/pueblo into looking like it has results.
+  // All computed from the jobs already loaded -- no extra query.
+  const filterableJobs = useMemo(() => (jobs ?? []).filter((job) => !isInvite(job)), [jobs, isInvite]);
+
+  // Per-trade count under the CURRENT pueblo selection, never under the
+  // trade filter itself -- so a selected trade's tile shows what it
+  // contributes, not 0.
+  const tradeCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const job of filterableJobs) {
+      if (!matchesPuebloFilter(job)) continue;
+      counts.set(job.trade_id, (counts.get(job.trade_id) ?? 0) + 1);
+    }
+    return counts;
+  }, [filterableJobs, matchesPuebloFilter]);
+
+  // Only trades that can produce a result, plus anything already selected
+  // (so it stays visible and removable even at 0). In the trades table's
+  // own sort_order.
+  const tradeOptions = useMemo(
+    () => (trades ?? []).filter((trade) => tradeCounts.has(trade.id) || filterTradeIds.includes(trade.id)),
+    [trades, tradeCounts, filterTradeIds]
+  );
+
+  // Pueblos with at least one job under the CURRENT trade selection.
+  // PuebloFilterView adds the selected pueblos back itself, so a selection
+  // that drops to 0 stays removable. undefined until pueblos load (the view
+  // shows a loading state until then).
+  const availablePuebloSlugs = useMemo(() => {
+    if (!pueblos) return undefined;
+    const slugById = new Map(pueblos.map((p) => [p.id, p.slug]));
+    const slugs = new Set<string>();
+    for (const job of filterableJobs) {
+      if (!matchesTradeFilter(job)) continue;
+      const slug = slugById.get(job.pueblo_id);
+      if (slug) slugs.add(slug);
+    }
+    return slugs;
+  }, [pueblos, filterableJobs, matchesTradeFilter]);
+
+  // CTA count: the filterable list only, not the pinned invitations.
+  const filteredAvailableCount = useMemo(
+    () => (filteredJobs ?? []).filter((job) => !isInvite(job)).length,
+    [filteredJobs, isInvite]
+  );
+
+  const selectedTradeNames = useMemo(() => {
+    if (!trades) return [];
+    const byId = new Map(trades.map((trade) => [trade.id, trade.name]));
+    return filterTradeIds.map((id) => byId.get(id)).filter((name): name is string => !!name);
+  }, [trades, filterTradeIds]);
+
+  const selectedPuebloNames = useMemo(
+    () => filterPuebloSlugs.map((slug) => PUEBLO_NAME_BY_SLUG.get(slug) ?? slug),
+    [filterPuebloSlugs]
+  );
 
   // Display-only split of filteredJobs into its two existing halves (invites
   // pinned first, then the rest) -- same rows, same order, just rendered
@@ -153,23 +242,7 @@ export default function HandymanJobFeedScreen() {
     return list;
   }, [filteredJobs, isInvite]);
 
-  // Same three states and same toggle as the old full-width button (active /
-  // open / closed), now a compact chip -- "Filters · 2" when anything is set.
-  const filtersHighlighted = filtersOpen || hasActiveFilters;
-  const filtersChip = (
-    <Chip
-      label={
-        hasActiveFilters
-          ? `${t('handymanJobFeed.showFilters')} · ${activeFilterCount}`
-          : filtersOpen
-            ? t('handymanJobFeed.hideFilters')
-            : t('handymanJobFeed.showFilters')
-      }
-      selected={filtersHighlighted}
-      icon={<Ionicons name="options-outline" size={16} color={filtersHighlighted ? theme.tint : theme.textSecondary} />}
-      onPress={() => setFiltersOpen((prev) => !prev)}
-    />
-  );
+  const resultsLabel = t('handymanJobFeed.showResults', { count: filteredAvailableCount });
 
   return (
     <ThemedView style={styles.container}>
@@ -177,41 +250,78 @@ export default function HandymanJobFeedScreen() {
         <AppHeader pageTitle={t('handymanJobFeed.title')} />
       </SafeAreaView>
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
-        <View style={styles.controlsRow}>{filtersChip}</View>
-
-        {/* With filters open, the screen is a plain ScrollView holding the
-            panel -- the same structure Post Job uses for these pickers, which
-            scrolls on-device. The previous fix put the panel in the FlatList's
-            header instead, and on Android that never scrolled through it: the
-            trade picker is itself a FlatList (nested-VirtualizedList
-            handling), the pueblo list is an inner scroller that needs
-            nestedScrollEnabled, and drags that start on the SVG map's
-            pressable shapes are swallowed. */}
-        {filtersOpen ? (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterScroll} keyboardShouldPersistTaps="handled">
-            <ThemedView type="backgroundElement" style={styles.filterPanel}>
-              <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
-              <TradePicker mode="multi" selected={filterTradeIds} onChange={setFilterTradeIds} />
-
-              <ThemedText type="smallBold">{t('postJob.puebloLabel')}</ThemedText>
-              <PuebloPicker mode="multi" selected={filterPuebloSlugs} onChange={setFilterPuebloSlugs} />
-
-              {hasActiveFilters && (
-                <PrimaryButton
-                  label={t('handymanJobFeed.clearFilters')}
-                  variant="secondary"
-                  onPress={() => {
-                    setFilterTradeIds([]);
-                    setFilterPuebloSlugs([]);
-                  }}
-                />
-              )}
-            </ThemedView>
-            <PrimaryButton
-              label={t('handymanJobFeed.showResults', { count: filteredJobs?.length ?? 0 })}
-              onPress={() => setFiltersOpen(false)}
+        {openFilter === null && (
+          <View style={styles.controlsRow}>
+            <FilterChip
+              label={t('postJob.tradeLabel')}
+              selectedNames={selectedTradeNames}
+              onPress={() => setOpenFilter('trade')}
             />
-          </ScrollView>
+            <FilterChip
+              label={t('postJob.puebloLabel')}
+              selectedNames={selectedPuebloNames}
+              onPress={() => setOpenFilter('pueblo')}
+            />
+          </View>
+        )}
+
+        {/* A focused filter view REPLACES the list while open (plain
+            ScrollView inside FilterViewShell) -- never inside the
+            SectionList. On Android, filter pickers inside a FlatList header
+            never scrolled: nested-VirtualizedList handling, the pueblo
+            list's inner scroller needing nestedScrollEnabled, and drags on
+            the SVG map's pressable shapes being swallowed. Same structure as
+            Client Browse's filter views (phone-tested 2026-09-26). The old
+            combined trade+pueblo panel was removed once both chips had their
+            own views. */}
+        {openFilter === 'trade' ? (
+          <FilterViewShell
+            title={t('postJob.tradeLabel')}
+            onClose={closeFilter}
+            onClear={() => setFilterTradeIds([])}
+            canClear={filterTradeIds.length > 0}
+            ctaLabel={resultsLabel}
+            onCtaPress={closeFilter}>
+            {tradesError ? (
+              <ThemedText type="small" themeColor="error">
+                {t('common.loadError', { error: tradesError })}
+              </ThemedText>
+            ) : !trades || !jobs ? (
+              <LoadingState label={t('common.loading')} fullScreen={false} />
+            ) : tradeOptions.length === 0 ? (
+              <EmptyState
+                icon="briefcase-outline"
+                title={t('handymanJobFeed.emptyTitle')}
+                description={t('handymanJobFeed.empty')}
+              />
+            ) : (
+              <TradeFilterGrid
+                trades={tradeOptions}
+                selected={filterTradeIds}
+                onChange={setFilterTradeIds}
+                counts={tradeCounts}
+                countLabel={(count) => t('handymanJobFeed.tradeCount', { count })}
+              />
+            )}
+          </FilterViewShell>
+        ) : openFilter === 'pueblo' ? (
+          <FilterViewShell
+            title={t('postJob.puebloLabel')}
+            onClose={closeFilter}
+            onClear={() => setFilterPuebloSlugs([])}
+            canClear={filterPuebloSlugs.length > 0}
+            ctaLabel={resultsLabel}
+            onCtaPress={closeFilter}>
+            {availablePuebloSlugs === undefined || !jobs ? (
+              <LoadingState label={t('common.loading')} fullScreen={false} />
+            ) : (
+              <PuebloFilterView
+                selected={filterPuebloSlugs}
+                onChange={setFilterPuebloSlugs}
+                availableSlugs={availablePuebloSlugs}
+              />
+            )}
+          </FilterViewShell>
         ) : filteredJobs === null ? (
           <LoadingState label={t('common.loading')} />
         ) : (
@@ -323,16 +433,8 @@ const styles = StyleSheet.create({
   },
   controlsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: Spacing.two,
-  },
-  filterScroll: {
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset,
-  },
-  filterPanel: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
     gap: Spacing.two,
   },
   list: {

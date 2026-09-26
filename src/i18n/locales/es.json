@@ -129,7 +129,9 @@
     "availableSection": "Trabajos Abiertos",
     "emptyTitle": "Aún no hay trabajos abiertos",
     "emptyFilteredTitle": "Ningún trabajo coincide",
-    "errorTitle": "No se pudieron cargar los trabajos"
+    "errorTitle": "No se pudieron cargar los trabajos",
+    "tradeCount_one": "{{count}} trabajo",
+    "tradeCount_other": "{{count}} trabajos"
   },
   "myBids": {
     "empty": "Todavía no has enviado ninguna oferta.",
@@ -223,7 +225,13 @@
     "emptySaved": "Todavía no has guardado a nadie. Toca el corazón en el perfil de un técnico para guardarlo.",
     "savedBadge": "Guardado",
     "showResults_one": "Ver {{count}} técnico",
-    "showResults_other": "Ver {{count}} técnicos"
+    "showResults_other": "Ver {{count}} técnicos",
+    "tradeCount_one": "{{count}} técnico",
+    "tradeCount_other": "{{count}} técnicos",
+    "savedFilter": "Guardados",
+    "savedEmptyTitle": "No hay técnicos guardados",
+    "savedEmptyDescription": "Guarda técnicos para encontrarlos aquí.",
+    "savedNoMatchTitle": "Ningún técnico guardado coincide"
   },
   "messages": {
     "title": "Mensajes",
@@ -591,5 +599,12 @@
     "noEmail": "No se pudo verificar tu cuenta. Cierra sesión y vuelve a entrar, luego intenta de nuevo.",
     "successTitle": "Contraseña Cambiada",
     "successMessage": "Tu contraseña se cambió correctamente."
+  },
+  "filters": {
+    "close": "Cerrar filtros",
+    "clear": "Limpiar",
+    "list": "Lista",
+    "selectedCount_one": "{{count}} seleccionado",
+    "selectedCount_other": "{{count}} seleccionados"
   }
 }

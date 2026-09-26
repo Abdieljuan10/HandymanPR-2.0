@@ -7,9 +7,17 @@ import { useTheme } from '@/hooks/use-theme';
 type PuebloMapProps = {
   selected: ReadonlySet<string>;
   onToggle: (slug: string) => void;
+  /**
+   * Optional, added 2026-09-26 for the handyman job-feed filter (only
+   * pueblos that can produce a result are pickable). When set, shapes
+   * outside it (and not selected) are drawn plain and aren't tappable, and
+   * pickable-but-unselected shapes get a light tint wash so they read as
+   * options. Omitted (every existing caller): rendering is unchanged.
+   */
+  enabledSlugs?: ReadonlySet<string>;
 };
 
-export function PuebloMap({ selected, onToggle }: PuebloMapProps) {
+export function PuebloMap({ selected, onToggle, enabledSlugs }: PuebloMapProps) {
   const theme = useTheme();
 
   return (
@@ -24,11 +32,17 @@ export function PuebloMap({ selected, onToggle }: PuebloMapProps) {
         height="100%">
         {PUEBLO_SHAPES.map((shape) => {
           const isSelected = selected.has(shape.slug);
+          const isEnabled = !enabledSlugs || isSelected || enabledSlugs.has(shape.slug);
+          const fill = isSelected
+            ? theme.tint
+            : enabledSlugs && isEnabled
+              ? theme.tintBackground
+              : theme.mapFill;
           return (
             <Path
               key={shape.slug}
               d={shape.path}
-              fill={isSelected ? theme.tint : theme.mapFill}
+              fill={fill}
               // ALWAYS mapBorder, never theme.tint -- the contrast fix
               // earlier today (20260924, mapFill/mapBorder tokens) matched
               // stroke to fill when selected, which reads fine for one
@@ -41,7 +55,7 @@ export function PuebloMap({ selected, onToggle }: PuebloMapProps) {
               // keep drawing one.
               stroke={theme.mapBorder}
               strokeWidth={1.25}
-              onPress={() => onToggle(shape.slug)}
+              onPress={isEnabled ? () => onToggle(shape.slug) : undefined}
             />
           );
         })}

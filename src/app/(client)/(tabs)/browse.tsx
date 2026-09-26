@@ -2,23 +2,28 @@ import { Ionicons } from '@expo/vector-icons';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
 import { Avatar } from '@/components/avatar';
 import { Card } from '@/components/card';
 import { Chip } from '@/components/chip';
-import { PrimaryButton } from '@/components/primary-button';
-import { PuebloPicker } from '@/components/pueblo-picker';
+import { FilterChip } from '@/components/filters/filter-chip';
+import { FilterViewShell } from '@/components/filters/filter-view-shell';
+import { PuebloFilterView } from '@/components/filters/pueblo-filter-view';
+import { TradeFilterGrid } from '@/components/filters/trade-filter-grid';
+import { EmptyState } from '@/components/empty-state';
+import { LoadingState } from '@/components/loading-state';
 import { SearchBar } from '@/components/search-bar';
 import { SectionHeader } from '@/components/section-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { TradePicker } from '@/components/trade-picker';
+import { PUEBLO_SHAPES } from '@/constants/pueblo-shapes';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { usePueblos } from '@/hooks/use-pueblos';
 import { useTheme } from '@/hooks/use-theme';
+import { useTrades } from '@/hooks/use-trades';
 import { saveHandyman, unsaveHandyman } from '@/lib/saved-handymen';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/providers/language-provider';
@@ -46,6 +51,10 @@ const HANDYMEN_SELECT =
 // "Featured" cards and regular cards read as one consistent list.
 const AVATAR_SIZE = 68;
 
+// Pueblo chip's selected names -- same slug -> name source PuebloFilterView
+// uses for its own selected chips.
+const PUEBLO_NAME_BY_SLUG = new Map(PUEBLO_SHAPES.map((shape) => [shape.slug, shape.name]));
+
 function isPromotedNow(row: HandymanRow): boolean {
   return row.is_promoted && (!row.promotion_expires_at || Date.parse(row.promotion_expires_at) > Date.now());
 }
@@ -59,11 +68,18 @@ export default function BrowseHandymenScreen() {
   const theme = useTheme();
   const { language } = useLanguage();
   const { pueblos } = usePueblos();
+  // The same trades lookup TradePicker already runs itself -- needed here
+  // for the Oficio chip's selected names and the trade grid (all trades,
+  // with slugs for ServiceIcon).
+  const { trades, error: tradesError } = useTrades();
   const { session } = useSession();
   const [handymen, setHandymen] = useState<HandymanRow[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Which focused filter view (2026-09-26) is replacing the list, if any.
+  // Only the view's open/closed state -- the selections below live on
+  // independently of it, so closing/reopening never loses them.
+  const [openFilter, setOpenFilter] = useState<'trade' | 'pueblo' | null>(null);
   const [filterTradeIds, setFilterTradeIds] = useState<number[]>([]);
   const [filterPuebloSlugs, setFilterPuebloSlugs] = useState<string[]>([]);
   // Saved handymen (client_saved_handymen) -- a private bookmark list.
@@ -94,6 +110,18 @@ export default function BrowseHandymenScreen() {
     useCallback(() => {
       load();
     }, [load])
+  );
+
+  const closeFilter = useCallback(() => setOpenFilter(null), []);
+
+  // Leaving Browse (switching tabs, etc.) closes whichever focused filter
+  // view is open, so coming back lands on the results, not a filter screen
+  // left open behind another tab. Cleanup runs on blur; the selections
+  // themselves are kept.
+  useFocusEffect(
+    useCallback(() => {
+      return () => setOpenFilter(null);
+    }, [])
   );
 
   async function handleRefresh() {
@@ -136,31 +164,94 @@ export default function BrowseHandymenScreen() {
     return new Set(pueblos.filter((p) => slugSet.has(p.slug)).map((p) => p.id));
   }, [pueblos, filterPuebloSlugs]);
 
+  // visibleHandymen's checks, split into pieces (2026-09-26, focused
+  // Oficio/Pueblo filter views) so each view's counts/options can apply
+  // every filter EXCEPT its own, reusing the exact same checks instead of
+  // a second copy. Same checks, same AND semantics as before:
+  // visibleHandymen = saved/search AND trade AND pueblo.
+  const matchesSavedAndSearch = useCallback(
+    (row: HandymanRow) => {
+      const query = search.trim().toLowerCase();
+      if (savedOnly && !savedIds.has(row.id)) return false;
+      if (query && !row.full_name.toLowerCase().includes(query)) return false;
+      return true;
+    },
+    [search, savedOnly, savedIds]
+  );
+
+  const matchesTradeFilter = useCallback(
+    (row: HandymanRow) =>
+      filterTradeIds.length === 0 || row.handyman_trades.some((ht) => filterTradeIds.includes(ht.trade_id)),
+    [filterTradeIds]
+  );
+
+  const matchesPuebloFilter = useCallback(
+    (row: HandymanRow) => !filterPuebloIds || row.handyman_pueblos.some((hp) => filterPuebloIds.has(hp.pueblo_id)),
+    [filterPuebloIds]
+  );
+
   // Promoted (while the promotion is live) first, then verified, then by
   // name -- is_promoted had nowhere to show up before this screen existed.
   // Unchanged by this pass.
   const visibleHandymen = useMemo(() => {
     if (!handymen) return null;
-    const query = search.trim().toLowerCase();
     return handymen
-      .filter((row) => {
-        if (savedOnly && !savedIds.has(row.id)) return false;
-        if (query && !row.full_name.toLowerCase().includes(query)) return false;
-        if (filterTradeIds.length > 0 && !row.handyman_trades.some((ht) => filterTradeIds.includes(ht.trade_id))) {
-          return false;
-        }
-        if (filterPuebloIds && !row.handyman_pueblos.some((hp) => filterPuebloIds.has(hp.pueblo_id))) {
-          return false;
-        }
-        return true;
-      })
+      .filter((row) => matchesSavedAndSearch(row) && matchesTradeFilter(row) && matchesPuebloFilter(row))
       .sort(
         (a, b) =>
           Number(isPromotedNow(b)) - Number(isPromotedNow(a)) ||
           Number(b.is_verified) - Number(a.is_verified) ||
           a.full_name.localeCompare(b.full_name)
       );
-  }, [handymen, search, filterTradeIds, filterPuebloIds, savedOnly, savedIds]);
+  }, [handymen, matchesSavedAndSearch, matchesTradeFilter, matchesPuebloFilter]);
+
+  // Oficio tile counts: how many handymen each trade would show under the
+  // OTHER active filters (search / pueblo / saved-only) -- the usual facet
+  // count, so a tile's number is what you'd get with that trade alone
+  // selected. From the already-loaded list; no extra query.
+  const tradeCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    if (!handymen) return counts;
+    for (const row of handymen) {
+      if (!matchesSavedAndSearch(row) || !matchesPuebloFilter(row)) continue;
+      for (const tradeId of new Set(row.handyman_trades.map((ht) => ht.trade_id))) {
+        counts.set(tradeId, (counts.get(tradeId) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [handymen, matchesSavedAndSearch, matchesPuebloFilter]);
+
+  // Pueblo view options: pueblos served by at least one handyman under the
+  // OTHER active filters (search / trade / saved-only) -- same facet idea as
+  // tradeCounts, so every pickable pueblo produces a result. Selected
+  // pueblos are always added back inside PuebloFilterView, so a selection
+  // that drops to zero stays visible and removable. From the already-loaded
+  // list; no extra query. undefined until pueblos load (the view shows a
+  // loading state until then).
+  const availablePuebloSlugs = useMemo(() => {
+    if (!handymen || !pueblos) return undefined;
+    const slugById = new Map(pueblos.map((p) => [p.id, p.slug]));
+    const slugs = new Set<string>();
+    for (const row of handymen) {
+      if (!matchesSavedAndSearch(row) || !matchesTradeFilter(row)) continue;
+      for (const hp of row.handyman_pueblos) {
+        const slug = slugById.get(hp.pueblo_id);
+        if (slug) slugs.add(slug);
+      }
+    }
+    return slugs;
+  }, [handymen, pueblos, matchesSavedAndSearch, matchesTradeFilter]);
+
+  const selectedPuebloNames = useMemo(
+    () => filterPuebloSlugs.map((slug) => PUEBLO_NAME_BY_SLUG.get(slug) ?? slug),
+    [filterPuebloSlugs]
+  );
+
+  const selectedTradeNames = useMemo(() => {
+    if (!trades) return [];
+    const byId = new Map(trades.map((trade) => [trade.id, trade.name]));
+    return filterTradeIds.map((id) => byId.get(id)).filter((name): name is string => !!name);
+  }, [trades, filterTradeIds]);
 
   // New: purely a visual partition of the SAME already-sorted list above --
   // isPromotedNow() and the sort comparator are untouched, so which
@@ -177,24 +268,7 @@ export default function BrowseHandymenScreen() {
   }, [visibleHandymen]);
 
   const hasActiveFilters = filterTradeIds.length > 0 || filterPuebloSlugs.length > 0;
-  // Only for the button's own label -- "saved only" has its own quick chip
-  // now (below), but the button inside the open panel should still hint
-  // that something is active even if that's the only thing on.
-  const filtersButtonActive = hasActiveFilters || savedOnly;
-
-  const filtersButton = (
-    <PrimaryButton
-      label={
-        filtersButtonActive
-          ? t('handymanJobFeed.filtersActive')
-          : filtersOpen
-            ? t('handymanJobFeed.hideFilters')
-            : t('handymanJobFeed.showFilters')
-      }
-      variant="secondary"
-      onPress={() => setFiltersOpen((prev) => !prev)}
-    />
-  );
+  const resultsLabel = t('browseHandymen.showResults', { count: visibleHandymen?.length ?? 0 });
 
   return (
     <ThemedView style={styles.container}>
@@ -202,38 +276,56 @@ export default function BrowseHandymenScreen() {
         <AppHeader pageTitle={t('browseHandymen.title')} />
       </SafeAreaView>
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
-        {/* With filters open, the screen is a plain ScrollView holding the
-            panel -- unchanged from before this pass. See the file's own
-            history: putting this panel in the FlatList/SectionList header
-            broke Android scrolling (nested-VirtualizedList handling on the
-            trade picker, nestedScrollEnabled on the pueblo list, and drags
-            on the SVG map's pressable shapes being swallowed). */}
-        {filtersOpen ? (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterScroll} keyboardShouldPersistTaps="handled">
-            {filtersButton}
-            <ThemedView type="backgroundElement" style={styles.filterPanel}>
-              <ThemedText type="smallBold">{t('postJob.tradeLabel')}</ThemedText>
-              <TradePicker mode="multi" selected={filterTradeIds} onChange={setFilterTradeIds} />
-
-              <ThemedText type="smallBold">{t('postJob.puebloLabel')}</ThemedText>
-              <PuebloPicker mode="multi" selected={filterPuebloSlugs} onChange={setFilterPuebloSlugs} />
-
-              {hasActiveFilters && (
-                <PrimaryButton
-                  label={t('handymanJobFeed.clearFilters')}
-                  variant="secondary"
-                  onPress={() => {
-                    setFilterTradeIds([]);
-                    setFilterPuebloSlugs([]);
-                  }}
-                />
-              )}
-            </ThemedView>
-            <PrimaryButton
-              label={t('browseHandymen.showResults', { count: visibleHandymen?.length ?? 0 })}
-              onPress={() => setFiltersOpen(false)}
-            />
-          </ScrollView>
+        {/* A focused filter view REPLACES the list while open (plain
+            ScrollView inside FilterViewShell) -- never inside the
+            SectionList. See the file's own history: putting filter pickers
+            in the FlatList/SectionList header broke Android scrolling
+            (nested-VirtualizedList handling, nestedScrollEnabled on the
+            pueblo list, drags on the SVG map's pressable shapes). The old
+            combined Oficio+Pueblo panel was removed 2026-09-26 once both
+            chips had their own focused views. */}
+        {openFilter === 'trade' ? (
+          <FilterViewShell
+            title={t('postJob.tradeLabel')}
+            onClose={closeFilter}
+            onClear={() => setFilterTradeIds([])}
+            canClear={filterTradeIds.length > 0}
+            ctaLabel={resultsLabel}
+            onCtaPress={closeFilter}>
+            {tradesError ? (
+              <ThemedText type="small" themeColor="error">
+                {t('common.loadError', { error: tradesError })}
+              </ThemedText>
+            ) : !trades ? (
+              <LoadingState label={t('common.loading')} fullScreen={false} />
+            ) : (
+              <TradeFilterGrid
+                trades={trades}
+                selected={filterTradeIds}
+                onChange={setFilterTradeIds}
+                counts={tradeCounts}
+                countLabel={(count) => t('browseHandymen.tradeCount', { count })}
+              />
+            )}
+          </FilterViewShell>
+        ) : openFilter === 'pueblo' ? (
+          <FilterViewShell
+            title={t('postJob.puebloLabel')}
+            onClose={closeFilter}
+            onClear={() => setFilterPuebloSlugs([])}
+            canClear={filterPuebloSlugs.length > 0}
+            ctaLabel={resultsLabel}
+            onCtaPress={closeFilter}>
+            {availablePuebloSlugs === undefined ? (
+              <LoadingState label={t('common.loading')} fullScreen={false} />
+            ) : (
+              <PuebloFilterView
+                selected={filterPuebloSlugs}
+                onChange={setFilterPuebloSlugs}
+                availableSlugs={availablePuebloSlugs}
+              />
+            )}
+          </FilterViewShell>
         ) : (
           <SectionList
             showsVerticalScrollIndicator={false}
@@ -255,48 +347,71 @@ export default function BrowseHandymenScreen() {
                 />
 
                 <View style={styles.filterChipsRow}>
-                  {/* Both open the SAME existing filter panel (setFiltersOpen)
-                      -- there are still not two separate pickers, just two
-                      more visible entry points into the one that exists. */}
-                  <Chip
-                    label={`${t('postJob.tradeLabel')} ▾`}
-                    selected={filterTradeIds.length > 0}
-                    onPress={() => setFiltersOpen(true)}
+                  {/* Each opens only its own focused view (2026-09-26). */}
+                  <FilterChip
+                    label={t('postJob.tradeLabel')}
+                    selectedNames={selectedTradeNames}
+                    onPress={() => setOpenFilter('trade')}
                   />
-                  <Chip
-                    label={`${t('postJob.puebloLabel')} ▾`}
-                    selected={filterPuebloSlugs.length > 0}
-                    onPress={() => setFiltersOpen(true)}
+                  <FilterChip
+                    label={t('postJob.puebloLabel')}
+                    selectedNames={selectedPuebloNames}
+                    onPress={() => setOpenFilter('pueblo')}
                   />
-                  {savedIds.size > 0 && (
-                    <Chip
-                      icon={
-                        <Ionicons
-                          name={savedOnly ? 'heart' : 'heart-outline'}
-                          size={14}
-                          color={savedOnly ? theme.tint : theme.textSecondary}
-                        />
-                      }
-                      label={t('browseHandymen.savedOnly', { count: savedIds.size })}
-                      selected={savedOnly}
-                      onPress={() => setSavedOnly((prev) => !prev)}
-                    />
-                  )}
+                  {/* Direct toggle, no focused view -- so the plain Chip
+                      (the same one FilterChip wraps, same height/type),
+                      not FilterChip, whose chevron means "opens a view".
+                      ALWAYS rendered (2026-09-26): it used to hide when
+                      savedIds was empty, so unsaving your last saved
+                      handyman while this was on left savedOnly stuck true
+                      with no control to turn it off (the known "Saved
+                      dead end"). */}
+                  <Chip
+                    icon={
+                      <Ionicons
+                        name={savedOnly ? 'heart' : 'heart-outline'}
+                        size={14}
+                        color={savedOnly ? theme.tint : theme.textSecondary}
+                      />
+                    }
+                    label={t('browseHandymen.savedFilter')}
+                    selected={savedOnly}
+                    onPress={() => setSavedOnly((prev) => !prev)}
+                  />
                 </View>
               </View>
             }
             ListEmptyComponent={
-              <ThemedText type="default" themeColor="textSecondary">
-                {visibleHandymen === null
-                  ? t('common.loading')
-                  : loadError
-                    ? t('common.loadError', { error: loadError })
-                    : savedOnly && !hasActiveFilters && !search.trim()
-                      ? t('browseHandymen.emptySaved')
-                      : hasActiveFilters || search.trim() || savedOnly
+              // Guardados on and nothing to show: the shared EmptyState. No
+              // saved handymen at all (incl. right after unsaving the last
+              // one) vs. saved ones exist but search/Oficio/Pueblo exclude
+              // them. The chips stay above in the list header either way,
+              // so Guardados can always be tapped off from here.
+              visibleHandymen !== null && !loadError && savedOnly ? (
+                savedIds.size === 0 ? (
+                  <EmptyState
+                    icon="heart-outline"
+                    title={t('browseHandymen.savedEmptyTitle')}
+                    description={t('browseHandymen.savedEmptyDescription')}
+                  />
+                ) : (
+                  <EmptyState
+                    icon="heart-outline"
+                    title={t('browseHandymen.savedNoMatchTitle')}
+                    description={t('browseHandymen.emptyFiltered')}
+                  />
+                )
+              ) : (
+                <ThemedText type="default" themeColor="textSecondary">
+                  {visibleHandymen === null
+                    ? t('common.loading')
+                    : loadError
+                      ? t('common.loadError', { error: loadError })
+                      : hasActiveFilters || search.trim()
                         ? t('browseHandymen.emptyFiltered')
                         : t('browseHandymen.empty')}
-              </ThemedText>
+                </ThemedText>
+              )
             }
             renderItem={({ item }) => {
               const tradeNames = item.handyman_trades
@@ -402,15 +517,6 @@ const styles = StyleSheet.create({
   filterChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  filterScroll: {
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset,
-  },
-  filterPanel: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
     gap: Spacing.two,
   },
   list: {

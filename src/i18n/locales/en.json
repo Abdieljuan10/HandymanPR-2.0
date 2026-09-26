@@ -129,7 +129,9 @@
     "availableSection": "Available Jobs",
     "emptyTitle": "No open jobs yet",
     "emptyFilteredTitle": "No matching jobs",
-    "errorTitle": "Couldn't load jobs"
+    "errorTitle": "Couldn't load jobs",
+    "tradeCount_one": "{{count}} job",
+    "tradeCount_other": "{{count}} jobs"
   },
   "myBids": {
     "empty": "You haven't submitted any bids yet.",
@@ -223,7 +225,13 @@
     "emptySaved": "You haven't saved anyone yet. Tap the heart on a handyman's profile to save them.",
     "savedBadge": "Saved",
     "showResults_one": "Show {{count}} handyman",
-    "showResults_other": "Show {{count}} handymen"
+    "showResults_other": "Show {{count}} handymen",
+    "tradeCount_one": "{{count}} handyman",
+    "tradeCount_other": "{{count}} handymen",
+    "savedFilter": "Saved",
+    "savedEmptyTitle": "No saved handymen",
+    "savedEmptyDescription": "Save handymen you like to find them here.",
+    "savedNoMatchTitle": "No saved handymen match"
   },
   "messages": {
     "title": "Messages",
@@ -591,5 +599,12 @@
     "noEmail": "Couldn't verify your account. Log out and back in, then try again.",
     "successTitle": "Password Changed",
     "successMessage": "Your password was changed successfully."
+  },
+  "filters": {
+    "close": "Close filters",
+    "clear": "Clear",
+    "list": "List",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected"
   }
 }

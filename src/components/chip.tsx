@@ -16,6 +16,12 @@ type ChipProps = {
    * Client Home caller never passes this and is unaffected.
    */
   icon?: ReactNode;
+  /**
+   * Optional icon after the label -- added 2026-09-26 for the filter chips'
+   * dropdown chevron ("Oficio ▾"). Additive like `icon`; callers that don't
+   * pass it render exactly as before.
+   */
+  trailingIcon?: ReactNode;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -25,7 +31,7 @@ type ChipProps = {
 // screen (e.g. my-bids.tsx's own status-filter state); this only replaces
 // the Pressable + manual backgroundColor row those screens currently
 // hand-roll for the same purpose.
-export function Chip({ label, selected = false, onPress, disabled, icon, style }: ChipProps) {
+export function Chip({ label, selected = false, onPress, disabled, icon, trailingIcon, style }: ChipProps) {
   const theme = useTheme();
 
   return (
@@ -47,6 +53,7 @@ export function Chip({ label, selected = false, onPress, disabled, icon, style }
       <ThemedText type="smallBold" themeColor={selected ? 'tint' : 'textSecondary'}>
         {label}
       </ThemedText>
+      {trailingIcon}
     </Pressable>
   );
 }
